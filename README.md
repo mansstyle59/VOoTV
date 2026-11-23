@@ -1,8 +1,10 @@
 <p align="center"><img src="art/banner.png" width="480" alt="TVO"></p>
 
-# TVO — Android TV
+# TVO — Android TV, Android et iPhone
 
-Appli Android TV qui réunit tes catalogues de films et séries et tes add-ons dans une seule interface.
+<p><img src="art/icon-tv.png" width="72" alt="TV"> <img src="art/icon-android.png" width="72" alt="Android"> <img src="art/icon-ios.png" width="72" alt="iPhone"></p>
+
+Appli qui réunit tes catalogues de films et séries et tes add-ons dans une seule interface.
 
 ## Fonctions
 - Écran « Qui regarde ? » avec plusieurs profils (liste et progression séparées)
@@ -14,10 +16,13 @@ Appli Android TV qui réunit tes catalogues de films et séries et tes add-ons d
 - Lecteur externe en option (VLC, Just Player…)
 - Mise à jour automatique depuis les versions GitHub
 
-## Installer sur la TV
-1. Onglet **Releases** → télécharge `TVO-1.0.x.apk`
-2. Installe-le avec Downloader, Send Files to TV ou une clé USB
-3. Les versions suivantes se proposent toutes seules au lancement de l'appli
+## Installer
+Onglet **Releases**, puis :
+- **TV / box Android** : `TVO-TV-1.0.x.apk` (Downloader, Send Files to TV ou clé USB). Les mises à jour se proposent toutes seules.
+- **Téléphone Android** : `TVO-Mobile-1.0.x.apk`.
+- **iPhone** : `TVO-iOS-1.0.x.ipa`, à installer avec ESign ou KSign.
+
+Le code de la TV est à la racine (Kotlin, Compose for TV, ExoPlayer). Celui du téléphone et de l'iPhone est dans `mobile/` (Capacitor), avec un design tactile différent.
 
 ## Compilation
 Chaque envoi sur `main` lance le workflow GitHub Actions qui compile l'APK et publie une version.
