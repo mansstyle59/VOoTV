@@ -96,7 +96,9 @@ fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () 
 
 @Composable
 fun GenreScreen(type: String, genre: String, nav: Nav) {
-    val addons by Tvo.store.addons.collectAsState()
+    val rawAddons by Tvo.store.addons.collectAsState()
+    val tmdbKey by Tvo.store.tmdbKey.collectAsState()
+    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
     val items = remember { mutableStateListOf<MetaPreview>() }
     var loading by remember { mutableStateOf(false) }
     var end by remember { mutableStateOf(false) }
@@ -130,7 +132,9 @@ fun GenreScreen(type: String, genre: String, nav: Nav) {
 @Composable
 fun SearchSection(nav: Nav) {
     var query by rememberSaveable { mutableStateOf("") }
-    val addons by Tvo.store.addons.collectAsState()
+    val rawAddons by Tvo.store.addons.collectAsState()
+    val tmdbKey by Tvo.store.tmdbKey.collectAsState()
+    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
     val firstKey = remember { FocusRequester() }
     val results by produceState<List<Pair<String, List<MetaPreview>>>?>(emptyList(), query, addons) {
         if (query.trim().length < 2) { value = emptyList(); return@produceState }
@@ -140,7 +144,7 @@ fun SearchSection(nav: Nav) {
         addons.forEach { a ->
             a.manifest.catalogs.filter { it.supports("search") && it.onlyRequires("search") }.forEach { c ->
                 val list = runCatching { Tvo.client.catalog(a, c, mapOf("search" to query.trim())) }.getOrDefault(emptyList())
-                if (list.isNotEmpty()) out += (if (a.manifest.id == "com.linvo.cinemeta") typeLabel(c.type) else "${c.name} · ${a.manifest.name}") to list
+                if (list.isNotEmpty()) out += (if (a.manifest.id == "com.linvo.cinemeta" || a.manifest.id == "tmdb") typeLabel(c.type) else "${c.name} · ${a.manifest.name}") to list
             }
         }
         value = out
@@ -197,6 +201,9 @@ fun SettingsSection(nav: Nav) {
 
         item { Heading("Synchronisation TV ⇄ téléphone") }
         item { SyncBlock() }
+
+        item { Heading("TMDB (titres et résumés en français)") }
+        item { TmdbBlock(nav) }
 
         item { Heading("Add-ons") }
         item { Text("Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Catalogues, fiches, vidéos et sous-titres viennent des add-ons ; le premier de la liste est prioritaire. Les sources torrent seules ne sont pas lisibles.",
@@ -366,4 +373,73 @@ private fun SyncBlock() {
         }
         msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
     }
+}
+
+
+@Composable
+private fun TmdbBlock(nav: Nav) {
+    val key by Tvo.store.tmdbKey.collectAsState()
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(if (key == null) "Ajoute ta clé API TMDB (gratuite sur themoviedb.org) pour avoir les catalogues, titres, résumés, affiches et épisodes en français. Elle passe aussi sur ton téléphone grâce à la synchro."
+            else "Clé TMDB active (…${key!!.takeLast(4)}). Catalogues et fiches en français.",
+            fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            TvoButton(if (key == null) "Ajouter la clé TMDB" else "Changer la clé", nav.tmdbKey, primary = key == null)
+            if (key != null) TvoButton("Retirer", { Tvo.store.setTmdbKey(null); Tvo.client.clearCaches() }, icon = Icons.Default.Delete)
+        }
+    }
+}
+
+@Composable
+fun TmdbKeyScreen(onDone: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var text by rememberSaveable { mutableStateOf("") }
+    var msg by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val firstKey = remember { FocusRequester() }
+    val server = remember { RemoteInputServer { v -> text = v } }
+    var port by remember { mutableStateOf<Int?>(null) }
+    val ip = remember { RemoteInputServer.localIp() }
+    DisposableEffect(Unit) { port = server.start(); onDispose { server.stop() } }
+    val phoneUrl = if (ip != null && port != null) "http://$ip:$port" else null
+    val qr = remember(phoneUrl) { phoneUrl?.let { RemoteInputServer.qr(it).asImageBitmap() } }
+
+    fun save() {
+        if (busy || text.isBlank()) return
+        busy = true; msg = "Vérification de la clé…"
+        scope.launch {
+            val err = app.tvo.tv.data.Tmdb.test(text)
+            if (err == null) { Tvo.store.setTmdbKey(text); Tvo.client.clearCaches(); onDone() } else msg = err
+            busy = false
+        }
+    }
+
+    Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+        Column(Modifier.weight(1f)) {
+            Text("Clé API TMDB", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            Text("Sur themoviedb.org : Paramètres › API. La « clé d'API » ou le « jeton d'accès en lecture » fonctionnent.",
+                fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.padding(top = 6.dp))
+            Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
+                Text(text.ifEmpty { "Colle ou tape ta clé" }, fontSize = 16.sp, color = if (text.isEmpty()) TvoColors.Muted else TvoColors.Text, maxLines = 3)
+            }
+            TvKeyboard(onKey = { text += it }, onBackspace = { text = text.dropLast(1) }, onClear = { text = "" }, url = true, firstKey = firstKey)
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                TvoButton("Enregistrer", { save() }, primary = true, icon = Icons.Default.Add)
+                TvoButton("Annuler", onDone)
+            }
+            msg?.let { Text(it, Modifier.padding(top = 12.dp), fontSize = 15.sp, color = TvoColors.Cyan) }
+        }
+        Column(Modifier.width(340.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Plus simple : depuis ton téléphone", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+            if (qr != null && phoneUrl != null) {
+                Image(qr, "QR code", Modifier.padding(vertical = 14.dp).size(220.dp).clip(RoundedCornerShape(12.dp)))
+                Text("Scanne ce code (même Wi-Fi) ou ouvre :", fontSize = 14.sp, color = TvoColors.Muted)
+                Text(phoneUrl, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
+            }
+            Text("Ou ajoute la clé dans l'appli du téléphone : elle arrive ici par la synchro.", fontSize = 14.sp,
+                color = TvoColors.Muted, modifier = Modifier.padding(top = 14.dp))
+        }
+    }
+    LaunchedEffect(Unit) { delay(80); runCatching { firstKey.requestFocus() } }
 }

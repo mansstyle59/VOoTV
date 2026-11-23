@@ -94,6 +94,7 @@ private fun AppNav() {
             GenreScreen(b.arguments?.getString("type") ?: "movie", b.arguments?.getString("genre") ?: "", nav)
         }
         composable("addonAdd") { AddonAddScreen { nc.popBackStack() } }
+        composable("tmdbKey") { app.tvo.tv.ui.TmdbKeyScreen { nc.popBackStack() } }
     }
 }
 
@@ -104,6 +105,7 @@ private fun navFor(nc: NavHostController) = Nav(
     switchProfile = { nc.navigate("profiles") { popUpTo(nc.graph.id) { inclusive = true } } },
     addAddon = { nc.navigate("addonAdd") },
     editProfile = { nc.navigate("profileEdit/${e(it)}") },
+    tmdbKey = { nc.navigate("tmdbKey") },
 )
 
 /** Re-reads every installed add-on manifest so catalogs stay current. */

@@ -117,15 +117,112 @@
   const cache = new Map();
   const metaCache = new Map();
 
-  async function getJson(url, timeout = 20000) {
+  async function getJson(url, timeout = 20000, headers = {}) {
     const ctl = new AbortController();
     const t = setTimeout(() => ctl.abort(), timeout);
     try {
-      const r = await fetch(url, { signal: ctl.signal, headers: { Accept: "application/json" } });
+      const r = await fetch(url, { signal: ctl.signal, headers: { Accept: "application/json", ...headers } });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const data = await r.json();
       return typeof data === "string" ? JSON.parse(data) : data;
     } finally { clearTimeout(t); }
+  }
+
+
+  // ------------------------------------------------------------------ TMDB (clé personnelle, synchronisée)
+  const TMDB = {
+    URL: "tmdb://fr", API: "https://api.themoviedb.org/3", IMG: "https://image.tmdb.org/t/p/",
+    MOVIE: { Action: 28, Adventure: 12, Animation: 16, Comedy: 35, Crime: 80, Documentary: 99, Drama: 18, Family: 10751, Fantasy: 14,
+      History: 36, Horror: 27, Mystery: 9648, Romance: 10749, "Sci-Fi": 878, Thriller: 53, War: 10752, Western: 37 },
+    TV: { Action: 10759, Animation: 16, Comedy: 35, Crime: 80, Documentary: 99, Drama: 18, Family: 10751, Mystery: 9648, "Sci-Fi": 10765, War: 10768, Western: 37 },
+  };
+  const tmdbKey = () => LS.get("tmdb_key", null);
+  const tcat = (type, id, name, genres, search) => ({ type, id, name, extraRequired: [], extraSupported: [],
+    extra: [...(genres ? [{ name: "genre", isRequired: false, options: Object.keys(genres) }] : []), ...(search ? [{ name: "search", isRequired: false, options: [] }] : []), { name: "skip", isRequired: false, options: [] }] });
+  TMDB.addon = { url: TMDB.URL, manifest: { id: "tmdb", name: "TMDB", version: "3", description: "Catalogues, titres et résumés en français",
+    types: ["movie", "series"], resources: [{ name: "catalog" }], idPrefixes: null, catalogs: [
+      tcat("movie", "trending", "Films tendance cette semaine"), tcat("series", "trending", "Séries tendance cette semaine"),
+      tcat("movie", "popular", "Films populaires", TMDB.MOVIE, true), tcat("series", "popular", "Séries populaires", TMDB.TV, true),
+      tcat("movie", "now_playing", "Actuellement au cinéma"), tcat("movie", "top_rated", "Films les mieux notés"), tcat("series", "top_rated", "Séries les mieux notées")] } };
+  /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
+  function catalogAddons() {
+    if (!tmdbKey()) return S.addons;
+    return [TMDB.addon, ...S.addons.map((a) => (a.manifest.id === "com.linvo.cinemeta" ? { ...a, manifest: { ...a.manifest, catalogs: [] } } : a))];
+  }
+  async function tget(path, params = {}, key = tmdbKey()) {
+    if (!key) throw new Error("Clé TMDB manquante");
+    const bearer = key.startsWith("eyJ");
+    const q = new URLSearchParams({ language: "fr-FR", ...params, ...(bearer ? {} : { api_key: key }) }).toString();
+    const url = `${TMDB.API}${path}?${q}`;
+    if (cache.has(url)) return cache.get(url);
+    const d = await getJson(url, 15000, bearer ? { Authorization: "Bearer " + key } : {});
+    cache.set(url, d);
+    return d;
+  }
+  const tkind = (t) => (t === "series" ? "tv" : "movie");
+  const timg = (p, size) => (p ? TMDB.IMG + size + p : null);
+  const rating = (v) => (v > 0 ? v.toFixed(1) : null);
+  function tpreview(o, type) {
+    if (!o || !o.id) return null;
+    const rev = Object.fromEntries(Object.entries(type === "series" ? TMDB.TV : TMDB.MOVIE).map(([k, v]) => [v, k]));
+    const date = o.release_date || o.first_air_date || "";
+    return { id: `tmdb:${type}:${o.id}`, type, name: o.title || o.name || "", poster: timg(o.poster_path, "w342"), background: timg(o.backdrop_path, "w780"),
+      logo: null, description: o.overview || null, releaseInfo: date.slice(0, 4) || null, imdbRating: rating(o.vote_average), genres: (o.genre_ids || []).map((g) => rev[g]).filter(Boolean) };
+  }
+  async function tmdbCatalog(c, extra) {
+    const k = tkind(c.type), page = String(Math.floor((Number(extra.skip) || 0) / 20) + 1);
+    const g = extra.genre && (c.type === "series" ? TMDB.TV : TMDB.MOVIE)[extra.genre];
+    const d = extra.search ? await tget(`/search/${k}`, { query: extra.search, page })
+      : g ? await tget(`/discover/${k}`, { with_genres: g, sort_by: "popularity.desc", page, "vote_count.gte": "50" })
+      : c.id === "trending" ? await tget(`/trending/${k}/week`, { page })
+      : c.id === "now_playing" ? await tget("/movie/now_playing", { page, region: "FR" })
+      : await tget(`/${k}/${c.id}`, { page });
+    return (d.results || []).map((o) => tpreview(o, c.type)).filter(Boolean);
+  }
+  async function tmdbImdb(id) {
+    const [, type, tid] = id.split(":");
+    try { return (await tget(`/${tkind(type)}/${tid}/external_ids`)).imdb_id || null; } catch { return null; }
+  }
+  async function tmdbEnrich(type, imdb, tmdbId, base) {
+    try {
+      const k = tkind(type);
+      let tid = tmdbId;
+      if (!tid && imdb) {
+        const f = await tget(`/find/${imdb}`, { external_source: "imdb_id" });
+        const r = (k === "tv" ? f.tv_results : f.movie_results) || [];
+        tid = r[0] && r[0].id;
+      }
+      if (!tid) return base;
+      const d = await tget(`/${k}/${tid}`, { append_to_response: "credits,images", include_image_language: "fr,en,null" });
+      const logos = (d.images && d.images.logos) || [];
+      const logo = (logos.find((l) => l.iso_639_1 === "fr") || logos.find((l) => l.iso_639_1 === "en") || {}).file_path;
+      const b = base || {};
+      const date = d.release_date || d.first_air_date || "";
+      const m = {
+        id: imdb || b.id || `tmdb:${type}:${tid}`, type, name: d.title || d.name || b.name || "",
+        poster: timg(d.poster_path, "w500") || b.poster || null, background: timg(d.backdrop_path, "w1280") || b.background || null,
+        logo: timg(logo, "w500") || b.logo || null, description: d.overview || b.description || null,
+        releaseInfo: b.releaseInfo || date.slice(0, 4) || null, imdbRating: b.imdbRating || rating(d.vote_average),
+        genres: (d.genres || []).map((g) => g.name).filter(Boolean).length ? d.genres.map((g) => g.name) : (b.genres || []),
+        runtime: d.runtime ? d.runtime + " min" : (d.episode_run_time && d.episode_run_time[0] ? d.episode_run_time[0] + " min" : b.runtime || null),
+        cast: ((d.credits && d.credits.cast) || []).slice(0, 6).map((c) => c.name).filter(Boolean),
+        director: b.director || [], defaultVideoId: b.defaultVideoId || null, videos: b.videos || [],
+      };
+      if (!m.cast.length) m.cast = b.cast || [];
+      if (k === "tv") {
+        const seasons = (d.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
+        const eps = (await Promise.all(seasons.map((n) => tget(`/tv/${tid}/season/${n}`).catch(() => null)))).filter(Boolean).flatMap((x) => x.episodes || []);
+        const by = Object.fromEntries(eps.map((e) => [`${e.season_number}:${e.episode_number}`, e]));
+        if (!m.videos.length && imdb) m.videos = eps.map((e) => ({ id: `${imdb}:${e.season_number}:${e.episode_number}`, title: "", season: e.season_number, episode: e.episode_number, released: e.air_date || null, thumbnail: null, overview: null }));
+        m.videos = m.videos.map((v) => {
+          const e = by[`${v.season}:${v.episode}`]; if (!e) return v;
+          const name = e.name && !/^[ÉE]pisode \d+$/.test(e.name) ? e.name : null;
+          return { ...v, title: name || v.title, overview: e.overview || v.overview, thumbnail: timg(e.still_path, "w300") || v.thumbnail, released: v.released || e.air_date || null };
+        });
+      }
+      m.episodes = m.videos.filter((v) => v.season != null).sort((x, y) => ((x.season || 1e9) - (y.season || 1e9)) || ((x.episode || 0) - (y.episode || 0)));
+      return m;
+    } catch { return base; }
   }
 
   function normalize(input) {
@@ -178,6 +275,7 @@
     };
   }
   async function catalog(a, c, extra = {}) {
+    if (a.url === TMDB.URL) return tmdbCatalog(c, extra);
     const keys = Object.keys(extra);
     const ex = keys.length ? "/" + keys.map((k) => `${k}=${enc(extra[k])}`).join("&") : "";
     const url = `${a.url}/catalog/${c.type}/${enc(c.id)}${ex}.json`;
@@ -191,6 +289,14 @@
   async function meta(type, id) {
     const k = type + "/" + id;
     if (metaCache.has(k)) return metaCache.get(k);
+    const tmdbId = id.startsWith("tmdb:") ? id.split(":")[2] : null;
+    const realId = tmdbId ? (await tmdbImdb(id)) || id : id;
+    let m = metaCache.get(type + "/" + realId) || (realId.startsWith("tmdb:") ? null : await addonMeta(type, realId));
+    if (tmdbKey()) m = await tmdbEnrich(type, realId.startsWith("tt") ? realId : null, tmdbId, m);
+    if (m) { metaCache.set(k, m); metaCache.set(type + "/" + m.id, m); }
+    return m;
+  }
+  async function addonMeta(type, id) {
     for (const a of S.addons.filter((x) => supports(x, "meta", type, id))) {
       try {
         const d = await getJson(`${a.url}/meta/${type}/${enc(id)}.json`);
@@ -203,7 +309,6 @@
         const m = { ...p, runtime: o.runtime || null, videos, cast: (o.cast || []).slice(0, 6), director: o.director || [],
           defaultVideoId: (o.behaviorHints && o.behaviorHints.defaultVideoId) || null };
         m.episodes = videos.filter((v) => v.season != null).sort((x, y) => ((x.season || 1e9) - (y.season || 1e9)) || ((x.episode || 0) - (y.episode || 0)));
-        metaCache.set(k, m);
         return m;
       } catch { /* next add-on */ }
     }
@@ -281,7 +386,7 @@
       lib[p.id] = m;
       const pm = {}; LS.get("prog." + p.id, []).forEach((x) => (pm[x.videoId] = x)); prog[p.id] = pm;
     });
-    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog };
+    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0) };
   }
   function mergeDocs(a, b) {
     const mm = (x = {}, y = {}, t) => { const o = { ...x }; Object.entries(y).forEach(([k, v]) => { if (!o[k] || t(v) > t(o[k])) o[k] = v; }); return o; };
@@ -295,7 +400,9 @@
       prog[pid] = Object.fromEntries(Object.values(pm).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400).map((p) => [p.videoId, p]));
     });
     const useB = (b.addonsT || 0) > (a.addonsT || 0) && b.addons && b.addons.length;
-    return { v: 1, profiles, addons: useB ? b.addons : a.addons, addonsT: useB ? b.addonsT : (a.addonsT || 0), lib, prog };
+    const tB = (b.tmdbT || 0) > (a.tmdbT || 0);
+    return { v: 1, profiles, addons: useB ? b.addons : a.addons, addonsT: useB ? b.addonsT : (a.addonsT || 0), lib, prog,
+      tmdbKey: tB ? b.tmdbKey || null : a.tmdbKey || null, tmdbT: tB ? b.tmdbT : (a.tmdbT || 0) };
   }
   function importDoc(d) {
     const order = S.profiles.map((p) => p.id);
@@ -310,6 +417,7 @@
       LS.set("libdel." + p.id, Object.fromEntries(l.filter((x) => x.del).map((x) => [x.item.id, x.t])));
       LS.set("prog." + p.id, Object.values((d.prog || {})[p.id] || {}).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400));
     });
+    if ((d.tmdbT || 0) > LS.get("tmdb_t", 0)) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
     if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = d.addons; LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
     if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
   }
@@ -379,8 +487,8 @@
 
   function buildRows(type) {
     const rows = [];
-    S.addons.forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type)).forEach((c) => {
-      rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
+    catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type)).forEach((c) => {
+      rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : a.manifest.id === "tmdb" ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
     }));
     if (type) {
       const src = genreSource(type);
@@ -393,7 +501,7 @@
     return rows;
   }
   function genreSource(type) {
-    for (const a of S.addons) {
+    for (const a of catalogAddons()) {
       const c = a.manifest.catalogs.find((c) => c.type === type && catSupports(c, "genre") && catOnlyRequires(c, "genre"));
       if (c) return { a, c };
     }
@@ -585,9 +693,9 @@
       if (v.length < 2) { res.innerHTML = `<div class="empty"><h2>Que veux-tu regarder ?</h2>Tape au moins deux lettres.</div>`; return; }
       res.innerHTML = `<div class="empty">Recherche…</div>`;
       const cats = [];
-      S.addons.forEach((a) => a.manifest.catalogs.filter((c) => catSupports(c, "search") && catOnlyRequires(c, "search")).forEach((c) => cats.push({ a, c })));
+      catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => catSupports(c, "search") && catOnlyRequires(c, "search")).forEach((c) => cats.push({ a, c })));
       const out = await Promise.all(cats.map(async ({ a, c }) => {
-        try { return { title: a.manifest.id === "com.linvo.cinemeta" ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
+        try { return { title: ["com.linvo.cinemeta", "tmdb"].includes(a.manifest.id) ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
         catch { return { list: [] }; }
       }));
       if (my !== seq) return;
@@ -753,6 +861,12 @@
           <input class="field" id="claim" inputmode="numeric" maxlength="6" placeholder="J'ai un code (6 chiffres)" autocomplete="one-time-code">
           <button class="btn primary" id="claimGo">Relier</button></div>
       </div>
+      <h2 class="section-title section"><span>TMDB (titres et résumés en français)</span></h2>
+      <div class="list">
+        <div class="card small muted">${tmdbKey() ? `Clé TMDB active (…${esc(tmdbKey().slice(-4))}). Catalogues, fiches et épisodes en français.` : "Ajoute ta clé API TMDB (gratuite sur themoviedb.org › Paramètres › API) : catalogues, titres, résumés et affiches en français. Elle passe aussi sur la TV par la synchro."}</div>
+        <input class="field" id="tmdb" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Clé d'API ou jeton d'accès en lecture">
+        <div class="two-btn"><button class="btn primary" id="tmdbSave">Enregistrer</button>${tmdbKey() ? '<button class="btn danger" id="tmdbDel">Retirer</button>' : '<a class="btn" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Obtenir une clé</a>'}</div>
+      </div>
       <h2 class="section-title section"><span>Add-ons</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Le premier est prioritaire. Les sources torrent seules ne sont pas lisibles.</p>
       <div class="list">${S.addons.map((a, i) => {
@@ -771,6 +885,15 @@
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>`;
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
+      $("#tmdbSave").addEventListener("click", async () => {
+        const k = $("#tmdb").value.trim(); if (!k) return toast("Colle ta clé TMDB");
+        toast("Vérification…");
+        try { await tget("/configuration", {}, k); } catch (e) { return toast("Clé refusée par TMDB (" + e.message + ")", 4000); }
+        LS.set("tmdb_key", k); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); syncNow();
+        toast("Clé TMDB enregistrée ✓"); draw();
+      });
+      const td = $("#tmdbDel");
+      if (td) td.addEventListener("click", () => { LS.set("tmdb_key", null); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); syncNow(); draw(); });
       $("#syncNow").addEventListener("click", async () => { $("#syncStatus").textContent = "Synchronisation…"; await syncNow(); $("#syncStatus").textContent = syncState.status; });
       $("#syncCode").addEventListener("click", async () => {
         $("#codeBox").innerHTML = '<div class="card">Création du code…</div>';

@@ -91,6 +91,7 @@ class Nav(
     val switchProfile: () -> Unit,
     val addAddon: () -> Unit,
     val editProfile: (String) -> Unit,
+    val tmdbKey: () -> Unit,
 )
 
 @Composable
@@ -121,7 +122,9 @@ fun HomeScreen(nav: Nav) {
 @Composable
 private fun Sidebar(current: Section, onSelect: (Section) -> Unit, nav: Nav) {
     val selected = remember { FocusRequester() }
-    val addons by Tvo.store.addons.collectAsState()
+    val rawAddons by Tvo.store.addons.collectAsState()
+    val tmdbKey by Tvo.store.tmdbKey.collectAsState()
+    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
     val src = remember(addons) { buildRows(addons, "series").firstOrNull() ?: buildRows(addons, null).getOrNull(1) }
     val news by produceState<List<MetaPreview>>(emptyList(), src?.key) {
         value = src?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(3) ?: emptyList()
@@ -224,7 +227,11 @@ fun buildRows(addons: List<Addon>, type: String?): List<RowSource> {
     val rows = mutableListOf<RowSource>()
     addons.forEach { a ->
         a.manifest.catalogs.filter { !it.requiresExtra && (type == null || it.type == type) }.forEach { c ->
-            val title = if (a.manifest.id == "com.linvo.cinemeta") catalogTitle(c.type, c.name) else "${c.name} · ${a.manifest.name}"
+            val title = when (a.manifest.id) {
+                "com.linvo.cinemeta" -> catalogTitle(c.type, c.name)
+                "tmdb" -> c.name
+                else -> "${c.name} · ${a.manifest.name}"
+            }
             rows += RowSource("${a.url}|${c.type}|${c.id}", title, a, c)
         }
     }
@@ -244,7 +251,9 @@ fun buildRows(addons: List<Addon>, type: String?): List<RowSource> {
 @Composable
 fun BrowseSection(type: String?, nav: Nav) {
     val store = Tvo.store
-    val addons by store.addons.collectAsState()
+    val rawAddons by store.addons.collectAsState()
+    val tmdbKey by store.tmdbKey.collectAsState()
+    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
     val progress by store.progress.collectAsState()
     val library by store.library.collectAsState()
     var focusGiven by remember(type) { mutableStateOf(false) }

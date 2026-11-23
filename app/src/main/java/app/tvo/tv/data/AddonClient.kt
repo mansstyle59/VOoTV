@@ -45,8 +45,8 @@ class AddonClient(private val http: OkHttpClient) {
     private val catalogCache = ConcurrentHashMap<String, List<MetaPreview>>()
     val metaCache = ConcurrentHashMap<String, MetaDetail>()
 
-    suspend fun getJson(url: String): JsonObject = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+    suspend fun getJson(url: String, headers: Map<String, String> = emptyMap()): JsonObject = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url(url).header("User-Agent", USER_AGENT).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
         http.newCall(req).execute().use { r ->
             if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
             json.parseToJsonElement(r.body?.string() ?: "{}").jsonObject
@@ -76,6 +76,7 @@ class AddonClient(private val http: OkHttpClient) {
     }
 
     suspend fun catalog(addon: Addon, cat: CatalogDef, extra: Map<String, String> = emptyMap()): List<MetaPreview> {
+        if (addon.url == Tmdb.URL) return Tmdb.catalog(cat, extra)
         val ex = if (extra.isEmpty()) "" else "/" + extra.entries.joinToString("&") { "${it.key}=${enc(it.value)}" }
         val url = "${addon.url}/catalog/${cat.type}/${enc(cat.id)}$ex.json"
         catalogCache[url]?.let { return it }
@@ -88,12 +89,23 @@ class AddonClient(private val http: OkHttpClient) {
 
     suspend fun meta(addons: List<Addon>, type: String, id: String): MetaDetail? {
         metaCache["$type/$id"]?.let { return it }
-        for (a in addons.filter { supports(it, "meta", type, id) }) {
-            val m = runCatching { getJson("${a.url}/meta/$type/${enc(id)}.json").obj("meta")?.let { parseMeta(it, type) } }.getOrNull()
-            if (m != null) { metaCache["$type/$id"] = m; return m }
+        // TMDB catalog item: switch to its IMDb id so stream add-ons can find it.
+        val tmdbId = if (id.startsWith("tmdb:")) id.split(":").getOrNull(2) else null
+        val realId = if (tmdbId != null) Tmdb.imdbId(id) ?: id else id
+        var m: MetaDetail? = metaCache["$type/$realId"]
+        if (m == null && !realId.startsWith("tmdb:")) {
+            for (a in addons.filter { supports(it, "meta", type, realId) }) {
+                m = runCatching { getJson("${a.url}/meta/$type/${enc(realId)}.json").obj("meta")?.let { parseMeta(it, type) } }.getOrNull()
+                if (m != null) break
+            }
+            if (m != null && Tmdb.enabled) m = Tmdb.enrich(type, realId, tmdbId, m)
         }
-        return null
+        if (m == null && Tmdb.enabled) m = Tmdb.enrich(type, realId.takeIf { it.startsWith("tt") }, tmdbId, null)
+        if (m != null) { metaCache["$type/$id"] = m; metaCache["$type/${m.preview.id}"] = m }
+        return m
     }
+
+    fun clearCaches() { catalogCache.clear(); metaCache.clear() }
 
     fun streams(addons: List<Addon>, type: String, videoId: String): Flow<AddonStreams> = channelFlow {
         addons.filter { supports(it, "stream", type, videoId) }.forEach { a ->

@@ -173,4 +173,6 @@ data class SyncDoc(
     val addonsT: Long = 0,
     val lib: Map<String, Map<String, SyncLib>> = emptyMap(),
     val prog: Map<String, Map<String, Progress>> = emptyMap(),
+    val tmdbKey: String? = null,
+    val tmdbT: Long = 0,
 )

@@ -53,6 +53,13 @@ class Store(ctx: Context) {
     val library = MutableStateFlow<List<LibraryItem>>(emptyList())
     val progress = MutableStateFlow<List<Progress>>(emptyList())
     val externalPlayer = MutableStateFlow(prefs.getBoolean("externalPlayer", false))
+    val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
+
+    fun setTmdbKey(k: String?) {
+        tmdbKey.value = k?.trim()?.ifBlank { null }
+        prefs.edit().putString("tmdb_key", tmdbKey.value).putLong("tmdb_t", now()).apply()
+        onChange()
+    }
 
     private fun now() = System.currentTimeMillis()
 
@@ -174,7 +181,7 @@ class Store(ctx: Context) {
             lib[p.id] = m
             prog[p.id] = (load<List<Progress>>("progress_${p.id}") ?: emptyList()).associateBy { it.videoId }
         }
-        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog)
+        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0))
     }
 
     @Synchronized
@@ -194,6 +201,9 @@ class Store(ctx: Context) {
         }
         if (d.addonsT > prefs.getLong("addons_t", 0) && d.addons != null && d.addons.isNotEmpty()) {
             addons.value = d.addons; save("addons", d.addons); prefs.edit().putLong("addons_t", d.addonsT).apply()
+        }
+        if (d.tmdbT > prefs.getLong("tmdb_t", 0)) {
+            tmdbKey.value = d.tmdbKey; prefs.edit().putString("tmdb_key", d.tmdbKey).putLong("tmdb_t", d.tmdbT).apply()
         }
         currentProfile.value?.let { cur -> list.firstOrNull { it.id == cur.id }?.let { selectProfile(it) } ?: run { currentProfile.value = null } }
     }
