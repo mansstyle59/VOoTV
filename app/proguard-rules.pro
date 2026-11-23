@@ -1,0 +1,9 @@
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keep,includedescriptorclasses class app.tvo.tv.**$$serializer { *; }
+-keepclassmembers class app.tvo.tv.** { *** Companion; }
+-keepclasseswithmembers class app.tvo.tv.** { kotlinx.serialization.KSerializer serializer(...); }
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
