@@ -354,6 +354,7 @@ class PlayerActivity : ComponentActivity() {
         super.onPause()
         saveProgress()
         player.pause()
+        app.tvo.tv.data.Sync.syncInBackground()
     }
 
     override fun onDestroy() {

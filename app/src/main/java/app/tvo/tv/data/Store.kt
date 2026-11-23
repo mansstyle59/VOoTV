@@ -38,6 +38,9 @@ class Store(ctx: Context) {
     private val prefs = ctx.getSharedPreferences("tvo", Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
+    /** Called after every local change so the sync engine can push it. */
+    var onChange: () -> Unit = {}
+
     private inline fun <reified T> load(key: String): T? =
         prefs.getString(key, null)?.let { runCatching { json.decodeFromString<T>(it) }.getOrNull() }
 
@@ -51,6 +54,8 @@ class Store(ctx: Context) {
     val progress = MutableStateFlow<List<Progress>>(emptyList())
     val externalPlayer = MutableStateFlow(prefs.getBoolean("externalPlayer", false))
 
+    private fun now() = System.currentTimeMillis()
+
     // ---- profiles ----
     fun selectProfile(p: Profile) {
         currentProfile.value = p
@@ -59,20 +64,23 @@ class Store(ctx: Context) {
     }
 
     fun upsertProfile(id: String?, name: String, color: Long): Profile {
-        val p = Profile(id ?: UUID.randomUUID().toString(), name.trim().ifBlank { "Profil" }, color)
+        val p = Profile(id ?: UUID.randomUUID().toString(), name.trim().ifBlank { "Profil" }, color, now())
         val list = profiles.value.toMutableList()
         val idx = list.indexOfFirst { it.id == p.id }
         if (idx >= 0) list[idx] = p else list.add(p)
         profiles.value = list; save("profiles", list)
         if (currentProfile.value?.id == p.id) currentProfile.value = p
+        onChange()
         return p
     }
 
     fun deleteProfile(id: String) {
         val list = profiles.value.filterNot { it.id == id }
         profiles.value = list; save("profiles", list)
-        prefs.edit().remove("library_$id").remove("progress_$id").apply()
+        save("profdel", (load<Map<String, Long>>("profdel") ?: emptyMap()) + (id to now()))
+        prefs.edit().remove("library_$id").remove("progress_$id").remove("libdel_$id").apply()
         if (currentProfile.value?.id == id) currentProfile.value = null
+        onChange()
     }
 
     // ---- library ----
@@ -80,9 +88,16 @@ class Store(ctx: Context) {
 
     fun toggleLibrary(item: LibraryItem) {
         val pid = currentProfile.value?.id ?: return
-        val list = if (inLibrary(item.id)) library.value.filterNot { it.id == item.id }
-        else listOf(item.copy(addedAt = System.currentTimeMillis())) + library.value
-        library.value = list; save("library_$pid", list)
+        val del = (load<Map<String, Long>>("libdel_$pid") ?: emptyMap()).toMutableMap()
+        val list = if (inLibrary(item.id)) {
+            del[item.id] = now()
+            library.value.filterNot { it.id == item.id }
+        } else {
+            del.remove(item.id)
+            listOf(item.copy(addedAt = now())) + library.value
+        }
+        library.value = list; save("library_$pid", list); save("libdel_$pid", del)
+        onChange()
     }
 
     // ---- progress ----
@@ -91,12 +106,15 @@ class Store(ctx: Context) {
         val list = (listOf(p) + current.filterNot { it.videoId == p.videoId }).take(400)
         if (currentProfile.value?.id == profileId) progress.value = list
         save("progress_$profileId", list)
+        onChange()
     }
 
     fun removeFromContinue(metaId: String) {
         val pid = currentProfile.value?.id ?: return
-        val list = progress.value.map { if (it.metaId == metaId) it.copy(position = it.duration) else it }
+        val t = now()
+        val list = progress.value.map { if (it.metaId == metaId) it.copy(position = it.duration, updatedAt = t) else it }
         progress.value = list; save("progress_$pid", list)
+        onChange()
     }
 
     /** One entry per title, most recent first, only unfinished. */
@@ -105,7 +123,10 @@ class Store(ctx: Context) {
             .filter { it.fraction in 0.02f..0.92f }.take(20)
 
     // ---- addons ----
-    fun setAddons(list: List<Addon>) { addons.value = list; save("addons", list) }
+    fun setAddons(list: List<Addon>, userChange: Boolean = true) {
+        addons.value = list; save("addons", list)
+        if (userChange) { prefs.edit().putLong("addons_t", now()).apply(); onChange() }
+    }
 
     fun addAddon(a: Addon) {
         val list = addons.value.toMutableList()
@@ -125,4 +146,55 @@ class Store(ctx: Context) {
     }
 
     fun setExternalPlayer(v: Boolean) { externalPlayer.value = v; prefs.edit().putBoolean("externalPlayer", v).apply() }
+
+    // ---- sync ----
+    fun syncId(): String = prefs.getString("sync_id", null) ?: UUID.randomUUID().toString().also { prefs.edit().putString("sync_id", it).apply() }
+    fun setSyncId(id: String) { prefs.edit().putString("sync_id", id).apply() }
+    var lastSync: Long
+        get() = prefs.getLong("last_sync", 0)
+        set(v) { prefs.edit().putLong("last_sync", v).apply() }
+
+    private fun hex(c: Long) = "#%06X".format(c and 0xFFFFFF)
+    private fun color(h: String) = runCatching { 0xFF000000 or h.removePrefix("#").toLong(16) }.getOrDefault(Defaults.profileColors[0])
+
+    @Synchronized
+    fun exportDoc(): SyncDoc {
+        val profs = mutableMapOf<String, SyncProfile>()
+        profiles.value.forEach { profs[it.id] = SyncProfile(it.id, it.name, hex(it.color), it.t) }
+        (load<Map<String, Long>>("profdel") ?: emptyMap()).forEach { (id, t) -> if (id !in profs) profs[id] = SyncProfile(id, "", "#8B5CF6", t, true) }
+        val lib = mutableMapOf<String, Map<String, SyncLib>>()
+        val prog = mutableMapOf<String, Map<String, Progress>>()
+        profiles.value.forEach { p ->
+            val m = mutableMapOf<String, SyncLib>()
+            (load<List<LibraryItem>>("library_${p.id}") ?: emptyList()).forEach { m[it.id] = SyncLib(it, it.addedAt) }
+            (load<Map<String, Long>>("libdel_${p.id}") ?: emptyMap()).forEach { (id, t) ->
+                val cur = m[id]
+                if (cur == null || cur.t < t) m[id] = SyncLib(cur?.item ?: LibraryItem(id, "movie", ""), t, true)
+            }
+            lib[p.id] = m
+            prog[p.id] = (load<List<Progress>>("progress_${p.id}") ?: emptyList()).associateBy { it.videoId }
+        }
+        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog)
+    }
+
+    @Synchronized
+    fun importDoc(d: SyncDoc) {
+        // profiles (keep local order, append new ones)
+        val alive = d.profiles.values.filter { !it.del }
+        val order = profiles.value.map { it.id }
+        val list = alive.sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
+            .map { Profile(it.id, it.name, color(it.color), it.t) }
+        profiles.value = list; save("profiles", list)
+        save("profdel", d.profiles.values.filter { it.del }.associate { it.id to it.t })
+        list.forEach { p ->
+            val l = d.lib[p.id] ?: emptyMap()
+            save("library_${p.id}", l.values.filter { !it.del }.map { it.item }.sortedByDescending { it.addedAt })
+            save("libdel_${p.id}", l.values.filter { it.del }.associate { it.item.id to it.t })
+            save("progress_${p.id}", (d.prog[p.id] ?: emptyMap()).values.sortedByDescending { it.updatedAt }.take(400))
+        }
+        if (d.addonsT > prefs.getLong("addons_t", 0) && d.addons != null && d.addons.isNotEmpty()) {
+            addons.value = d.addons; save("addons", d.addons); prefs.edit().putLong("addons_t", d.addonsT).apply()
+        }
+        currentProfile.value?.let { cur -> list.firstOrNull { it.id == cur.id }?.let { selectProfile(it) } ?: run { currentProfile.value = null } }
+    }
 }

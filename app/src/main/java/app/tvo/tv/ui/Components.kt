@@ -37,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -50,13 +51,13 @@ import app.tvo.tv.data.MetaPreview
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
-val RowPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp)
+val RowPadding = PaddingValues(horizontal = 32.dp, vertical = 10.dp)
 
 fun Modifier.onFocused(block: () -> Unit) = this.onFocusChanged { if (it.isFocused) block() }
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier = modifier.padding(start = 48.dp, bottom = 2.dp), fontSize = 19.sp,
+    Text(text, modifier = modifier.padding(start = 32.dp, bottom = 2.dp), fontSize = 20.sp,
         fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
 }
 
@@ -99,8 +100,9 @@ fun WideCard(
     onFocus: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     badge: String? = null,
+    showPlay: Boolean = false,
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(12.dp)
     Card(
         onClick = onClick,
         onLongClick = onLongClick,
@@ -113,6 +115,8 @@ fun WideCard(
         Box(Modifier.fillMaxSize()) {
             AsyncImage(image, title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xEE000000))))
+            if (showPlay) Box(Modifier.align(Alignment.Center).size(40.dp).clip(CircleShape).background(Color(0x99FFFFFF)),
+                contentAlignment = Alignment.Center) { Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null, Modifier.size(24.dp), tint = Color.Black) }
             if (badge != null) {
                 Text(badge, Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(6.dp))
                     .background(TvoColors.Success).padding(horizontal = 6.dp, vertical = 2.dp),
@@ -260,6 +264,16 @@ fun TvKeyboard(
 }
 
 @Composable
+fun DigitPad(onDigit: (String) -> Unit, onBackspace: () -> Unit, modifier: Modifier = Modifier, first: FocusRequester? = null) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        (1..9).map { it.toString() }.plus("0").forEachIndexed { i, d ->
+            Key(d, { onDigit(d) }, Modifier.width(44.dp).let { if (i == 0 && first != null) it.focusRequester(first) else it })
+        }
+        Key("⌫", onBackspace, Modifier.width(60.dp))
+    }
+}
+
+@Composable
 private fun Key(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
@@ -275,4 +289,55 @@ private fun Key(label: String, onClick: () -> Unit, modifier: Modifier = Modifie
             Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }
+}
+
+
+/** Landscape card with title + meta at the bottom (catalog rows). */
+@Composable
+fun LandscapeCard(
+    item: MetaPreview,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    width: Dp = 232.dp,
+    onFocus: () -> Unit = {},
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Card(
+        onClick = onClick,
+        modifier = modifier.width(width).aspectRatio(16f / 10f).onFocused(onFocus),
+        shape = CardDefaults.shape(shape),
+        scale = CardDefaults.scale(focusedScale = 1.06f),
+        border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
+        colors = CardDefaults.colors(containerColor = TvoColors.Surface),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xF0000000))))
+            Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text(item.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val meta = listOfNotNull(item.releaseInfo, typeLabel(item.type, plural = false), item.imdbRating?.let { "★ $it" }).joinToString("  ·  ")
+                Text(meta, fontSize = 11.sp, color = Color(0xFFCFD4D8), maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+fun LandscapeRow(
+    title: String,
+    items: List<MetaPreview>,
+    onOpen: (MetaPreview) -> Unit,
+    onFocusItem: (MetaPreview) -> Unit = {},
+    requestFocus: Boolean = false,
+) {
+    val fr = FocusRequester()
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionTitle(title)
+        LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
+                LandscapeCard(item, { onOpen(item) }, if (i == 0) Modifier.focusRequester(fr) else Modifier, onFocus = { onFocusItem(item) })
+            }
+        }
+    }
+    if (requestFocus) LaunchedEffect(Unit) { delay(80); runCatching { fr.requestFocus() } }
 }

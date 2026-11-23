@@ -57,7 +57,9 @@ jobs:
 
   ios:
     name: IPA iPhone (non signé, pour ESign / KSign)
-    runs-on: macos-15
+    needs: [release]
+    runs-on: macos-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -82,11 +84,15 @@ jobs:
           zip -qr "../../../dist/TVO-iOS-1.0.${BUILD_NUMBER}.ipa" Payload
       - uses: actions/upload-artifact@v4
         with: { name: ios, path: dist/* }
+      - name: Ajouter l'IPA à la version
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          files: dist/*.ipa
 
   release:
     name: Publier la version
-    needs: [tv, mobile, ios]
-    if: ${{ !cancelled() && needs.tv.result == 'success' }}
+    needs: [tv, mobile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

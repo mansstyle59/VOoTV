@@ -49,6 +49,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        app.tvo.tv.data.Sync.syncInBackground()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Tvo.init(application)
@@ -105,7 +110,7 @@ private fun navFor(nc: NavHostController) = Nav(
 private suspend fun refreshAddons() {
     val store = Tvo.store
     val fresh = store.addons.value.map { a -> runCatching { Tvo.client.install(a.url) }.getOrDefault(a) }
-    store.setAddons(fresh)
+    store.setAddons(fresh, userChange = false)
 }
 
 @Composable

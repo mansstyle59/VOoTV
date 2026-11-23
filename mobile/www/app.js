@@ -86,14 +86,18 @@
     S.lib = LS.get("lib." + p.id, []);
     S.prog = LS.get("prog." + p.id, []);
   }
-  const saveProfiles = () => LS.set("profiles", S.profiles);
-  const saveAddons = () => LS.set("addons", S.addons);
-  const saveLib = () => S.profile && LS.set("lib." + S.profile.id, S.lib);
-  const saveProg = () => S.profile && LS.set("prog." + S.profile.id, S.prog);
+  const saveProfiles = () => { LS.set("profiles", S.profiles); changed(); };
+  const saveAddons = (user = true) => { LS.set("addons", S.addons); if (user) { LS.set("addons_t", Date.now()); changed(); } };
+  const saveLib = () => { if (S.profile) { LS.set("lib." + S.profile.id, S.lib); changed(); } };
+  const saveProg = () => { if (S.profile) { LS.set("prog." + S.profile.id, S.prog); changed(); } };
+  let syncTimer = null;
+  function changed() { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 15000); }
   const inLib = (id) => S.lib.some((x) => x.id === id);
   function toggleLib(m) {
-    if (inLib(m.id)) S.lib = S.lib.filter((x) => x.id !== m.id);
-    else S.lib.unshift({ id: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background, addedAt: Date.now() });
+    const del = LS.get("libdel." + S.profile.id, {});
+    if (inLib(m.id)) { S.lib = S.lib.filter((x) => x.id !== m.id); del[m.id] = Date.now(); }
+    else { S.lib.unshift({ id: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background, addedAt: Date.now() }); delete del[m.id]; }
+    LS.set("libdel." + S.profile.id, del);
     saveLib();
   }
   const fraction = (p) => (p && p.duration > 0 ? Math.min(1, p.position / p.duration) : 0);
@@ -247,7 +251,90 @@
 
   async function refreshAddons() {
     const fresh = await Promise.all(S.addons.map(async (a) => { try { return await installAddon(a.url); } catch { return a; } }));
-    S.addons = fresh; saveAddons();
+    S.addons = fresh; saveAddons(false);
+  }
+
+
+  // ------------------------------------------------------------------ synchronisation TV ⇄ téléphone
+  const SB = { url: "https://vfxblubjsxwseacmslnu.supabase.co/rest/v1/rpc/", key: "sb_publishable_HojETqgwpBMQ_cjDzMNaAg_WGCFMaED" };
+  const syncState = { status: "", busy: null };
+  function syncId() {
+    let id = LS.get("sync_id", null);
+    if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16))); LS.set("sync_id", id); }
+    return id;
+  }
+  async function rpc(fn, body) {
+    const r = await fetch(SB.url + fn, { method: "POST", headers: { apikey: SB.key, Authorization: "Bearer " + SB.key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+  }
+  function exportDoc() {
+    const profiles = {};
+    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0 }));
+    Object.entries(LS.get("profdel", {})).forEach(([id, t]) => { if (!profiles[id]) profiles[id] = { id, name: "", color: "#8B5CF6", t, del: true }; });
+    const lib = {}, prog = {};
+    S.profiles.forEach((p) => {
+      const m = {};
+      LS.get("lib." + p.id, []).forEach((it) => (m[it.id] = { item: it, t: it.addedAt || 0 }));
+      Object.entries(LS.get("libdel." + p.id, {})).forEach(([id, t]) => { if (!m[id] || m[id].t < t) m[id] = { item: (m[id] && m[id].item) || { id, type: "movie", name: "" }, t, del: true }; });
+      lib[p.id] = m;
+      const pm = {}; LS.get("prog." + p.id, []).forEach((x) => (pm[x.videoId] = x)); prog[p.id] = pm;
+    });
+    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog };
+  }
+  function mergeDocs(a, b) {
+    const mm = (x = {}, y = {}, t) => { const o = { ...x }; Object.entries(y).forEach(([k, v]) => { if (!o[k] || t(v) > t(o[k])) o[k] = v; }); return o; };
+    const profiles = mm(a.profiles, b.profiles, (p) => p.t || 0);
+    const pids = new Set([...Object.keys(a.lib || {}), ...Object.keys(b.lib || {}), ...Object.keys(a.prog || {}), ...Object.keys(b.prog || {})]);
+    const lib = {}, prog = {};
+    pids.forEach((pid) => {
+      if (profiles[pid] && profiles[pid].del) return;
+      lib[pid] = mm((a.lib || {})[pid], (b.lib || {})[pid], (l) => l.t || 0);
+      const pm = mm((a.prog || {})[pid], (b.prog || {})[pid], (p) => p.updatedAt || 0);
+      prog[pid] = Object.fromEntries(Object.values(pm).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400).map((p) => [p.videoId, p]));
+    });
+    const useB = (b.addonsT || 0) > (a.addonsT || 0) && b.addons && b.addons.length;
+    return { v: 1, profiles, addons: useB ? b.addons : a.addons, addonsT: useB ? b.addonsT : (a.addonsT || 0), lib, prog };
+  }
+  function importDoc(d) {
+    const order = S.profiles.map((p) => p.id);
+    S.profiles = Object.values(d.profiles || {}).filter((p) => !p.del)
+      .sort((x, y) => ((order.indexOf(x.id) + 1 || 1e9) - (order.indexOf(y.id) + 1 || 1e9)))
+      .map((p) => ({ id: p.id, name: p.name, color: p.color, t: p.t || 0 }));
+    LS.set("profiles", S.profiles);
+    LS.set("profdel", Object.fromEntries(Object.values(d.profiles || {}).filter((p) => p.del).map((p) => [p.id, p.t])));
+    S.profiles.forEach((p) => {
+      const l = Object.values((d.lib || {})[p.id] || {});
+      LS.set("lib." + p.id, l.filter((x) => !x.del).map((x) => x.item).sort((x, y) => (y.addedAt || 0) - (x.addedAt || 0)));
+      LS.set("libdel." + p.id, Object.fromEntries(l.filter((x) => x.del).map((x) => [x.item.id, x.t])));
+      LS.set("prog." + p.id, Object.values((d.prog || {})[p.id] || {}).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400));
+    });
+    if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = d.addons; LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
+    if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
+  }
+  async function syncNow() {
+    if (syncState.busy) return syncState.busy;
+    syncState.busy = (async () => {
+      try {
+        const id = syncId();
+        const before = JSON.stringify(exportDoc());
+        const remote = (await rpc("tvo_pull", { p_id: id })) || {};
+        const merged = mergeDocs(exportDoc(), remote);
+        importDoc(merged);
+        await rpc("tvo_push", { p_id: id, p_doc: merged });
+        syncState.status = "Synchronisé à " + new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+        return JSON.stringify(exportDoc()) !== before;
+      } catch { syncState.status = "Synchronisation impossible (pas de connexion ?)"; return false; }
+      finally { syncState.busy = null; }
+    })();
+    return syncState.busy;
+  }
+  async function pairCreate() { await syncNow(); return rpc("tvo_pair_create", { p_id: syncId() }); }
+  async function pairClaim(code) {
+    const id = await rpc("tvo_pair_claim", { p_code: code });
+    if (!id) return false;
+    LS.set("sync_id", id); await syncNow(); return true;
   }
 
   // ------------------------------------------------------------------ UI helpers
@@ -261,6 +348,9 @@
   const avatar = (p, cls = "") => `<div class="avatar ${cls}" style="background:linear-gradient(135deg, ${p.color}, ${p.color}99)">${esc((p.name || "?").slice(0, 1).toUpperCase())}</div>`;
   const posterHTML = (m) => `<button class="poster" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
       <span class="fallback">${esc(m.name)}</span>${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</button>`;
+  const landHTML = (m) => `<button class="land" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+      ${m.background || m.poster ? `<img src="${esc(m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+      <span class="cap"><b>${esc(m.name)}</b><span>${[m.releaseInfo, typeLabel(m.type, false), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</span></span></button>`;
   const header = (title, extra = "") => `<header class="header">${title ? `<h1>${esc(title)}</h1>` : LOGO + '<span class="spacer"></span>'}${extra}</header>`;
   const metaLine = (m) => `<div class="meta-line"><span class="badge">${typeLabel(m.type, false)}</span>
       ${m.releaseInfo ? `<span>${esc(m.releaseInfo)}</span>` : ""}
@@ -314,7 +404,7 @@
     const sec = document.createElement("section");
     sec.className = "section";
     sec.innerHTML = `<h2 class="section-title"><span>${esc(row.title)}</span></h2>
-      <div class="row">${Array.from({ length: 6 }, () => '<div class="poster skeleton"></div>').join("")}</div>`;
+      <div class="row">${Array.from({ length: 4 }, () => '<div class="land skeleton"></div>').join("")}</div>`;
     return sec;
   }
   function lazyRows(container, rows, onFirst) {
@@ -325,7 +415,7 @@
       try {
         const list = await catalog(row.a, row.c, row.extra);
         if (!list.length) { en.target.remove(); return; }
-        en.target.querySelector(".row").innerHTML = list.map(posterHTML).join("");
+        en.target.querySelector(".row").innerHTML = list.map(landHTML).join("");
         onFirst && onFirst(list);
       } catch { en.target.remove(); }
     }), { rootMargin: "400px 0px" });
@@ -379,16 +469,18 @@
     }));
     $("#save").addEventListener("click", () => {
       const v = name.value.trim(); if (!v) { name.focus(); return toast("Indique un prénom"); }
-      if (existing) Object.assign(existing, { name: v, color });
-      else S.profiles.push({ id: "p" + Date.now().toString(36), name: v, color });
+      if (existing) Object.assign(existing, { name: v, color, t: Date.now() });
+      else S.profiles.push({ id: "p" + Date.now().toString(36), name: v, color, t: Date.now() });
       saveProfiles();
       if (S.profile && existing && S.profile.id === existing.id) S.profile = existing;
       go("#/profiles");
     });
     if (existing) $("#del").addEventListener("click", () => {
       if (!confirm(`Supprimer le profil « ${existing.name} » ?`)) return;
-      S.profiles = S.profiles.filter((p) => p.id !== existing.id); saveProfiles();
-      LS.del("lib." + existing.id); LS.del("prog." + existing.id);
+      S.profiles = S.profiles.filter((p) => p.id !== existing.id);
+      LS.set("profdel", { ...LS.get("profdel", {}), [existing.id]: Date.now() });
+      saveProfiles();
+      LS.del("lib." + existing.id); LS.del("prog." + existing.id); LS.del("libdel." + existing.id);
       if (S.profile && S.profile.id === existing.id) S.profile = null;
       go("#/profiles");
     });
@@ -398,9 +490,12 @@
   function screenBrowse(type) {
     setTabs(type === "movie" ? "movies" : type === "series" ? "series" : "home");
     const p = S.profile;
-    const right = `<button class="icon-btn" id="settings" aria-label="Réglages">${ICON.settings}</button>
-      <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button>`;
-    app.innerHTML = header(type ? typeLabel(type) : "", right) + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
+    app.innerHTML = `<header class="header">${LOGO}
+      <button class="search-pill" id="pill">${ICON.search}<span>Rechercher${type ? " des " + typeLabel(type).toLowerCase() : ""}…</span></button>
+      <button class="icon-btn" id="settings" aria-label="Réglages" style="background:var(--surface)">${ICON.settings}</button>
+      <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>
+      <div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
+    $("#pill").addEventListener("click", () => go("#/search"));
     $("#settings").addEventListener("click", () => go("#/settings"));
     $("#who").addEventListener("click", () => go("#/profiles"));
     showUpdateBanner($("#upd"));
@@ -411,7 +506,7 @@
       const sec = document.createElement("section"); sec.className = "section";
       sec.innerHTML = `<h2 class="section-title"><span>Continuer à regarder</span></h2><div class="row">${cont.map((x) => `
         <button class="wide" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}">
-          <div class="thumb">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}<div class="bar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></div></div>
+          <div class="thumb">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}<span class="playdot">${ICON.play}</span><div class="bar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></div></div>
           <div class="title">${esc(x.name)}</div>
           <div class="sub">${x.season != null ? `S${x.season} : É${x.episode} · ${esc(x.episodeTitle || "")}` : `Il reste ${Math.max(1, Math.round((x.duration - x.position) / 60000))} min`}</div>
         </button>`).join("")}</div>`;
@@ -423,7 +518,7 @@
     const lib = S.lib.filter((x) => !type || x.type === type);
     if (lib.length) {
       const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span>Ma liste</span><a href="#/list">Tout voir</a></h2><div class="row">${lib.map(posterHTML).join("")}</div>`;
+      sec.innerHTML = `<h2 class="section-title"><span>Ma liste</span><a href="#/list">Tout voir</a></h2><div class="row">${lib.map(landHTML).join("")}</div>`;
       rowsEl.appendChild(sec);
     }
     if (!type) {
@@ -439,27 +534,34 @@
     let heroDone = false;
     lazyRows(rowsEl, rows, (list) => {
       if (heroDone) return; heroDone = true;
-      const pick = list.slice(0, 8).find((m) => m.background) || list[0];
-      if (pick) renderHero($("#hero"), pick);
+      if (list.length) renderHero($("#hero"), list);
     });
   }
 
-  function renderHero(el, m) {
-    el.innerHTML = `<div class="hero">
-      <img class="art" src="${esc(m.poster || m.background)}" alt="">
-      <div class="shade"></div>
-      <div class="info">
-        ${m.logo ? `<img class="logo-img" src="${esc(m.logo)}" alt="${esc(m.name)}" onerror="this.outerHTML='<h2>${esc(m.name).replace(/'/g, "")}</h2>'">` : `<h2>${esc(m.name)}</h2>`}
-        <div class="meta-line">${m.genres && m.genres.length ? m.genres.slice(0, 3).map(genreLabel).map(esc).join(" · ") : esc(m.releaseInfo || "")}</div>
-        <div class="actions">
-          <button class="btn primary" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play} Lecture</button>
-          <button class="btn" id="heroList">${inLib(m.id) ? ICON.check : ICON.plus} Ma liste</button>
-        </div>
-      </div></div>`;
-    $("#heroList").addEventListener("click", (e) => {
-      toggleLib(m); e.currentTarget.innerHTML = `${inLib(m.id) ? ICON.check : ICON.plus} Ma liste`;
-      toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste");
-    });
+  function renderHero(el, list) {
+    const items = list.slice(0, 5);
+    let i = 0;
+    const draw = () => {
+      const m = items[i];
+      el.innerHTML = `<div class="hero">
+        <img class="art" src="${esc(m.background || m.poster)}" alt="">
+        <div class="shade"></div>
+        <div class="info">
+          ${m.logo ? `<img class="logo-img" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h2>${esc(m.name)}</h2>`}
+          <div class="meta-line">${[m.releaseInfo, m.genres && m.genres[0] ? genreLabel(m.genres[0]) : "", m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</div>
+          <div class="actions">
+            <button class="btn accent" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play} Regarder</button>
+            <button class="btn icon-only" id="heroList" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button>
+          </div>
+          <div class="strip">${items.map((x, k) => `<button class="${k === i ? "on" : ""}" data-k="${k}" aria-label="${esc(x.name)}">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="">` : ""}</button>`).join("")}</div>
+        </div></div>`;
+      $("#heroList").addEventListener("click", (e) => {
+        toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check : ICON.plus;
+        toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste");
+      });
+      el.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { i = Number(b.dataset.k); draw(); }));
+    };
+    draw();
   }
 
   function screenList() {
@@ -641,8 +743,18 @@
           <button class="btn" id="editP">${ICON.edit} Modifier</button></div>
         <button class="btn block" id="switchP">Changer de profil</button>
       </div>
+      <h2 class="section-title section"><span>Synchronisation TV ⇄ téléphone</span></h2>
+      <div class="list">
+        <div class="card small muted">Continuer à regarder, Ma liste, épisodes vus, profils et add-ons sont partagés automatiquement entre tes appareils reliés.
+          <div id="syncStatus" style="color:var(--cyan);margin-top:6px">${esc(syncState.status)}</div></div>
+        <div class="two-btn"><button class="btn" id="syncNow">Synchroniser</button><button class="btn" id="syncCode">Afficher un code</button></div>
+        <div id="codeBox"></div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+          <input class="field" id="claim" inputmode="numeric" maxlength="6" placeholder="J'ai un code (6 chiffres)" autocomplete="one-time-code">
+          <button class="btn primary" id="claimGo">Relier</button></div>
+      </div>
       <h2 class="section-title section"><span>Add-ons</span></h2>
-      <p class="pad small muted" style="margin-top:-4px">Comme dans Nuvio ou Stremio : catalogues, fiches, vidéos et sous-titres viennent des add-ons. Le premier est prioritaire.</p>
+      <p class="pad small muted" style="margin-top:-4px">Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Le premier est prioritaire. Les sources torrent seules ne sont pas lisibles.</p>
       <div class="list">${S.addons.map((a, i) => {
         const kinds = a.manifest.resources.map((r) => ({ catalog: "catalogues", meta: "fiches", stream: "vidéos", subtitles: "sous-titres" }[r.name])).filter(Boolean);
         return `<div class="card addon"><div class="top">${a.manifest.logo ? `<img src="${esc(a.manifest.logo)}" alt="" onerror="this.remove()">` : ""}
@@ -659,6 +771,19 @@
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>`;
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
+      $("#syncNow").addEventListener("click", async () => { $("#syncStatus").textContent = "Synchronisation…"; await syncNow(); $("#syncStatus").textContent = syncState.status; });
+      $("#syncCode").addEventListener("click", async () => {
+        $("#codeBox").innerHTML = '<div class="card">Création du code…</div>';
+        try { const c = String(await pairCreate());
+          $("#codeBox").innerHTML = `<div class="card" style="text-align:center"><div style="font-size:36px;font-weight:800;letter-spacing:.12em">${esc(c.slice(0, 3) + " " + c.slice(3))}</div><div class="small muted">Sur la TV : Réglages › Synchronisation › J'ai un code. Valable 10 minutes.</div></div>`;
+        } catch { $("#codeBox").innerHTML = '<div class="card">Pas de connexion.</div>'; }
+      });
+      $("#claimGo").addEventListener("click", async () => {
+        const c = $("#claim").value.replace(/\D/g, "");
+        if (c.length !== 6) return toast("Le code fait 6 chiffres");
+        toast("Liaison…");
+        if (await pairClaim(c)) { toast("Appareils reliés ✓"); go("#/profiles"); } else toast("Code invalide ou expiré");
+      });
       $("#switchP").addEventListener("click", () => go("#/profiles"));
       $("#addA").addEventListener("click", () => go("#/addon-add"));
       app.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => {
@@ -881,9 +1006,13 @@
   const curP = S.profiles.find((p) => p.id === cur);
   if (curP && S.profiles.length === 1) selectProfile(curP);
   window.addEventListener("hashchange", route);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) { const el = $("#player"); if (el._save && !el.hidden) el._save(); } });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { const el = $("#player"); if (el._save && !el.hidden) el._save(); syncNow(); }
+    else syncNow().then((ch) => { if (ch && $("#player").hidden) route(); });
+  });
   if (!location.hash || location.hash === "#/home") location.hash = S.profile ? "#/home" : "#/profiles";
   route();
-  refreshAddons();
+  syncNow().then((ch) => { if (ch && $("#player").hidden) route(); }).finally(() => refreshAddons());
+  setInterval(() => document.hidden || syncNow(), 120000);
   checkUpdate().then((u) => u && showUpdateBanner($("#upd")));
 })();

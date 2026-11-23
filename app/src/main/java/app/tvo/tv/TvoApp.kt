@@ -34,6 +34,7 @@ class TvoApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         Tvo.init(this)
+        app.tvo.tv.data.Sync.start()
     }
 
     override fun newImageLoader(): ImageLoader =

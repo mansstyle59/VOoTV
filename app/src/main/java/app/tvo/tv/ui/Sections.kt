@@ -195,8 +195,11 @@ fun SettingsSection(nav: Nav) {
             }
         }
 
+        item { Heading("Synchronisation TV ⇄ téléphone") }
+        item { SyncBlock() }
+
         item { Heading("Add-ons") }
-        item { Text("Comme dans Nuvio ou Stremio : les catalogues, fiches, vidéos et sous-titres viennent des add-ons. Le premier de la liste est prioritaire.",
+        item { Text("Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Catalogues, fiches, vidéos et sous-titres viennent des add-ons ; le premier de la liste est prioritaire. Les sources torrent seules ne sont pas lisibles.",
             fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
         items(addons, key = { it.url }) { a -> AddonRow(a, addons.indexOf(a)) }
         item { TvoButton("Ajouter un add-on", nav.addAddon, icon = Icons.Default.Add, primary = true) }
@@ -319,4 +322,48 @@ fun AddonAddScreen(onDone: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { delay(80); runCatching { firstKey.requestFocus() } }
+}
+
+
+@Composable
+private fun SyncBlock() {
+    val status by app.tvo.tv.data.Sync.status.collectAsState()
+    val scope = rememberCoroutineScope()
+    var code by remember { mutableStateOf<String?>(null) }
+    var entering by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
+    var msg by remember { mutableStateOf<String?>(null) }
+    val padFr = remember { FocusRequester() }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Continuer à regarder, Ma liste, épisodes vus, profils et add-ons sont partagés automatiquement entre tes appareils reliés.",
+            fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            TvoButton("Synchroniser maintenant", { scope.launch { app.tvo.tv.data.Sync.syncNow() } }, icon = Icons.Default.Refresh)
+            TvoButton("Afficher un code", {
+                entering = false; msg = null
+                scope.launch { code = app.tvo.tv.data.Sync.createCode(); if (code == null) msg = "Pas de connexion." }
+            })
+            TvoButton("J'ai un code", { code = null; entering = true; typed = ""; msg = null })
+            if (status.isNotBlank()) Text(status, fontSize = 13.sp, color = TvoColors.Cyan)
+        }
+        code?.let {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                Text(it.chunked(3).joinToString(" "), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                Text("Sur le téléphone : Réglages › Synchronisation › J'ai un code.\nValable 10 minutes.", fontSize = 14.sp, color = TvoColors.Muted)
+            }
+        }
+        if (entering) {
+            Text(if (typed.isEmpty()) "Tape le code affiché sur l'autre appareil" else typed.chunked(3).joinToString(" "),
+                fontSize = if (typed.isEmpty()) 15.sp else 32.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            DigitPad({ d -> if (typed.length < 6) typed += d }, { typed = typed.dropLast(1) }, first = padFr)
+            TvoButton("Relier", {
+                if (typed.length == 6) scope.launch {
+                    msg = "Liaison…"
+                    msg = if (app.tvo.tv.data.Sync.claim(typed)) { entering = false; "Appareils reliés ✓" } else "Code invalide ou expiré."
+                }
+            }, primary = true)
+            LaunchedEffect(Unit) { delay(80); runCatching { padFr.requestFocus() } }
+        }
+        msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
+    }
 }

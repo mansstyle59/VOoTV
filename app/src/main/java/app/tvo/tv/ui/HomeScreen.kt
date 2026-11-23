@@ -37,6 +37,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -50,7 +52,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -98,53 +99,49 @@ fun HomeScreen(nav: Nav) {
     val profile by Tvo.store.currentProfile.collectAsState()
     BackHandler(enabled = section != Section.HOME) { section = Section.HOME }
 
-    Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        Box(Modifier.fillMaxSize().padding(start = 84.dp)) {
-            when (section) {
-                Section.HOME -> BrowseSection(null, nav)
-                Section.MOVIES -> BrowseSection("movie", nav)
-                Section.SERIES -> BrowseSection("series", nav)
-                Section.LIST -> LibrarySection(nav)
-                Section.SEARCH -> SearchSection(nav)
-                Section.SETTINGS -> SettingsSection(nav)
+    Row(Modifier.fillMaxSize().background(TvoColors.Bg)) {
+        Sidebar(section, onSelect = { section = it }, nav = nav)
+        Column(Modifier.fillMaxSize()) {
+            TopBar(profile, onSearch = { section = Section.SEARCH }, onProfile = nav.switchProfile)
+            Box(Modifier.fillMaxSize()) {
+                when (section) {
+                    Section.HOME -> BrowseSection(null, nav)
+                    Section.MOVIES -> BrowseSection("movie", nav)
+                    Section.SERIES -> BrowseSection("series", nav)
+                    Section.LIST -> LibrarySection(nav)
+                    Section.SEARCH -> SearchSection(nav)
+                    Section.SETTINGS -> SettingsSection(nav)
+                }
             }
         }
-        SideRail(section, profile, onSelect = { section = it }, onProfile = nav.switchProfile)
     }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun SideRail(current: Section, profile: Profile?, onSelect: (Section) -> Unit, onProfile: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
-    val width by animateDpAsState(if (expanded) 230.dp else 84.dp, label = "rail")
+private fun Sidebar(current: Section, onSelect: (Section) -> Unit, nav: Nav) {
     val selected = remember { FocusRequester() }
-    Box(
-        Modifier.fillMaxHeight().width(width)
-            .background(
-                if (expanded) Brush.horizontalGradient(listOf(Color(0xF20B0B12), Color(0xE60B0B12), Color(0x000B0B12)))
-                else Brush.horizontalGradient(listOf(Color(0xCC0B0B12), Color(0x000B0B12)))
-            )
-            .onFocusChanged { expanded = it.hasFocus }
+    val addons by Tvo.store.addons.collectAsState()
+    val src = remember(addons) { buildRows(addons, "series").firstOrNull() ?: buildRows(addons, null).getOrNull(1) }
+    val news by produceState<List<MetaPreview>>(emptyList(), src?.key) {
+        value = src?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(3) ?: emptyList()
+    }
+    Column(
+        Modifier.fillMaxHeight().width(248.dp).background(TvoColors.Panel)
+            .padding(start = 22.dp, end = 22.dp, top = 28.dp)
+            .focusProperties { enter = { selected } },
     ) {
-        Column(
-            Modifier.fillMaxHeight().padding(vertical = 26.dp, horizontal = 14.dp)
-                .focusProperties { enter = { selected } },
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            if (expanded) Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.padding(start = 8.dp, bottom = 10.dp).height(28.dp))
-            else Spacer(Modifier.height(38.dp))
-            if (profile != null) {
-                RailItem(expanded, false, profile.name, onClick = onProfile) {
-                    Avatar(profile.name, profile.color, 26.dp)
-                }
-                Spacer(Modifier.height(14.dp))
-            }
-            Section.entries.forEach { s ->
-                RailItem(expanded, s == current, s.label,
-                    modifier = if (s == current) Modifier.focusRequester(selected) else Modifier,
-                    onClick = { onSelect(s) }) {
-                    Icon(s.icon, s.label, Modifier.size(24.dp))
+        Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.padding(start = 6.dp, bottom = 26.dp).height(30.dp))
+        Section.entries.forEach { s ->
+            RailItem(s == current, s.label,
+                modifier = if (s == current) Modifier.focusRequester(selected) else Modifier,
+                onClick = { onSelect(s) }) { Icon(s.icon, s.label, Modifier.size(20.dp)) }
+        }
+        if (news.isNotEmpty()) {
+            Text("Nouveautés", Modifier.padding(start = 6.dp, top = 22.dp, bottom = 10.dp), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                news.forEach { m ->
+                    WideCard(m.background ?: m.poster, m.name, null, null, { nav.openMeta(m) }, width = 204.dp, showPlay = false)
                 }
             }
         }
@@ -153,7 +150,6 @@ private fun SideRail(current: Section, profile: Profile?, onSelect: (Section) ->
 
 @Composable
 private fun RailItem(
-    expanded: Boolean,
     selected: Boolean,
     label: String,
     modifier: Modifier = Modifier,
@@ -162,24 +158,59 @@ private fun RailItem(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().padding(vertical = 2.dp),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
+            containerColor = if (selected) TvoColors.Surface else Color.Transparent,
             contentColor = if (selected) TvoColors.Text else TvoColors.Muted,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black,
         ),
     ) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(contentAlignment = Alignment.Center) { leading() }
-            if (expanded) {
-                Spacer(Modifier.width(14.dp))
-                Text(label, fontSize = 16.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (selected) Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(TvoColors.Accent))
+            else Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.width(10.dp))
+            leading()
+            Spacer(Modifier.width(12.dp))
+            Text(label, fontSize = 15.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun TopBar(profile: Profile?, onSearch: () -> Unit, onProfile: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 22.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            onClick = onSearch,
+            modifier = Modifier.width(360.dp).height(44.dp),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+            colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Muted,
+                focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+        ) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Search, null, Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
+                Text("Rechercher un film, une série…", fontSize = 14.sp)
             }
         }
-        if (selected && !expanded) Box(Modifier.align(Alignment.CenterStart).width(3.dp).height(22.dp).background(TvoColors.Accent))
+        Spacer(Modifier.weight(1f))
+        if (profile != null) Surface(
+            onClick = onProfile,
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
+            colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text,
+                focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+        ) {
+            Row(Modifier.padding(start = 6.dp, end = 18.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(profile.name, profile.color, 34.dp); Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(profile.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Changer de profil", fontSize = 11.sp, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.65f))
+                }
+            }
+        }
     }
 }
 
@@ -216,72 +247,104 @@ fun BrowseSection(type: String?, nav: Nav) {
     val addons by store.addons.collectAsState()
     val progress by store.progress.collectAsState()
     val library by store.library.collectAsState()
-    var focused by remember(type) { mutableStateOf<MetaPreview?>(null) }
-    var hero by remember(type) { mutableStateOf<MetaPreview?>(null) }
     var focusGiven by remember(type) { mutableStateOf(false) }
     val rows = remember(addons, type) { buildRows(addons, type) }
     val cont = remember(progress, type) { store.continueWatching(progress).filter { type == null || it.type == type } }
     val lib = remember(library, type) { library.filter { type == null || it.type == type } }
+    val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key) {
+        val r = rows.firstOrNull()
+        value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(5) ?: emptyList()
+    }
 
-    LaunchedEffect(focused) { delay(280); if (focused != null) hero = focused }
-
-    Box(Modifier.fillMaxSize()) {
-        Backdrop(hero?.background ?: hero?.poster)
-        Column(Modifier.fillMaxSize()) {
-            HeroInfo(hero, Modifier.fillMaxWidth().height(250.dp))
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 60.dp),
-                verticalArrangement = Arrangement.spacedBy(22.dp),
-            ) {
-                if (cont.isNotEmpty()) item(key = "continue") {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionTitle("Continuer à regarder")
-                        val fr = remember { FocusRequester() }
-                        LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            itemsIndexed(cont, key = { _, p -> p.metaId }) { i, p ->
-                                val preview = MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)
-                                WideCard(
-                                    image = p.background ?: p.poster,
-                                    title = p.name,
-                                    subtitle = if (p.season != null) "S${p.season} : É${p.episode} · ${p.episodeTitle ?: ""}" else "Reprendre",
-                                    progress = p.fraction,
-                                    onClick = { nav.openStreams(p.type, p.metaId, p.videoId) },
-                                    onLongClick = { store.removeFromContinue(p.metaId) },
-                                    onFocus = { focused = preview },
-                                    modifier = if (i == 0) Modifier.focusRequester(fr) else Modifier,
-                                )
-                            }
-                        }
-                        if (!focusGiven) LaunchedEffect(Unit) { focusGiven = true; delay(100); runCatching { fr.requestFocus() } }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(top = 6.dp, bottom = 60.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        if (heroItems.isNotEmpty()) item(key = "hero") {
+            HeroBanner(heroItems, nav, requestFocus = !focusGiven) { focusGiven = true }
+        }
+        if (cont.isNotEmpty()) item(key = "continue") {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionTitle("Continuer à regarder")
+                LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(cont, key = { it.metaId }) { p ->
+                        WideCard(
+                            image = p.background ?: p.poster,
+                            title = p.name,
+                            subtitle = if (p.season != null) "S${p.season} : É${p.episode} · ${p.episodeTitle ?: ""}" else "Il reste ${((p.duration - p.position) / 60000).coerceAtLeast(1)} min",
+                            progress = p.fraction,
+                            onClick = { nav.openStreams(p.type, p.metaId, p.videoId) },
+                            onLongClick = { store.removeFromContinue(p.metaId) },
+                            width = 232.dp,
+                            showPlay = true,
+                        )
                     }
                 }
-                if (lib.isNotEmpty()) item(key = "library") {
-                    PosterRow("Ma liste", lib.map { it.toPreview() }, nav.openMeta, { focused = it })
-                }
-                if (type == null) item(key = "genres") { GenreTiles(nav) { } }
-                items(rows, key = { it.key }) { row ->
-                    CatalogRow(row, nav, onFocus = { focused = it }, requestFocus = !focusGiven, onFocusTaken = { focusGiven = true })
-                }
-                if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
             }
         }
+        if (lib.isNotEmpty()) item(key = "library") { LandscapeRow("Ma liste", lib.map { it.toPreview() }, nav.openMeta) }
+        if (type == null) item(key = "genres") { GenreTiles(nav) { } }
+        items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
+        if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
 }
 
 @Composable
-private fun CatalogRow(row: RowSource, nav: Nav, onFocus: (MetaPreview) -> Unit, requestFocus: Boolean, onFocusTaken: () -> Unit) {
+private fun HeroBanner(items: List<MetaPreview>, nav: Nav, requestFocus: Boolean, onFocusTaken: () -> Unit) {
+    var index by remember(items) { mutableStateOf(0) }
+    val item = items[index.coerceIn(items.indices)]
+    val inList by remember(item.id) { derivedStateOf { Tvo.store.library.value.any { it.id == item.id } } }
+    val watchFr = remember { FocusRequester() }
+    val shape = RoundedCornerShape(18.dp)
+    Box(Modifier.padding(horizontal = 32.dp).fillMaxWidth().height(270.dp).clip(shape).background(TvoColors.Surface)) {
+        AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xF2141619), 0.45f to Color(0x99141619), 0.75f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color(0xAA000000))))
+        Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp).width(440.dp)) {
+            if (item.logo != null) AsyncImage(item.logo, item.name, Modifier.height(78.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+            else Text(item.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(8.dp))
+            val meta = listOfNotNull(item.releaseInfo, item.genres.firstOrNull()?.let { genreLabel(it) }, item.imdbRating?.let { "★ $it" }).joinToString("  ·  ")
+            Text(meta, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFD5DADE))
+            if (!item.description.isNullOrBlank()) Text(item.description, Modifier.padding(top = 8.dp), fontSize = 13.sp,
+                color = Color(0xFFC2C8CD), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                TvoButton("Regarder", { nav.openMeta(item) }, Modifier.focusRequester(watchFr), Icons.Default.PlayArrow, primary = true)
+                TvoButton(if (inList) "✓" else "+", {
+                    Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(item.id, item.type, item.name, item.poster, item.background))
+                })
+            }
+        }
+        Row(Modifier.align(Alignment.BottomEnd).padding(18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items.forEachIndexed { i, m ->
+                val s = RoundedCornerShape(8.dp)
+                Surface(
+                    onClick = { nav.openMeta(m) },
+                    modifier = Modifier.width(92.dp).aspectRatio(16f / 10f).onFocused { index = i },
+                    shape = ClickableSurfaceDefaults.shape(s),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+                    border = ClickableSurfaceDefaults.border(
+                        border = Border(BorderStroke(2.dp, if (i == index) TvoColors.Cyan else Color(0x55FFFFFF)), shape = s),
+                        focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = s)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface2, focusedContainerColor = TvoColors.Surface2),
+                ) { AsyncImage(m.background ?: m.poster, m.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            }
+        }
+    }
+    if (requestFocus) LaunchedEffect(Unit) { onFocusTaken(); delay(120); runCatching { watchFr.requestFocus() } }
+}
+
+@Composable
+private fun CatalogRow(row: RowSource, nav: Nav) {
     val state by produceState<List<MetaPreview>?>(null, row.key) {
         value = runCatching { Tvo.client.catalog(row.addon, row.cat, row.extra) }.getOrDefault(emptyList())
     }
     when {
         state == null -> LoadingRow(row.title)
         state!!.isEmpty() -> Spacer(Modifier.height(0.dp))
-        else -> {
-            val take = requestFocus
-            if (take) LaunchedEffect(Unit) { onFocusTaken() }
-            PosterRow(row.title, state!!, nav.openMeta, onFocus, requestFocus = take)
-        }
+        else -> LandscapeRow(row.title, state!!, nav.openMeta)
     }
 }
 
