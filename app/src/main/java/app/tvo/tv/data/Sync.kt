@@ -105,7 +105,8 @@ object Sync {
             .mapValues { (_, m) -> m.values.sortedByDescending { it.updatedAt }.take(400).associateBy { it.videoId } }
         val (addons, addonsT) = if (b.addonsT > a.addonsT && !b.addons.isNullOrEmpty()) b.addons to b.addonsT else a.addons to a.addonsT
         val (tk, tt) = if (b.tmdbT > a.tmdbT) b.tmdbKey to b.tmdbT else a.tmdbKey to a.tmdbT
-        return SyncDoc(1, profiles, addons, addonsT, lib.filterKeys { profiles[it]?.del != true }, prog.filterKeys { profiles[it]?.del != true }, tk, tt)
+        return SyncDoc(1, profiles, addons, addonsT, lib.filterKeys { profiles[it]?.del != true }, prog.filterKeys { profiles[it]?.del != true }, tk, tt,
+            listOfNotNull(a.home, b.home).maxByOrNull { it.t })
     }
 
 }

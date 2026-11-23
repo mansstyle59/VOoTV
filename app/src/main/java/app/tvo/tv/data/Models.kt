@@ -175,4 +175,8 @@ data class SyncDoc(
     val prog: Map<String, Map<String, Progress>> = emptyMap(),
     val tmdbKey: String? = null,
     val tmdbT: Long = 0,
+    val home: HomeLayout? = null,
 )
+
+@Serializable
+data class HomeLayout(val order: List<String> = emptyList(), val hidden: List<String> = emptyList(), val t: Long = 0)

@@ -28,7 +28,7 @@
     up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
   };
-  const LOGO = '<svg class="logo" viewBox="0 0 102 40" aria-label="TVO"><text x="0" y="31" font-size="34" font-weight="800" fill="#fff" font-family="-apple-system,Segoe UI,Roboto,sans-serif">TV</text><circle cx="83" cy="20" r="15" fill="none" stroke="#fff" stroke-width="4.5"/><path d="M78 12.5v15l12-7.5z" fill="#fff"/></svg>';
+  const LOGO = `<img class="logo" src="${isIOS ? "logo-ios.png" : "logo-android.png"}" alt="TVO">`;
 
   // ------------------------------------------------------------------ storage
   const LS = {
@@ -235,6 +235,65 @@
     } catch { return base; }
   }
 
+
+  // ------------------------------------------------------------------ chaînes TV gratuites (Free-TV/IPTV, légal)
+  const FREETV = { URL: "freetv://fr", PLAYLIST: "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_france.m3u8", list: null };
+  FREETV.addon = { url: FREETV.URL, manifest: { id: "tvo.freetv.fr", name: "Chaînes TV gratuites (France)", version: "1",
+    description: "Chaînes gratuites et légales en direct (liste Free-TV/IPTV).", types: ["tv"], idPrefixes: ["freetv:"],
+    resources: [{ name: "catalog" }, { name: "meta" }, { name: "stream" }],
+    catalogs: [{ type: "tv", id: "fr", name: "Chaînes TV en direct", extra: [{ name: "search", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }] } };
+  async function freeChannels() {
+    if (FREETV.list) return FREETV.list;
+    const txt = await (await fetch(FREETV.PLAYLIST)).text();
+    const out = []; let info = null; const seen = new Set();
+    txt.split(/\r?\n/).forEach((l) => {
+      l = l.trim();
+      if (l.startsWith("#EXTINF")) info = l;
+      else if (l && !l.startsWith("#") && info) {
+        const name = info.slice(info.lastIndexOf(",") + 1).replace(/[ⒼⓎⒹⓉⓈ]/g, "").trim();
+        const logo = (info.match(/tvg-logo="([^"]*)"/) || [])[1] || null;
+        const id = "freetv:" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo, url: l }); }
+        info = null;
+      }
+    });
+    return (FREETV.list = out);
+  }
+  const freePreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: c.logo, background: null, logo: c.logo, description: "Chaîne en direct, gratuite.", releaseInfo: null, imdbRating: null, genres: ["En direct"] });
+  async function freeCatalog(extra) {
+    if (Number(extra.skip) > 0) return [];
+    const q = (extra.search || "").toLowerCase();
+    return (await freeChannels()).filter((c) => !q || c.name.toLowerCase().includes(q)).map(freePreview);
+  }
+  async function freeMeta(id) {
+    const c = (await freeChannels()).find((x) => x.id === id); if (!c) return null;
+    return { ...freePreview(c), runtime: null, videos: [], cast: [], director: [], defaultVideoId: null, episodes: [] };
+  }
+  async function freeStreams(id) {
+    const c = (await freeChannels()).find((x) => x.id === id); if (!c) return [];
+    const direct = /\.(m3u8|mp4|mpd)(\?|$)/i.test(c.url);
+    return [{ addonName: FREETV.addon.manifest.name, name: c.name, title: direct ? "Direct" : "S'ouvre dans l'appli ou le site de la chaîne",
+      url: direct ? c.url : null, externalUrl: direct ? null : c.url, infoHash: null, headers: {}, needsHeaders: false, subtitles: [], bingeGroup: null, quality: 0 }];
+  }
+  const SUGGESTIONS = [
+    [FREETV.URL, "Chaînes TV gratuites (France)", "Arte, France 24, chaînes d'info… en direct", "Chaînes TV"],
+    ["https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube favorites", "Chaînes TV"],
+    ["https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "The Movie Database Addon", "Catalogues TMDB (configurable en français)", "Catalogues"],
+    ["https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Ce qui est sur Netflix, Prime, Disney+…", "Catalogues"],
+    ["https://anime-kitsu.strem.fun/manifest.json", "Anime Kitsu", "Catalogues et fiches d'animés", "Catalogues"],
+    ["https://watchhub.strem.io/manifest.json", "WatchHub", "Liens vers les plateformes officielles où regarder", "Streaming"],
+    ["https://opensubtitles-v3.strem.io/manifest.json", "OpenSubtitles v3", "Sous-titres dans toutes les langues", "Sous-titres"],
+  ];
+  const CATEGORIES = ["Catalogues", "Streaming", "Chaînes TV", "Sous-titres", "Autres"];
+  function addonCategory(a) {
+    const m = a.manifest, res = m.resources.map((r) => r.name);
+    if ((m.types || []).some((t) => t === "tv" || t === "channel") || m.catalogs.some((c) => c.type === "tv" || c.type === "channel")) return "Chaînes TV";
+    if (res.includes("stream")) return "Streaming";
+    if (res.includes("catalog") || res.includes("meta")) return "Catalogues";
+    if (res.includes("subtitles")) return "Sous-titres";
+    return "Autres";
+  }
+
   function normalize(input) {
     let u = String(input || "").trim();
     if (u.startsWith("stremio://")) u = "https://" + u.slice(10);
@@ -257,6 +316,7 @@
     };
   }
   async function installAddon(input) {
+    if (String(input).startsWith(FREETV.URL)) return FREETV.addon;
     const base = normalize(input);
     return { url: base, manifest: parseManifest(await getJson(base + "/manifest.json")) };
   }
@@ -286,6 +346,7 @@
   }
   async function catalog(a, c, extra = {}) {
     if (a.url === TMDB.URL) return tmdbCatalog(c, extra);
+    if (a.url === FREETV.URL) return freeCatalog(extra);
     const keys = Object.keys(extra);
     const ex = keys.length ? "/" + keys.map((k) => `${k}=${enc(extra[k])}`).join("&") : "";
     const url = `${a.url}/catalog/${c.type}/${enc(c.id)}${ex}.json`;
@@ -299,6 +360,7 @@
   async function meta(type, id) {
     const k = type + "/" + id;
     if (metaCache.has(k)) return metaCache.get(k);
+    if (id.startsWith("freetv:")) return freeMeta(id);
     const tmdbId = id.startsWith("tmdb:") ? id.split(":")[2] : null;
     const realId = tmdbId ? (await tmdbImdb(id)) || id : id;
     let m = metaCache.get(type + "/" + realId) || (realId.startsWith("tmdb:") ? null : await addonMeta(type, realId));
@@ -349,6 +411,7 @@
     const list = S.addons.filter((a) => supports(a, "stream", type, videoId));
     return { total: list.length, done: Promise.all(list.map(async (a) => {
       let items = [];
+      if (a.url === FREETV.URL) { try { items = await freeStreams(videoId); } catch { /* */ } onAddon && onAddon(items, a); return items; }
       try { items = ((await getJson(`${a.url}/stream/${type}/${enc(videoId)}.json`, 25000)).streams || []).map((s) => parseStream(s, a.manifest.name)).filter(Boolean); }
       catch { /* ignore */ }
       onAddon && onAddon(items, a);
@@ -396,7 +459,7 @@
       lib[p.id] = m;
       const pm = {}; LS.get("prog." + p.id, []).forEach((x) => (pm[x.videoId] = x)); prog[p.id] = pm;
     });
-    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0) };
+    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout() };
   }
   function mergeDocs(a, b) {
     const mm = (x = {}, y = {}, t) => { const o = { ...x }; Object.entries(y).forEach(([k, v]) => { if (!o[k] || t(v) > t(o[k])) o[k] = v; }); return o; };
@@ -412,7 +475,8 @@
     const useB = (b.addonsT || 0) > (a.addonsT || 0) && b.addons && b.addons.length;
     const tB = (b.tmdbT || 0) > (a.tmdbT || 0);
     return { v: 1, profiles, addons: useB ? b.addons : a.addons, addonsT: useB ? b.addonsT : (a.addonsT || 0), lib, prog,
-      tmdbKey: tB ? b.tmdbKey || null : a.tmdbKey || null, tmdbT: tB ? b.tmdbT : (a.tmdbT || 0) };
+      tmdbKey: tB ? b.tmdbKey || null : a.tmdbKey || null, tmdbT: tB ? b.tmdbT : (a.tmdbT || 0),
+      home: ((b.home && b.home.t) || 0) > ((a.home && a.home.t) || 0) ? b.home : (a.home || null) };
   }
   function importDoc(d) {
     const order = S.profiles.map((p) => p.id);
@@ -427,6 +491,7 @@
       LS.set("libdel." + p.id, Object.fromEntries(l.filter((x) => x.del).map((x) => [x.item.id, x.t])));
       LS.set("prog." + p.id, Object.values((d.prog || {})[p.id] || {}).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400));
     });
+    if (d.home && (d.home.t || 0) > homeLayout().t) LS.set("home", d.home);
     if ((d.tmdbT || 0) > LS.get("tmdb_t", 0)) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
     if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = d.addons; LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
     if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
@@ -466,8 +531,8 @@
   const avatar = (p, cls = "") => `<div class="avatar ${cls}" style="background:linear-gradient(135deg, ${p.color}, ${p.color}99)">${esc((p.name || "?").slice(0, 1).toUpperCase())}</div>`;
   const posterHTML = (m) => `<button class="poster" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
       <span class="fallback">${esc(m.name)}</span>${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</button>`;
-  const landHTML = (m) => `<button class="land" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
-      ${m.background || m.poster ? `<img src="${esc(m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+  const landHTML = (m) => `<button class="land ${m.type === "tv" || m.type === "channel" ? "channel" : ""}" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+      ${m.background || m.poster ? `<img src="${esc(m.type === "tv" || m.type === "channel" ? m.poster : m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
       <span class="cap"><b>${esc(m.name)}</b><span>${[m.releaseInfo, typeLabel(m.type, false), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</span></span></button>`;
   const header = (title, extra = "") => `<header class="header">${title ? `<h1>${esc(title)}</h1>` : LOGO + '<span class="spacer"></span>'}${extra}</header>`;
   const metaLine = (m) => `<div class="meta-line"><span class="badge">${typeLabel(m.type, false)}</span>
@@ -495,10 +560,17 @@
     }));
   }
 
+  const homeLayout = () => LS.get("home", { order: [], hidden: [], t: 0 });
+  function setHome(h) { LS.set("home", { ...h, t: Date.now() }); changed(); }
+  function applyHome(rows) {
+    const h = homeLayout();
+    const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
+    return rows.filter((r) => !h.hidden.includes(r.key)).sort((a, b) => idx(a.key) - idx(b.key));
+  }
   function buildRows(type) {
     const rows = [];
     catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type)).forEach((c) => {
-      rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : a.manifest.id === "tmdb" ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
+      rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : ["tmdb", "tvo.freetv.fr"].includes(a.manifest.id) ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
     }));
     if (type) {
       const src = genreSource(type);
@@ -619,8 +691,9 @@
     showUpdateBanner($("#upd"));
     const rowsEl = $("#rows");
 
+    const hidden = type ? [] : homeLayout().hidden;
     const cont = continueWatching().filter((x) => !type || x.type === type);
-    if (cont.length) {
+    if (cont.length && !hidden.includes("continue")) {
       const sec = document.createElement("section"); sec.className = "section";
       sec.innerHTML = `<h2 class="section-title"><span>Continuer à regarder</span></h2><div class="row">${cont.map((x) => `
         <button class="wide" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}">
@@ -634,12 +707,12 @@
       rowsEl.appendChild(sec);
     }
     const lib = S.lib.filter((x) => !type || x.type === type);
-    if (lib.length) {
+    if (lib.length && !hidden.includes("library")) {
       const sec = document.createElement("section"); sec.className = "section";
       sec.innerHTML = `<h2 class="section-title"><span>Ma liste</span><a href="#/list">Tout voir</a></h2><div class="row">${lib.map(landHTML).join("")}</div>`;
       rowsEl.appendChild(sec);
     }
-    if (!type) {
+    if (!type && !hidden.includes("genres")) {
       const pal = [["#7C3AED", "#2563EB"], ["#DB2777", "#F97316"], ["#059669", "#22D3EE"], ["#1E3A8A", "#7C3AED"], ["#7F1D1D", "#111827"], ["#0F766E", "#1E293B"], ["#B45309", "#7C2D12"], ["#334155", "#0EA5E9"]];
       const sec = document.createElement("section"); sec.className = "section";
       sec.innerHTML = `<h2 class="section-title"><span>Explorer par catégorie</span></h2><div class="genres">${HOME_GENRES.map((g, i) =>
@@ -647,7 +720,7 @@
       sec.querySelectorAll("[data-g]").forEach((b) => b.addEventListener("click", () => go(`#/genre/movie/${enc(b.dataset.g)}`)));
       rowsEl.appendChild(sec);
     }
-    const rows = buildRows(type);
+    const rows = type ? buildRows(type) : applyHome(buildRows(null));
     if (!rows.length) rowsEl.insertAdjacentHTML("beforeend", `<div class="empty"><h2>Aucun catalogue</h2>Ajoute un add-on de catalogue dans Réglages.</div>`);
     let heroDone = false;
     lazyRows(rowsEl, rows, (list) => {
@@ -879,15 +952,18 @@
       </div>
       <h2 class="section-title section"><span>Add-ons</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Le premier est prioritaire. Les sources torrent seules ne sont pas lisibles.</p>
-      <div class="list">${S.addons.map((a, i) => {
+      <div class="list">${CATEGORIES.map((cat) => [cat, S.addons.map((a, i) => [a, i]).filter(([a]) => addonCategory(a) === cat)]).filter(([, g]) => g.length).map(([cat, g]) => `<div class="small" style="color:var(--cyan);font-weight:700;margin-top:6px">${cat}</div>` + g.map(([a, i]) => {
         const kinds = a.manifest.resources.map((r) => ({ catalog: "catalogues", meta: "fiches", stream: "vidéos", subtitles: "sous-titres" }[r.name])).filter(Boolean);
         return `<div class="card addon"><div class="top">${a.manifest.logo ? `<img src="${esc(a.manifest.logo)}" alt="" onerror="this.remove()">` : ""}
           <div style="min-width:0"><b>${esc(a.manifest.name)}</b> <span class="small muted">${esc(a.manifest.version)}</span>
           <div class="small" style="color:var(--cyan)">${kinds.join(" · ") || "—"}</div>
           ${a.manifest.description ? `<div class="small muted">${esc(a.manifest.description)}</div>` : ""}</div></div>
           <div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div></div>`;
-      }).join("")}
+      }).join("")).join("")}
         <button class="btn accent block" id="addA">${ICON.plus} Ajouter un add-on</button></div>
+      <h2 class="section-title section"><span>Page d'accueil</span></h2>
+      <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
+      <div class="list" id="homeEd"></div>
       <h2 class="section-title section"><span>Lecteur</span></h2>
       <div class="chips">${[["tvo", "Lecteur TVO"], ["vlc", "VLC"], ...(isIOS ? [["infuse", "Infuse"]] : [])].map(([k, l]) => `<button class="chip ${S.player === k ? "on" : ""}" data-pl="${k}">${l}</button>`).join("")}</div>
       <p class="pad small muted">VLC ou Infuse lisent plus de formats (MKV, DTS…). Ils doivent être installés.</p>
@@ -895,6 +971,27 @@
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>`;
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
+      const drawHome = () => {
+        const h = homeLayout();
+        const special = [["continue", "Continuer à regarder"], ["library", "Ma liste"], ["genres", "Explorer par catégorie"]];
+        const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
+        const rows = buildRows(null).sort((a, b) => idx(a.key) - idx(b.key)).map((r) => [r.key, r.title]);
+        $("#homeEd").innerHTML = [...special, ...rows].map(([k, t], n) => `<div class="card" style="display:flex;align-items:center;gap:8px;padding:10px 12px">
+          <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${h.hidden.includes(k) ? "color:var(--muted)" : ""}">${esc(t)}</span>
+          <button class="chip ${h.hidden.includes(k) ? "" : "on"}" data-hv="${esc(k)}">${h.hidden.includes(k) ? "Masquée" : "Affichée"}</button>
+          ${n >= special.length ? `<button class="icon-btn" style="width:36px;height:36px;background:var(--surface-2)" data-mv="${esc(k)}|-1" aria-label="Monter">${ICON.up}</button>
+          <button class="icon-btn" style="width:36px;height:36px;background:var(--surface-2);transform:rotate(180deg)" data-mv="${esc(k)}|1" aria-label="Descendre">${ICON.up}</button>` : ""}</div>`).join("");
+        $("#homeEd").querySelectorAll("[data-hv]").forEach((b) => b.addEventListener("click", () => {
+          const k = b.dataset.hv; const hh = homeLayout();
+          setHome({ ...hh, hidden: hh.hidden.includes(k) ? hh.hidden.filter((x) => x !== k) : [...hh.hidden, k] }); drawHome();
+        }));
+        $("#homeEd").querySelectorAll("[data-mv]").forEach((b) => b.addEventListener("click", () => {
+          const [k, d] = b.dataset.mv.split("|"); const keys = rows.map((r) => r[0]);
+          const i = keys.indexOf(k), j = i + Number(d); if (j < 0 || j >= keys.length) return;
+          keys.splice(j, 0, keys.splice(i, 1)[0]); setHome({ ...homeLayout(), order: keys }); drawHome();
+        }));
+      };
+      drawHome();
       $("#tmdbSave").addEventListener("click", async () => {
         const k = $("#tmdb").value.trim(); if (!k) return toast("Colle ta clé TMDB");
         toast("Vérification…");
@@ -946,7 +1043,11 @@
         <div id="msg" class="small" style="color:var(--cyan)"></div>
       </div>
       <h2 class="section-title section"><span>Suggestions</span></h2>
-      <div class="list">${SUGGESTED.map(([u, l]) => `<button class="card" data-s="${esc(u)}" style="text-align:left"><b>${esc(l)}</b><div class="small muted">${esc(u)}</div></button>`).join("")}</div>`;
+      <div class="list">${CATEGORIES.map((cat) => [cat, SUGGESTIONS.filter((x) => x[3] === cat)]).filter(([, g]) => g.length).map(([cat, g]) =>
+        `<div class="small" style="color:var(--cyan);font-weight:700;margin-top:6px">${cat}</div>` + g.map(([u, n, d]) => {
+          const inst = S.addons.some((a) => a.url === u || a.url === normalize(u));
+          return `<button class="card" data-s="${esc(u)}" style="text-align:left" ${inst ? "disabled" : ""}><b>${inst ? "✓ " : ""}${esc(n)}</b><div class="small muted">${esc(d)}</div></button>`;
+        }).join("")).join("")}</div>`;
     const install = async (u) => {
       if (!u.trim()) return;
       $("#msg").textContent = "Installation…";

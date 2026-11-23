@@ -55,6 +55,11 @@ class Store(ctx: Context) {
     val externalPlayer = MutableStateFlow(prefs.getBoolean("externalPlayer", false))
     val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
 
+    /** Home page layout: hidden rows and custom order (row keys). */
+    val home = MutableStateFlow(load<HomeLayout>("home") ?: HomeLayout())
+
+    fun setHome(h: HomeLayout) { val v = h.copy(t = now()); home.value = v; save("home", v); onChange() }
+
     fun setTmdbKey(k: String?) {
         tmdbKey.value = k?.trim()?.ifBlank { null }
         prefs.edit().putString("tmdb_key", tmdbKey.value).putLong("tmdb_t", now()).apply()
@@ -181,7 +186,7 @@ class Store(ctx: Context) {
             lib[p.id] = m
             prog[p.id] = (load<List<Progress>>("progress_${p.id}") ?: emptyList()).associateBy { it.videoId }
         }
-        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0))
+        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0), home.value)
     }
 
     @Synchronized
@@ -202,6 +207,7 @@ class Store(ctx: Context) {
         if (d.addonsT > prefs.getLong("addons_t", 0) && d.addons != null && d.addons.isNotEmpty()) {
             addons.value = d.addons; save("addons", d.addons); prefs.edit().putLong("addons_t", d.addonsT).apply()
         }
+        if (d.home != null && d.home.t > home.value.t) { home.value = d.home; save("home", d.home) }
         if (d.tmdbT > prefs.getLong("tmdb_t", 0)) {
             tmdbKey.value = d.tmdbKey; prefs.edit().putString("tmdb_key", d.tmdbKey).putLong("tmdb_t", d.tmdbT).apply()
         }

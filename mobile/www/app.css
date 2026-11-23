@@ -323,3 +323,5 @@ body.no-tabs #app { padding-bottom: calc(var(--safe-bottom) + 24px); }
 @media (min-width: 700px) { .hero .art { aspect-ratio: 16/7; } :root { --land-w: 240px; } }
 .two-btn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 a.btn { text-decoration: none; }
+.land.channel { background: #2a2f34; }
+.land.channel img { object-fit: contain; padding: 14px 22% 40px; }

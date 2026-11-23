@@ -311,7 +311,8 @@ fun LandscapeCard(
         colors = CardDefaults.colors(containerColor = TvoColors.Surface),
     ) {
         Box(Modifier.fillMaxSize()) {
-            AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (item.type == "tv" || item.type == "channel") AsyncImage(item.poster, item.name, Modifier.fillMaxSize().padding(start = 30.dp, end = 30.dp, top = 14.dp, bottom = 40.dp), contentScale = ContentScale.Fit)
+            else AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xF0000000))))
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(item.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)

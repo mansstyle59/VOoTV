@@ -219,6 +219,9 @@ private fun TopBar(profile: Profile?, onSearch: () -> Unit, onProfile: () -> Uni
 
 // ---------------------------------------------------------------- Browse
 
+fun applyHome(rows: List<RowSource>, h: app.tvo.tv.data.HomeLayout): List<RowSource> =
+    rows.filter { it.key !in h.hidden }.sortedBy { r -> h.order.indexOf(r.key).let { if (it < 0) Int.MAX_VALUE else it } }
+
 data class RowSource(val key: String, val title: String, val addon: Addon, val cat: CatalogDef, val extra: Map<String, String> = emptyMap())
 
 private val homeGenres = listOf("Action", "Comedy", "Animation", "Sci-Fi", "Horror", "Thriller", "Drama", "Documentary")
@@ -229,7 +232,7 @@ fun buildRows(addons: List<Addon>, type: String?): List<RowSource> {
         a.manifest.catalogs.filter { !it.requiresExtra && (type == null || it.type == type) }.forEach { c ->
             val title = when (a.manifest.id) {
                 "com.linvo.cinemeta" -> catalogTitle(c.type, c.name)
-                "tmdb" -> c.name
+                "tmdb", "tvo.freetv.fr" -> c.name
                 else -> "${c.name} · ${a.manifest.name}"
             }
             rows += RowSource("${a.url}|${c.type}|${c.id}", title, a, c)
@@ -257,7 +260,9 @@ fun BrowseSection(type: String?, nav: Nav) {
     val progress by store.progress.collectAsState()
     val library by store.library.collectAsState()
     var focusGiven by remember(type) { mutableStateOf(false) }
-    val rows = remember(addons, type) { buildRows(addons, type) }
+    val home by store.home.collectAsState()
+    val rows = remember(addons, type, home) { buildRows(addons, type).let { if (type == null) applyHome(it, home) else it } }
+    val hidden = if (type == null) home.hidden else emptyList()
     val cont = remember(progress, type) { store.continueWatching(progress).filter { type == null || it.type == type } }
     val lib = remember(library, type) { library.filter { type == null || it.type == type } }
     val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key) {
@@ -273,7 +278,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (heroItems.isNotEmpty()) item(key = "hero") {
             HeroBanner(heroItems, nav, requestFocus = !focusGiven) { focusGiven = true }
         }
-        if (cont.isNotEmpty()) item(key = "continue") {
+        if (cont.isNotEmpty() && "continue" !in hidden) item(key = "continue") {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SectionTitle("Continuer à regarder")
                 LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -292,8 +297,8 @@ fun BrowseSection(type: String?, nav: Nav) {
                 }
             }
         }
-        if (lib.isNotEmpty()) item(key = "library") { LandscapeRow("Ma liste", lib.map { it.toPreview() }, nav.openMeta) }
-        if (type == null) item(key = "genres") { GenreTiles(nav) { } }
+        if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { LandscapeRow("Ma liste", lib.map { it.toPreview() }, nav.openMeta) }
+        if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }

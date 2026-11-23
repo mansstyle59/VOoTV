@@ -57,6 +57,7 @@ import app.tvo.tv.data.Defaults
 import app.tvo.tv.data.MetaPreview
 import app.tvo.tv.data.RemoteInputServer
 import app.tvo.tv.data.Updater
+import app.tvo.tv.data.category
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -208,8 +209,17 @@ fun SettingsSection(nav: Nav) {
         item { Heading("Add-ons") }
         item { Text("Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Catalogues, fiches, vidéos et sous-titres viennent des add-ons ; le premier de la liste est prioritaire. Les sources torrent seules ne sont pas lisibles.",
             fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
-        items(addons, key = { it.url }) { a -> AddonRow(a, addons.indexOf(a)) }
+        app.tvo.tv.data.ADDON_CATEGORIES.forEach { cat ->
+            val group = addons.filter { it.category() == cat }
+            if (group.isNotEmpty()) {
+                item(key = "cat-$cat") { Text(cat, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text, modifier = Modifier.padding(top = 6.dp)) }
+                items(group, key = { it.url }) { a -> AddonRow(a, addons.indexOf(a)) }
+            }
+        }
         item { TvoButton("Ajouter un add-on", nav.addAddon, icon = Icons.Default.Add, primary = true) }
+
+        item { Heading("Page d'accueil") }
+        item { HomeEditor() }
 
         item { Heading("Lecture") }
         item {
@@ -322,9 +332,16 @@ fun AddonAddScreen(onDone: () -> Unit) {
                 Text("Connecte la TV au Wi-Fi pour utiliser le téléphone.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.padding(top = 12.dp))
             }
             Spacer(Modifier.height(24.dp))
-            Text("Suggestions", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
-            Defaults.suggested.forEach { (url, label) ->
-                TvoButton(label, { install(url) }, Modifier.padding(top = 8.dp))
+            Text("Suggestions compatibles", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
+                app.tvo.tv.data.Suggestions.all.groupBy { it.category }.forEach { (cat, list) ->
+                    item { Text(cat, fontSize = 14.sp, color = TvoColors.Cyan, modifier = Modifier.padding(top = 6.dp)) }
+                    items(list, key = { it.url }) { sug ->
+                        val installed = Tvo.store.addons.value.any { a -> a.url == sug.url.substringBefore("/manifest.json") || a.url == sug.url }
+                        TvoButton(if (installed) "✓ ${sug.name}" else sug.name, { if (!installed) install(sug.url) }, Modifier.fillMaxWidth())
+                        Text(sug.desc, fontSize = 12.sp, color = TvoColors.Muted)
+                    }
+                }
             }
         }
     }
@@ -442,4 +459,43 @@ fun TmdbKeyScreen(onDone: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { delay(80); runCatching { firstKey.requestFocus() } }
+}
+
+
+@Composable
+private fun HomeEditor() {
+    val store = Tvo.store
+    val raw by store.addons.collectAsState()
+    val key by store.tmdbKey.collectAsState()
+    val home by store.home.collectAsState()
+    val all = remember(raw, key) { buildRows(app.tvo.tv.data.Tmdb.withTmdb(raw, key), null) }
+    val special = listOf("continue" to "Continuer à regarder", "library" to "Ma liste", "genres" to "Explorer par catégorie")
+    val rows = remember(all, home) {
+        val ordered = all.sortedBy { r -> home.order.indexOf(r.key).let { if (it < 0) Int.MAX_VALUE else it } }
+        special + ordered.map { it.key to it.title }
+    }
+    fun move(k: String, d: Int) {
+        val keys = rows.drop(special.size).map { it.first }.toMutableList()
+        val i = keys.indexOf(k); val j = i + d
+        if (i < 0 || j !in keys.indices) return
+        keys.add(j, keys.removeAt(i)); store.setHome(home.copy(order = keys))
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Choisis les rangées affichées sur l'accueil et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.",
+            fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
+        rows.forEachIndexed { idx, (k, title) ->
+            val visible = k !in home.hidden
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(TvoColors.Surface).padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(title, Modifier.weight(1f), fontSize = 15.sp, color = if (visible) TvoColors.Text else TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Chip(if (visible) "Affichée" else "Masquée", visible, {
+                    store.setHome(home.copy(hidden = if (visible) home.hidden + k else home.hidden - k))
+                })
+                if (idx >= special.size) {
+                    TvoButton("▲", { move(k, -1) })
+                    TvoButton("▼", { move(k, 1) })
+                }
+            }
+        }
+    }
 }
