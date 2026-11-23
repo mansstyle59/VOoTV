@@ -117,33 +117,37 @@ private suspend fun refreshAddons() {
 
 @Composable
 private fun UpdatePrompt() {
+    // À l'ouverture : la nouvelle version se télécharge toute seule, puis l'installateur Android s'ouvre.
     var release by remember { mutableStateOf<Updater.Release?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
+    var file by remember { mutableStateOf<java.io.File?>(null) }
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { delay(3000); release = Updater.check() }
+    fun install() { file?.let { f -> msg = Updater.install(ctx, f) ?: "Valide « Installer » sur l'écran suivant." } }
+    LaunchedEffect(Unit) {
+        delay(1500)
+        val r = Updater.check() ?: return@LaunchedEffect
+        release = r
+        msg = "Téléchargement…"
+        file = runCatching { Updater.download(ctx, r.apkUrl) { p -> msg = "Téléchargement ${(p * 100).toInt()} %" } }
+            .onFailure { msg = "Échec du téléchargement : ${it.message}" }.getOrNull()
+        install()
+    }
     val r = release ?: return
     val fr = remember { FocusRequester() }
     Dialog(onDismissRequest = { release = null }) {
         Surface(shape = RoundedCornerShape(16.dp), colors = SurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text)) {
             Column(Modifier.width(460.dp).padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Mise à jour disponible", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("TVO ${r.versionName} est prête. Ta liste et tes réglages sont conservés.", fontSize = 15.sp, color = TvoColors.Muted)
+                Text("Mise à jour de TVO ${r.versionName}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Ta liste, ta progression et tes réglages sont conservés.", fontSize = 15.sp, color = TvoColors.Muted)
                 msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvoButton("Installer", {
-                        scope.launch {
-                            msg = "Téléchargement…"
-                            msg = runCatching {
-                                val f = Updater.download(ctx, r.apkUrl) { p -> msg = "Téléchargement ${(p * 100).toInt()} %" }
-                                Updater.install(ctx, f) ?: "Installation lancée."
-                            }.getOrElse { "Échec : ${it.message}" }
-                        }
-                    }, Modifier.focusRequester(fr), primary = true)
+                    TvoButton("Installer", { if (file != null) install() }, Modifier.focusRequester(fr), primary = true)
                     TvoButton("Plus tard", { release = null })
                 }
             }
         }
     }
     LaunchedEffect(r) { delay(100); runCatching { fr.requestFocus() } }
+    @Suppress("UNUSED_VARIABLE") val keep = scope
 }

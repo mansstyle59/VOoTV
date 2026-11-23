@@ -34,11 +34,20 @@ object Tmdb {
         id = "tmdb", name = "TMDB", version = "3", description = "Catalogues, titres et résumés en français",
         types = listOf("movie", "series"), resources = listOf(AddonResource("catalog")),
         catalogs = listOf(
+            cat("movie", "latest", "Derniers films sortis"),
             cat("movie", "trending", "Films tendance cette semaine"),
             cat("series", "trending", "Séries tendance cette semaine"),
             cat("movie", "popular", "Films populaires", MOVIE_GENRES.keys, search = true),
             cat("series", "popular", "Séries populaires", TV_GENRES.keys, search = true),
             cat("movie", "now_playing", "Actuellement au cinéma"),
+            cat("movie", "upcoming", "Bientôt au cinéma"),
+            cat("movie", "prov_8", "Nouveaux films sur Netflix"),
+            cat("series", "prov_8", "Nouvelles séries sur Netflix"),
+            cat("movie", "prov_119", "Nouveaux films sur Prime Video"),
+            cat("series", "prov_119", "Nouvelles séries sur Prime Video"),
+            cat("movie", "prov_337", "Nouveautés Disney+"),
+            cat("series", "prov_381", "Nouveautés Canal+"),
+            cat("series", "prov_350", "Nouveautés Apple TV+"),
             cat("movie", "top_rated", "Films les mieux notés"),
             cat("series", "top_rated", "Séries les mieux notées"),
         ),
@@ -102,6 +111,14 @@ object Tmdb {
             genre != null -> get("/discover/$k", mapOf("with_genres" to genre.toString(), "sort_by" to "popularity.desc", "page" to page, "vote_count.gte" to "50"))
             cat.id == "trending" -> get("/trending/$k/week", mapOf("page" to page))
             cat.id == "now_playing" -> get("/movie/now_playing", mapOf("page" to page, "region" to "FR"))
+            cat.id == "upcoming" -> get("/movie/upcoming", mapOf("page" to page, "region" to "FR"))
+            cat.id == "latest" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "primary_release_date.desc",
+                "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20", "with_release_type" to "3|4|6"))
+            cat.id.startsWith("prov_") -> get("/discover/$k", mapOf("page" to page, "watch_region" to "FR",
+                "with_watch_providers" to cat.id.removePrefix("prov_"), "with_watch_monetization_types" to "flatrate",
+                "sort_by" to if (k == "tv") "first_air_date.desc" else "primary_release_date.desc",
+                (if (k == "tv") "first_air_date.lte" else "primary_release_date.lte") to java.time.LocalDate.now().toString(),
+                "vote_count.gte" to "5"))
             else -> get("/$k/${cat.id}", mapOf("page" to page))
         }
         return o.arr("results")?.mapNotNull { (it as? JsonObject)?.let { r -> preview(r, cat.type) } } ?: emptyList()

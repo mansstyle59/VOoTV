@@ -141,9 +141,14 @@
     extra: [...(genres ? [{ name: "genre", isRequired: false, options: Object.keys(genres) }] : []), ...(search ? [{ name: "search", isRequired: false, options: [] }] : []), { name: "skip", isRequired: false, options: [] }] });
   TMDB.addon = { url: TMDB.URL, manifest: { id: "tmdb", name: "TMDB", version: "3", description: "Catalogues, titres et résumés en français",
     types: ["movie", "series"], resources: [{ name: "catalog" }], idPrefixes: null, catalogs: [
+      tcat("movie", "latest", "Derniers films sortis"),
       tcat("movie", "trending", "Films tendance cette semaine"), tcat("series", "trending", "Séries tendance cette semaine"),
       tcat("movie", "popular", "Films populaires", TMDB.MOVIE, true), tcat("series", "popular", "Séries populaires", TMDB.TV, true),
-      tcat("movie", "now_playing", "Actuellement au cinéma"), tcat("movie", "top_rated", "Films les mieux notés"), tcat("series", "top_rated", "Séries les mieux notées")] } };
+      tcat("movie", "now_playing", "Actuellement au cinéma"), tcat("movie", "upcoming", "Bientôt au cinéma"),
+      tcat("movie", "prov_8", "Nouveaux films sur Netflix"), tcat("series", "prov_8", "Nouvelles séries sur Netflix"),
+      tcat("movie", "prov_119", "Nouveaux films sur Prime Video"), tcat("series", "prov_119", "Nouvelles séries sur Prime Video"),
+      tcat("movie", "prov_337", "Nouveautés Disney+"), tcat("series", "prov_381", "Nouveautés Canal+"), tcat("series", "prov_350", "Nouveautés Apple TV+"),
+      tcat("movie", "top_rated", "Films les mieux notés"), tcat("series", "top_rated", "Séries les mieux notées")] } };
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
   function catalogAddons() {
     if (!tmdbKey()) return S.addons;
@@ -159,6 +164,7 @@
     cache.set(url, d);
     return d;
   }
+  const today = () => new Date().toISOString().slice(0, 10);
   const tkind = (t) => (t === "series" ? "tv" : "movie");
   const timg = (p, size) => (p ? TMDB.IMG + size + p : null);
   const rating = (v) => (v > 0 ? v.toFixed(1) : null);
@@ -176,6 +182,10 @@
       : g ? await tget(`/discover/${k}`, { with_genres: g, sort_by: "popularity.desc", page, "vote_count.gte": "50" })
       : c.id === "trending" ? await tget(`/trending/${k}/week`, { page })
       : c.id === "now_playing" ? await tget("/movie/now_playing", { page, region: "FR" })
+      : c.id === "upcoming" ? await tget("/movie/upcoming", { page, region: "FR" })
+      : c.id === "latest" ? await tget("/discover/movie", { page, region: "FR", sort_by: "primary_release_date.desc", "primary_release_date.lte": today(), "vote_count.gte": "20", with_release_type: "3|4|6" })
+      : c.id.startsWith("prov_") ? await tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: c.id.slice(5), with_watch_monetization_types: "flatrate",
+          sort_by: k === "tv" ? "first_air_date.desc" : "primary_release_date.desc", [k === "tv" ? "first_air_date.lte" : "primary_release_date.lte"]: today(), "vote_count.gte": "5" })
       : await tget(`/${k}/${c.id}`, { page });
     return (d.results || []).map((o) => tpreview(o, c.type)).filter(Boolean);
   }
@@ -919,9 +929,8 @@
       }));
       app.querySelectorAll("[data-pl]").forEach((b) => b.addEventListener("click", () => { S.player = b.dataset.pl; LS.set("player", S.player); draw(); }));
       $("#upd").addEventListener("click", async () => {
-        const r = await checkUpdate(true);
-        if (!r) toast(VERSION.code ? "TVO est à jour" : "Version de développement");
-        else openUpdate(r);
+        toast("Recherche…");
+        if (await autoUpdate(true)) applyUpdate(); else toast("TVO est à jour");
       });
     };
     draw();
@@ -1078,28 +1087,36 @@
     openPlayer({ m, s: pick, v: next, videoId: next.id, start: 0, subs });
   }
 
-  // ------------------------------------------------------------------ mises à jour
+  // ------------------------------------------------------------------ mises à jour (automatiques, sans réinstaller)
   let updateInfo = null;
-  async function checkUpdate(force = false) {
-    if (!VERSION.code && !force) return null;
+  async function latestRelease() {
+    const r = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases/latest`, 10000);
+    return { code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, "") };
+  }
+  /** Télécharge le nouveau code de l'appli et le garde pour les prochains démarrages. */
+  async function autoUpdate(force = false) {
+    if (!VERSION.code && !force) return false;
     try {
-      const r = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases/latest`, 10000);
-      const code = parseInt(String(r.tag_name || "").split(".").pop(), 10);
-      if (!(code > VERSION.code)) return null;
-      const asset = (r.assets || []).find((a) => (isIOS ? /\.ipa$/i : /mobile.*\.apk$/i).test(a.name));
-      updateInfo = { name: String(r.tag_name).replace(/^v/, ""), url: asset ? asset.browser_download_url : r.html_url, page: r.html_url };
-      return updateInfo;
-    } catch { return null; }
+      const rel = await latestRelease();
+      if (!(rel.code > VERSION.code)) return false;
+      const raw = `https://raw.githubusercontent.com/${VERSION.repo}/${rel.tag}/mobile/www/`;
+      const [js, css] = await Promise.all(["app.js", "app.css"].map(async (f) => {
+        const r = await fetch(raw + f, { cache: "no-store" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.text();
+      }));
+      if (js.length < 10000 || css.length < 1000) return false;
+      localStorage.setItem("tvo.bundle", JSON.stringify({ code: rel.code, name: rel.name, js, css }));
+      updateInfo = rel;
+      return true;
+    } catch { return false; }
   }
-  function openUpdate(u) {
-    if (isIOS) { toast("Télécharge le .ipa puis installe-le avec ESign ou KSign", 4000); }
-    window.open(u.url, "_blank");
+  function applyUpdate() {
+    if (!$("#player").hidden) return; // ne jamais couper une vidéo
+    document.body.insertAdjacentHTML("beforeend", `<div class="toast" style="bottom:50%">Mise à jour de TVO ${esc(updateInfo.name)}…</div>`);
+    setTimeout(() => location.reload(), 600);
   }
-  function showUpdateBanner(el) {
-    if (!updateInfo || !el) return;
-    el.innerHTML = `<div class="update-banner"><div><b>TVO ${esc(updateInfo.name)}</b> est disponible.</div><button class="btn accent" id="updGo">Mettre à jour</button></div>`;
-    $("#updGo").addEventListener("click", () => openUpdate(updateInfo));
-  }
+  function showUpdateBanner() { /* mises à jour automatiques : plus de bannière */ }
 
   // ------------------------------------------------------------------ routeur
   function route() {
@@ -1137,5 +1154,7 @@
   route();
   syncNow().then((ch) => { if (ch && $("#player").hidden) route(); }).finally(() => refreshAddons());
   setInterval(() => document.hidden || syncNow(), 120000);
-  checkUpdate().then((u) => u && showUpdateBanner($("#upd")));
+  // À l'ouverture : télécharge la nouvelle version et l'applique tout de suite (hors lecture vidéo).
+  autoUpdate().then((ok) => ok && applyUpdate());
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) autoUpdate().then((ok) => ok && applyUpdate()); });
 })();
