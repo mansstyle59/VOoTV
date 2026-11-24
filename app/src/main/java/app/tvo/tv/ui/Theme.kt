@@ -1,5 +1,7 @@
 package app.tvo.tv.ui
 
+import androidx.compose.ui.unit.sp
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -22,6 +24,16 @@ object TvoColors {
     val Accent = Brush.horizontalGradient(listOf(Color(0xFF2F5BFF), Color(0xFF4F78FF)))
 }
 
+/** Police Inter (proche de Netflix Sans) pour tous les textes de la télé. */
+val Inter = androidx.compose.ui.text.font.FontFamily(
+    androidx.compose.ui.text.font.Font(app.tvo.tv.R.font.inter_regular, androidx.compose.ui.text.font.FontWeight.Normal),
+    androidx.compose.ui.text.font.Font(app.tvo.tv.R.font.inter_medium, androidx.compose.ui.text.font.FontWeight.Medium),
+    androidx.compose.ui.text.font.Font(app.tvo.tv.R.font.inter_semibold, androidx.compose.ui.text.font.FontWeight.SemiBold),
+    androidx.compose.ui.text.font.Font(app.tvo.tv.R.font.inter_bold, androidx.compose.ui.text.font.FontWeight.Bold),
+    androidx.compose.ui.text.font.Font(app.tvo.tv.R.font.inter_extrabold, androidx.compose.ui.text.font.FontWeight.ExtraBold),
+    androidx.compose.ui.text.font.Font(app.tvo.tv.R.font.inter_black, androidx.compose.ui.text.font.FontWeight.Black),
+)
+
 @Composable
 fun TvoTheme(content: @Composable () -> Unit) {
     MaterialTheme(
@@ -37,7 +49,12 @@ fun TvoTheme(content: @Composable () -> Unit) {
             onSurfaceVariant = TvoColors.Muted,
             border = TvoColors.Muted,
         ),
-        content = content,
+        content = {
+            androidx.compose.runtime.CompositionLocalProvider(
+                androidx.tv.material3.LocalTextStyle provides androidx.tv.material3.LocalTextStyle.current.copy(fontFamily = Inter, letterSpacing = (-0.1).sp),
+                content = content,
+            )
+        },
     )
 }
 

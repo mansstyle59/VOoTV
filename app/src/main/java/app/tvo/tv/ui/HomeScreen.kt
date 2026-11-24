@@ -107,6 +107,21 @@ val LocalSelect = androidx.compose.runtime.staticCompositionLocalOf<(MetaPreview
 /** Barre du haut masquée quand on parcourt les rangées (elle revient en remontant). */
 val LocalNavHidden = androidx.compose.runtime.staticCompositionLocalOf { androidx.compose.runtime.mutableStateOf(false) }
 
+/** Défilement vertical : la rangée choisie se place toujours en haut de la liste (titre compris), jamais coupée. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+val RowTopSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - 50f * android.content.res.Resources.getSystem().displayMetrics.density
+}
+/** Défilement horizontal normal (le minimum pour voir la carte) à l'intérieur des rangées. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+val RowSideSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val end = offset + size
+        return when { offset >= 0 && end <= containerSize -> 0f; offset < 0 && end > containerSize -> 0f
+            kotlin.math.abs(offset) < kotlin.math.abs(end - containerSize) -> offset; else -> end - containerSize }
+    }
+}
+
 /** Hauteur de la barre de navigation du haut (façon Netflix). */
 val NavBarHeight = 76.dp
 
@@ -201,6 +216,7 @@ private fun RoundIconButton(icon: ImageVector, label: String, modifier: Modifier
  * Écran « immersif » façon Netflix : grande image en fond qui suit la carte sélectionnée,
  * infos et boutons en haut, rangées de cartes paysage en dessous.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     var selected by remember(key) { mutableStateOf<MetaPreview?>(null) }
@@ -255,7 +271,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                     }
                 }
             }
-            androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }, androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowTopSpec) {
                 LazyColumn(
                     Modifier.fillMaxWidth().weight(1f).onFocusChanged { inRows = it.hasFocus },
                     contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
@@ -367,15 +383,16 @@ fun BrowseSection(type: String?, nav: Nav) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PanelSection(title: String, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().padding(start = 48.dp, end = 48.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+        Row(Modifier.fillMaxWidth().height(36.dp).padding(start = 48.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, letterSpacing = (-0.2).sp)
             Spacer(Modifier.weight(1f))
             action?.invoke()
         }
-        content()
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowSideSpec) { content() }
     }
 }
 
@@ -458,18 +475,16 @@ private fun PlatformTiles(nav: Nav) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("all", "prov:$id") },
-                    modifier = Modifier.width(240.dp).height(110.dp),
+                    modifier = Modifier.width(220.dp).height(124.dp),
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color(color), focusedContainerColor = Color(color)),
                 ) {
-                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(color), Color(0xFF0A0F1E)))).padding(horizontal = 16.dp)) {
-                        Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
-                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop)
-                            Spacer(Modifier.width(14.dp))
-                            Text(name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                    // Logo officiel en grand au centre, sur la couleur de la plateforme, reflet léger en haut
+                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(color), Color(0xFF0A0F1E)))), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x2EFFFFFF), 0.5f to Color.Transparent)))
+                        AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(78.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
                     }
                 }
             }

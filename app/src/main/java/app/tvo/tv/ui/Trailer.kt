@@ -31,13 +31,16 @@ fun TrailerView(youtubeKey: String, modifier: Modifier = Modifier) {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            setLayerType(View.LAYER_TYPE_HARDWARE, null)
             webChromeClient = WebChromeClient()
             webViewClient = WebViewClient()
             val src = "https://www.youtube-nocookie.com/embed/$youtubeKey?autoplay=1&controls=0&rel=0&modestbranding=1" +
-                "&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&hl=fr&loop=1&playlist=$youtubeKey"
+                "&playsinline=1&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&loop=1&playlist=$youtubeKey&vq=hd720"
             val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
                 <style>html,body{margin:0;height:100%;background:#000;overflow:hidden}
-                iframe{position:absolute;top:50%;left:50%;width:100vw;height:56.25vw;min-height:100vh;min-width:177.78vh;transform:translate(-50%,-50%);border:0;pointer-events:none}</style>
+                iframe{position:fixed;top:0;left:0;width:100%;height:100%;border:0;pointer-events:none}</style>
                 </head><body><iframe src="$src" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>"""
             loadDataWithBaseURL("https://mansstyle59.github.io/", html, "text/html", "utf-8", null)
         }
