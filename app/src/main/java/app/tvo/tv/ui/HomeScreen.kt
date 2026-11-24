@@ -380,7 +380,7 @@ private val homeGenres = listOf("Action", "Comedy", "Animation", "Sci-Fi", "Horr
 fun buildRows(addons: List<Addon>, type: String?, kidsAllowed: Boolean = addons.isNotEmpty() && addons.all { a -> a.manifest.catalogs.all { it.id.startsWith("kids") } }): List<RowSource> {
     val rows = mutableListOf<RowSource>()
     addons.forEach { a ->
-        a.manifest.catalogs.filter { !it.requiresExtra && (type == null || it.type == type) && (kidsAllowed || !it.id.startsWith("kids")) }.forEach { c ->
+        a.manifest.catalogs.filter { !it.requiresExtra && !Regex("talk", RegexOption.IGNORE_CASE).containsMatchIn(it.id + " " + it.name) && (type == null || it.type == type) && (kidsAllowed || !it.id.startsWith("kids")) }.forEach { c ->
             val title = when (a.manifest.id) {
                 "com.linvo.cinemeta" -> catalogTitle(c.type, c.name)
                 "tmdb", "tvo.freetv.fr" -> c.name

@@ -3733,7 +3733,7 @@ var qrcode = function() {
   }
   function buildRows(type, kidsMode) {
     const rows = [];
-    catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type) && (kidsMode || (S.profile && S.profile.kids) || !String(c.id).startsWith("kids"))).forEach((c) => {
+    catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && !/talk/i.test(c.id + " " + c.name) && (!type || c.type === type) && (kidsMode || (S.profile && S.profile.kids) || !String(c.id).startsWith("kids"))).forEach((c) => {
       rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : ["tmdb", "tvo.freetv.fr"].includes(a.manifest.id) || a.manifest.id.startsWith("tvo.m3u.") ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
     }));
     if (type && !kidsMode) {
