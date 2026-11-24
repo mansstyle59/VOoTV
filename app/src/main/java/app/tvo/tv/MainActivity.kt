@@ -158,7 +158,7 @@ private suspend fun refreshAddons() {
     if (app.tvo.tv.data.Tmdb.checkProxy()) Tvo.client.clearCaches()
     val store = Tvo.store
     // Les chaînes Free-TV sont retirées (remplacées par Freebox TV).
-    if (store.addons.value.any { it.url == app.tvo.tv.data.FreeTv.URL }) store.setAddons(store.addons.value.filterNot { it.url == app.tvo.tv.data.FreeTv.URL })
+    if (store.addons.value.any { app.tvo.tv.data.NoTv.isTv(it) }) store.setAddons(store.addons.value)
     val fresh = store.addons.value.map { a -> runCatching { Tvo.client.install(a.url) }.getOrDefault(a) }
     store.setAddons(fresh, userChange = false)
 }

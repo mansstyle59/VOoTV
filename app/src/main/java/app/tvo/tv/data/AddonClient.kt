@@ -72,10 +72,11 @@ class AddonClient(private val http: OkHttpClient) {
     }
 
     suspend fun install(input: String): Addon {
-        if (input.startsWith(FreeTv.URL)) return FreeTv.addon
-        if (M3u.isM3uInput(input)) return M3u.install(input, Tvo.store.addons.value.firstOrNull { it.url == M3u.PREFIX + input.removePrefix(M3u.PREFIX) }?.manifest?.name)
+        if (input.startsWith(FreeTv.URL) || M3u.isM3uInput(input)) throw IllegalStateException(NoTv.MESSAGE)
         val base = normalize(input)
-        return Addon(base, parseManifest(getJson("$base/manifest.json")))
+        val a = Addon(base, parseManifest(getJson("$base/manifest.json")))
+        if (NoTv.isTv(a)) throw IllegalStateException(NoTv.MESSAGE)
+        return NoTv.strip(a)
     }
 
     fun supports(addon: Addon, resource: String, type: String, id: String? = null): Boolean {

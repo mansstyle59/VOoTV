@@ -196,3 +196,20 @@ data class SyncDoc(
 
 @Serializable
 data class HomeLayout(val order: List<String> = emptyList(), val hidden: List<String> = emptyList(), val t: Long = 0)
+
+
+/** TVO refuse les chaînes TV : listes M3U, chaînes gratuites et add-ons qui ne fournissent que de la télé en direct. */
+object NoTv {
+    const val MESSAGE = "Les chaînes TV ne sont pas prises en charge par TVO"
+    private fun tvType(t: String) = t == "tv" || t == "channel"
+    fun isTv(a: Addon): Boolean {
+        if (a.url.startsWith("m3u:") || a.url.startsWith("freetv:") || a.manifest.id.startsWith("tvo.m3u") || a.manifest.id.startsWith("tvo.freetv")) return true
+        val types = a.manifest.types + a.manifest.resources.flatMap { it.types ?: emptyList() }
+        return types.isNotEmpty() && types.all { tvType(it) }
+    }
+    fun strip(a: Addon): Addon = a.copy(manifest = a.manifest.copy(
+        types = a.manifest.types.filterNot { tvType(it) },
+        catalogs = a.manifest.catalogs.filterNot { tvType(it.type) },
+        resources = a.manifest.resources.map { r -> if (r.types != null) r.copy(types = r.types.filterNot { tvType(it) }) else r }))
+    fun clean(list: List<Addon>): List<Addon> = list.filterNot { isTv(it) }.map { strip(it) }
+}

@@ -161,7 +161,8 @@ fun HomeScreen(nav: Nav) {
 
     // Live TV n'apparaît que si un add-on de chaînes TV est installé
     val addonsAll by Tvo.store.addons.collectAsState()
-    val hasTv = remember(addonsAll) { Tvo.store.allowed(addonsAll).any { a -> a.manifest.catalogs.any { it.type == "tv" || it.type == "channel" } } }
+    // Live TV retiré de TVO
+    val hasTv = false
     LaunchedEffect(hasTv, section) { if (!hasTv && section == Section.LIVE) section = Section.HOME }
     val navHidden = remember { mutableStateOf(false) }
     LaunchedEffect(section) { navHidden.value = false }

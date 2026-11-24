@@ -48,7 +48,7 @@ class Store(ctx: Context) {
         prefs.edit().putString(key, json.encodeToString(value)).apply()
 
     val profiles = MutableStateFlow(load<List<Profile>>("profiles") ?: emptyList())
-    val addons = MutableStateFlow(load<List<Addon>>("addons") ?: listOf(Defaults.cinemeta))
+    val addons = MutableStateFlow(NoTv.clean(load<List<Addon>>("addons") ?: listOf(Defaults.cinemeta)))
     val currentProfile = MutableStateFlow<Profile?>(null)
     val library = MutableStateFlow<List<LibraryItem>>(emptyList())
     val progress = MutableStateFlow<List<Progress>>(emptyList())
@@ -171,7 +171,8 @@ class Store(ctx: Context) {
 
     // ---- addons ----
     fun setAddons(list: List<Addon>, userChange: Boolean = true) {
-        addons.value = list; save("addons", list)
+        val clean = NoTv.clean(list)
+        addons.value = clean; save("addons", clean)
         if (userChange) { prefs.edit().putLong("addons_t", now()).apply(); onChange() }
     }
 
@@ -240,7 +241,7 @@ class Store(ctx: Context) {
             save("progress_${p.id}", (d.prog[p.id] ?: emptyMap()).values.sortedByDescending { it.updatedAt }.take(400))
         }
         if (d.addonsT > prefs.getLong("addons_t", 0) && d.addons != null && d.addons.isNotEmpty()) {
-            addons.value = d.addons; save("addons", d.addons); prefs.edit().putLong("addons_t", d.addonsT).apply()
+            addons.value = NoTv.clean(d.addons); save("addons", addons.value); prefs.edit().putLong("addons_t", d.addonsT).apply()
         }
         if (d.home != null && d.home.t > home.value.t) { home.value = d.home; save("home", d.home) }
         if (d.tmdbT > prefs.getLong("tmdb_t", 0)) {

@@ -336,7 +336,7 @@ fun SettingsSection(nav: Nav) {
         SetPage("profil", "👤", 0xFF8B5CF6, "Profil", "Nom, avatar, changer de profil"),
         SetPage("tele", "📺", 0xFF0EA5E9, "Compte et synchro", "QR code, code à 6 chiffres"),
         SetPage("lecteur", "▶", 0xFF22C55E, "Lecteur", "Automatique, VLC, MPV"),
-        SetPage("addons", "🧩", 0xFFA855F7, "Add-ons", "Catalogues, sources, chaînes"),
+        SetPage("addons", "🧩", 0xFFA855F7, "Add-ons", "Catalogues, sources, sous-titres"),
         SetPage("accueil", "🏠", 0xFFF59E0B, "Page d'accueil", "Rangées affichées et ordre"),
         SetPage("tmdb", "🎬", 0xFF14B8A6, "Titres et résumés", "TMDB en français"),
         SetPage("app", "⚙", 0xFF64748B, "Application", "Version et mises à jour"),

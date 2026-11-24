@@ -2524,9 +2524,9 @@ var qrcode = function() {
   /** Administrateur : le profil marqué admin, sinon le premier profil. Il choisit les add-ons de chaque profil. */
   const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
   /** Live TV n'apparaît que si un add-on de chaînes TV est installé (liste M3U, chaînes gratuites, add-on « tv »). */
-  const hasLive = () => myAddons().some((a) => (a.manifest.types || []).some((t) => t === "tv" || t === "channel")
-    || (a.manifest.catalogs || []).some((c) => c.type === "tv" || c.type === "channel"));
-  const myAddons = () => { const off = (S.profile && S.profile.off) || []; return S.addons.filter((a) => !off.includes(a.manifest.id)); };
+  // Live TV et chaînes TV : retirés de TVO (non souhaités)
+  const hasLive = () => false;
+  const myAddons = () => { const off = (S.profile && S.profile.off) || []; return cleanAddons(S.addons.filter((a) => !off.includes(a.manifest.id))); };
   function catalogAddons() {
     if (S.profile && S.profile.kids) {
       // Profil enfant : seulement les catalogues jeunesse
@@ -2709,8 +2709,22 @@ var qrcode = function() {
       url: direct ? c.url : null, externalUrl: direct ? null : c.url, infoHash: null, headers: {}, needsHeaders: false, subtitles: [], bingeGroup: null, quality: 0 }];
   }
   // Suggestions : [adresse, nom, description, groupe, étiquettes]
+  /** TVO refuse les chaînes TV : listes M3U, chaînes gratuites et add-ons qui ne fournissent que de la télé en direct. */
+  const NO_TV = "Les chaînes TV ne sont pas prises en charge par TVO";
+  const TVT = (t) => t === "tv" || t === "channel";
+  function isTvAddon(a) {
+    if (!a || !a.manifest) return false;
+    if (a.url === FREETV.URL || String(a.url).startsWith(M3U.P) || /^tvo\.(m3u|freetv)/.test(a.manifest.id || "")) return true;
+    const types = [...(a.manifest.types || []), ...(a.manifest.resources || []).flatMap((r) => r.types || [])];
+    return types.length > 0 && types.every(TVT);
+  }
+  function stripTv(a) {
+    const m = a.manifest;
+    return { ...a, manifest: { ...m, types: (m.types || []).filter((t) => !TVT(t)), catalogs: (m.catalogs || []).filter((c) => !TVT(c.type)),
+      resources: (m.resources || []).map((r) => (r.types ? { ...r, types: r.types.filter((t) => !TVT(t)) } : r)) } };
+  }
+  const cleanAddons = (l) => (l || []).filter((a) => !isTvAddon(a)).map(stripTv);
   const SUGGESTIONS = [
-    ["m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV", "Toutes les chaînes de ta Freebox, avec leurs logos.", "Chaînes TV", "Abonnés Free · Wi-Fi Freebox"],
     ["https://opensubtitles-v3.strem.io/manifest.json", "OpenSubtitles", "Sous-titres français et toutes langues, ajoutés automatiquement au lecteur.", "Sous-titres", "Recommandé"],
     ["https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Rangées « Sur Netflix », « Sur Prime Video », « Sur Disney+ »…", "Catalogues", "Configurable"],
     ["https://anime-kitsu.strem.fun/manifest.json", "Anime Kitsu", "Catalogues et fiches d'animés (saisons, épisodes).", "Catalogues", "Animés"],
@@ -2718,7 +2732,7 @@ var qrcode = function() {
     ["https://watchhub.strem.io/manifest.json", "WatchHub", "Sur chaque fiche, les plateformes officielles où regarder le titre.", "Où regarder", "Liens officiels"],
     ["https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube préférées dans TVO.", "Vidéos", ""],
   ];
-  const SUG_GROUPS = [["Chaînes TV", "Regarder la télé en direct"], ["Sous-titres", "Afficher des sous-titres pendant la lecture"],
+  const SUG_GROUPS = [["Sous-titres", "Afficher des sous-titres pendant la lecture"],
     ["Catalogues", "Ajouter des rangées de films et séries à l'accueil"], ["Où regarder", "Retrouver un titre sur les plateformes officielles"], ["Vidéos", "Autres contenus vidéo"]];
   const CATEGORIES = ["Catalogues", "Streaming", "Chaînes TV", "Sous-titres", "Autres"];
   function addonCategory(a) {
@@ -2933,10 +2947,11 @@ var qrcode = function() {
     };
   }
   async function installAddon(input) {
-    if (String(input).startsWith(FREETV.URL)) return FREETV.addon;
-    if (isM3u(input)) { const old = S.addons.find((a) => a.url === M3U.P + String(input).replace(/^m3u:/, "")); return installM3u(input, old && old.manifest.name); }
+    if (String(input).startsWith(FREETV.URL) || isM3u(input)) throw new Error(NO_TV);
     const base = normalize(input);
-    return { url: base, manifest: parseManifest(await getJson(base + "/manifest.json")) };
+    const a = { url: base, manifest: parseManifest(await getJson(base + "/manifest.json")) };
+    if (isTvAddon(a)) throw new Error(NO_TV);
+    return stripTv(a);
   }
   const catRequires = (c) => c.extra.some((e) => e.isRequired) || (c.extraRequired || []).length > 0;
   const catSupports = (c, n) => c.extra.some((e) => e.name === n) || (c.extraSupported || []).includes(n);
@@ -3050,7 +3065,7 @@ var qrcode = function() {
   }
 
   async function refreshAddons() {
-    if (S.addons.some((a) => a.url === FREETV.URL)) { S.addons = S.addons.filter((a) => a.url !== FREETV.URL); saveAddons(); }
+    if (S.addons.some(isTvAddon)) { S.addons = cleanAddons(S.addons); saveAddons(); }
     const fresh = await Promise.all(S.addons.map(async (a) => { try { return await installAddon(a.url); } catch { return a; } }));
     S.addons = fresh; saveAddons(false);
   }
@@ -3295,7 +3310,6 @@ var qrcode = function() {
       <h3>Ton compte</h3><p>Crée un compte avec un identifiant et un mot de passe. Un nouveau compte doit être validé par l'administrateur avant de pouvoir regarder ; il peut te donner un accès d'essai ou un accès sans limite.</p>
       <h3>Les profils</h3><p>Chaque compte peut avoir jusqu'à 6 profils (avatar, profil enfant, code à 4 chiffres, Face ID). Le profil principal gère les autres : accès, période d'essai et temps d'écran par jour.</p>
       <h3>Regarder</h3><p>TVO affiche les catalogues et les fiches (en français grâce à TMDB). Les vidéos viennent des add-ons que tu ajoutes dans Réglages › Add-ons : TVO les teste et les classe par langue, qualité et vitesse.</p>
-      <h3>Live TV</h3><p>Ajoute une liste de chaînes (Freebox, chaînes gratuites…) : le programme en cours s'affiche sur chaque chaîne.</p>
       <h3>La télé</h3><p>Sur la TV : Réglages › Connexion rapide, puis scanne le QR code avec ton téléphone connecté. Ta liste, ta progression et tes profils sont synchronisés.</p>
       <h3>Appui long</h3><p>Appuie longuement sur une carte pour ses options : reprendre, Ma liste, marquer comme vu, retirer…</p>`],
     terms: ["Conditions d'utilisation", `
@@ -3510,7 +3524,7 @@ var qrcode = function() {
     });
     if (d.home && (d.home.t || 0) > homeLayout().t) LS.set("home", d.home);
     if ((d.tmdbT || 0) > LS.get("tmdb_t", 0) || (d.tmdbKey && !tmdbKey())) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
-    if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = d.addons; LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
+    if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = cleanAddons(d.addons); LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
     if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
   }
   async function syncNow() {
@@ -4258,7 +4272,7 @@ var qrcode = function() {
   /** Découvrir : recherche + Films / Séries + catégories + plateformes. */
   function screenDiscover() {
     setTabs("discover");
-    app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur, chaîne…</span></button></div>
+    app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur…</span></button></div>
       <div class="disc-grid pad">
         <a class="disc" href="#/movies">${ICON.clap}<b>Films</b></a><a class="disc" href="#/series">${ICON.series}<b>Séries</b></a>
         ${hasLive() ? `<a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a>` : ""}<a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a>
@@ -4986,10 +5000,7 @@ var qrcode = function() {
           return `<div class="card sug"><div style="flex:1;min-width:0"><b>${esc(n)}</b>${tag ? ` <span class="tag">${esc(tag)}</span>` : ""}<div class="small muted">${esc(d)}</div></div>
             <button class="btn ${inst ? "" : "primary"}" data-s="${esc(u)}" ${inst ? "disabled" : ""}>${inst ? "✓ Installé" : "Installer"}</button></div>`;
         }).join("")).join("")}</div>
-      <h2 class="section-title section"><span>Chaînes TV</span></h2>
-      <p class="pad small muted" style="margin-top:-4px">Ajoute une liste de chaînes : l'onglet Live TV apparaît automatiquement.</p>
-      ${liveSuggHTML()}`;
-    app.querySelectorAll("[data-live]").forEach((b) => b.addEventListener("click", async () => { await addLive(b.dataset.live, b.dataset.name); screenAddonAdd(); }));
+      <p class="pad small muted">Les chaînes TV et la télé en direct ne sont pas prises en charge.</p>`;
     const install = async (u) => {
       if (!u.trim()) return;
       $("#msg").textContent = "Installation…";
