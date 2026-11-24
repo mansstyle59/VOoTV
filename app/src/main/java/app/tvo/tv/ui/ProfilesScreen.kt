@@ -58,6 +58,7 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
     val first = remember { FocusRequester() }
 
     LaunchedEffect(profiles.isEmpty()) { if (profiles.isEmpty()) onEdit("new") }
+    val ctxP = androidx.compose.ui.platform.LocalContext.current
     var pinFor by remember { mutableStateOf<Pair<app.tvo.tv.data.Profile, Boolean>?>(null) }
     pinFor?.let { (p, forEdit) ->
         PinDialog("Code de ${p.name}", onCancel = { pinFor = null }) { code ->
@@ -74,7 +75,9 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 profiles.forEachIndexed { i, p ->
                     ProfileTile(p, manage, Modifier.let { if (i == 0) it.focusRequester(first) else it }) {
-                        if (p.pin != null) pinFor = p to manage
+                        val blocked = !store.isAdmin(p) && (p.disabled || (p.trialUntil != null && System.currentTimeMillis() > p.trialUntil))
+                        if (blocked && !manage) android.widget.Toast.makeText(ctxP, if (p.disabled) "Ce profil est désactivé par l'administrateur." else "La période d'essai de ce profil est terminée.", android.widget.Toast.LENGTH_LONG).show()
+                        else if (p.pin != null) pinFor = p to manage
                         else if (manage) onEdit(p.id) else { store.selectProfile(p); onSelected() }
                     }
                 }

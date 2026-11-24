@@ -187,7 +187,7 @@ class Store(ctx: Context) {
     @Synchronized
     fun exportDoc(): SyncDoc {
         val profs = mutableMapOf<String, SyncProfile>()
-        profiles.value.forEach { profs[it.id] = SyncProfile(it.id, it.name, hex(it.color), it.t, false, it.icon, it.kids, it.pin, it.admin, it.off) }
+        profiles.value.forEach { profs[it.id] = SyncProfile(it.id, it.name, hex(it.color), it.t, false, it.icon, it.kids, it.pin, it.admin, it.off, it.disabled, it.trialUntil, it.trialDays, it.limit) }
         (load<Map<String, Long>>("profdel") ?: emptyMap()).forEach { (id, t) -> if (id !in profs) profs[id] = SyncProfile(id, "", "#8B5CF6", t, true) }
         val lib = mutableMapOf<String, Map<String, SyncLib>>()
         val prog = mutableMapOf<String, Map<String, Progress>>()
@@ -210,7 +210,7 @@ class Store(ctx: Context) {
         val alive = d.profiles.values.filter { !it.del }
         val order = profiles.value.map { it.id }
         val list = alive.sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
-            .map { Profile(it.id, it.name, color(it.color), it.t, it.icon, it.kids, it.pin, it.admin, it.off) }
+            .map { Profile(it.id, it.name, color(it.color), it.t, it.icon, it.kids, it.pin, it.admin, it.off, it.disabled, it.trialUntil, it.trialDays, it.limit) }
         profiles.value = list; save("profiles", list)
         save("profdel", d.profiles.values.filter { it.del }.associate { it.id to it.t })
         list.forEach { p ->

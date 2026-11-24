@@ -897,3 +897,49 @@ details.sect { box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
 .wn-list { overflow-y: auto; display: grid; gap: 12px; }
 .wn-item p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; color: #dfe6ff; }
 @media (min-width: 900px) { .wn-sheet { place-items: center; } }
+
+/* ---------- Continuer à regarder : cartes premium ---------- */
+.ccard { position: relative; flex: none; width: min(78vw, 320px); aspect-ratio: 16/9; border-radius: 18px; overflow: hidden; border: 1px solid rgba(160,190,255,.12);
+  background: var(--surface-2); padding: 0; color: #fff; text-align: left; box-shadow: 0 10px 26px rgba(0,0,0,.4); }
+.ccard .cimg, .ccard .cimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ccard .cshade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(6,10,24,.95) 0%, rgba(6,10,24,.35) 45%, transparent 70%); }
+.ccard .cplay { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.28); }
+.ccard .cplay svg { width: 18px; height: 18px; fill: #fff; margin-left: 2px; }
+.ccard .cinfo { position: absolute; left: 14px; right: 14px; bottom: 16px; display: grid; gap: 2px; }
+.ccard .cinfo b { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccard .cinfo span { font-size: 12.5px; color: #cdd8f5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ccard .cbar { position: absolute; left: 14px; right: 14px; bottom: 8px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); overflow: hidden; }
+.ccard .cbar i { display: block; height: 100%; background: var(--blue-grad); }
+/* ---------- Menu d'options (appui long) ---------- */
+.as-sheet { position: fixed; inset: 0; z-index: 640; background: rgba(4,8,20,.6); display: grid; place-items: end center; padding: 12px 10px calc(var(--safe-bottom) + 12px); }
+.as-card { width: min(480px, 100%); background: var(--surface); border: 1px solid rgba(160,190,255,.14); border-radius: 22px; padding: 8px; display: grid; gap: 2px; box-shadow: 0 -10px 40px rgba(0,0,0,.5); }
+.as-t { padding: 12px 14px 8px; font-size: 15px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-btn { display: flex; align-items: center; gap: 14px; padding: 14px; border: 0; border-radius: 14px; background: none; color: var(--text); font-size: 16px; font-weight: 600; text-align: left; }
+.as-btn svg { width: 22px; height: 22px; fill: currentColor; color: var(--cyan); }
+.as-btn:active { background: rgba(255,255,255,.06); }
+.as-btn.danger, .as-btn.danger svg { color: #f87171; }
+.as-btn.cancel { justify-content: center; margin-top: 4px; background: var(--surface-2); }
+/* ---------- Statut et gestion des profils ---------- */
+.pstat { display: inline-block; font-size: 11.5px; font-weight: 800; padding: 2px 9px; border-radius: 999px; background: rgba(255,255,255,.1); color: #dfe6ff; }
+.pstat.admin, .prole.admin { color: #9cc3ff; } .pstat.admin { background: rgba(61,124,255,.22); }
+.pstat.trial { background: rgba(234,179,8,.2); color: #facc15; } .prole.trial { color: #facc15; }
+.pstat.off { background: rgba(239,68,68,.2); color: #f87171; } .prole.off { color: #f87171; }
+.pstat.kid { background: rgba(34,197,94,.2); color: #4ade80; } .prole.kid { color: #4ade80; }
+.prole.std { color: var(--muted); }
+.card.pm { display: grid; gap: 8px; }
+.pm-top { display: flex; align-items: center; gap: 12px; }
+.pm-l { font-size: 12.5px; font-weight: 800; color: var(--cyan); margin-top: 4px; }
+.card.pm .chips { padding: 0; }
+.card.pm .btn.sm { justify-self: start; }
+/* ---------- Clés API ---------- */
+.keybox { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; }
+.keybox .icon-btn { background: var(--surface-2); font-size: 16px; }
+.keybox .icon-btn.on { background: var(--blue-grad); }
+.keyrow { padding: 10px 12px; }
+/* Pas de sélection de texte dans l'appli (sauf champs de saisie) */
+#app, #tabs, .as-sheet, .wn-sheet { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input.selectable, .field { -webkit-user-select: text; user-select: text; }
+.card.pm .chips { flex-wrap: wrap; overflow: visible; gap: 6px; }
+.card.pm .chip:not(.on) { background: rgba(255,255,255,.07); border: 1px solid rgba(160,190,255,.12); }
+.card.pm .btn.sm { background: rgba(255,255,255,.07); border: 1px solid rgba(160,190,255,.14); justify-self: stretch; justify-content: center; }

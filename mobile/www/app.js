@@ -95,6 +95,34 @@
     player: LS.get("player", "tvo"), // tvo | vlc | infuse
   };
 
+  // ------------------------------------------------------------------ accès des profils (géré par l'administrateur)
+  const today = () => new Date().toISOString().slice(0, 10);
+  const usedToday = (pid) => ((LS.get("usage", {})[pid] || {})[today()] || 0);
+  function addUsage(pid, min) { const u = LS.get("usage", {}); const d = (u[pid] = u[pid] || {}); d[today()] = (d[today()] || 0) + min;
+    Object.keys(d).forEach((k) => { if (k < today().slice(0, 8)) delete d[k]; }); LS.set("usage", u); }
+  /** Raison pour laquelle un profil ne peut pas regarder maintenant (ou null). L'administrateur n'est jamais bloqué. */
+  function profileBlock(p) {
+    if (!p || isAdmin(p)) return null;
+    if (p.disabled) return "Ce profil est désactivé par l'administrateur.";
+    if (p.trialUntil && Date.now() > p.trialUntil) return "La période d'essai de ce profil est terminée.";
+    if (p.limit && usedToday(p.id) >= p.limit) return `Temps d'écran atteint pour aujourd'hui (${fmtMin(p.limit)}).`;
+    return null;
+  }
+  const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? " " + String(Math.round(m % 60)).padStart(2, "0") : ""}` : `${Math.round(m)} min`);
+  function profileStatus(p) {
+    if (isAdmin(p)) return ["Administrateur", "admin"];
+    if (p.disabled) return ["Désactivé", "off"];
+    if (p.trialUntil) { const d = Math.ceil((p.trialUntil - Date.now()) / 864e5); return d > 0 ? [`Essai · ${d} j restant${d > 1 ? "s" : ""}`, "trial"] : ["Essai terminé", "off"]; }
+    if (p.kids) return ["Enfant", "kid"];
+    return ["Standard", "std"];
+  }
+  // Compte le temps de visionnage du profil en cours (vidéo en lecture uniquement)
+  setInterval(() => {
+    const v = document.querySelector("#player video"); if (!S.profile || !v || v.paused || $("#player").hidden) return;
+    addUsage(S.profile.id, 0.5);
+    const b = profileBlock(S.profile); if (b) { try { closePlayer(); } catch {} toast(b, 5000); go("#/profiles"); }
+  }, 30000);
+
   function selectProfile(p) {
     S.profile = p; LS.set("current", p.id);
     S.lib = LS.get("lib." + p.id, []);
@@ -201,7 +229,6 @@
     cache.set(url, d);
     return d;
   }
-  const today = () => new Date().toISOString().slice(0, 10);
   /** Catalogues d'événements selon la date (récents puis classiques). */
   function seasonCats() {
     const d = new Date(), mo = d.getMonth() + 1, day = d.getDate();
@@ -842,7 +869,7 @@
 
   function exportDoc() {
     const profiles = {};
-    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0, ...(p.off && p.off.length ? { off: p.off } : {}), ...(p.admin ? { admin: true } : {}), ...(p.kids ? { kids: true } : {}), ...(p.pin ? { pin: p.pin } : {}), ...(p.icon ? { icon: p.icon } : {}) }));
+    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0, ...(p.off && p.off.length ? { off: p.off } : {}), ...(p.admin ? { admin: true } : {}), ...(p.kids ? { kids: true } : {}), ...(p.pin ? { pin: p.pin } : {}), ...(p.icon ? { icon: p.icon } : {}), ...(p.disabled ? { disabled: true } : {}), ...(p.trialUntil ? { trialUntil: p.trialUntil, trialDays: p.trialDays || null } : {}), ...(p.limit ? { limit: p.limit } : {}) }));
     Object.entries(LS.get("profdel", {})).forEach(([id, t]) => { if (!profiles[id]) profiles[id] = { id, name: "", color: "#8B5CF6", t, del: true }; });
     const lib = {}, prog = {};
     S.profiles.forEach((p) => {
@@ -1065,7 +1092,7 @@
         <h1>${manage ? "Gérer les profils" : "Qui regarde ?"}</h1>
         <div class="profiles">
           ${S.profiles.map((p) => `<button class="profile" data-p="${esc(p.id)}">${avatar(p).replace(/<\/div>$/, (manage ? `<span class="edit">${ICON.edit}</span>` : "") + (p.pin && !manage ? '<span class="pbadge">🔒</span>' : "") + "</div>")}<span>${esc(p.name)}</span>
-            ${isAdmin(p) ? '<small class="prole">Administrateur</small>' : p.kids ? '<small class="prole kid">Enfant</small>' : ""}</button>`).join("")}
+            <small class="prole ${profileStatus(p)[1]}">${esc(profileStatus(p)[0])}</small></button>`).join("")}
           ${S.profiles.length < 6 ? `<button class="profile" data-new><div class="avatar add-avatar">${ICON.plus}</div><span>Ajouter</span></button>` : ""}
         </div>
         <div style="margin-top:36px"><button class="btn" id="manage">${manage ? ICON.check + " Terminé" : ICON.edit + " Gérer les profils"}</button></div>
@@ -1081,6 +1108,7 @@
         }
         (async () => {
           if (p.pin) { const c = await askPin(`Code de ${p.name}`); if (c === null) return; if (await pinHash(c) !== p.pin) return toast("Code incorrect"); }
+          const blk = profileBlock(p); if (blk) return toast(blk, 4500);
           selectProfile(p); go("#/home");
         })();
       }));
@@ -1166,11 +1194,12 @@
     const cont = continueWatching().filter((x) => !type || x.type === type);
     if (cont.length && !hidden.includes("continue")) {
       const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span class="st plain">Continuer à regarder</span><a href="#/list">Voir tout</a></h2><div class="row">${cont.map((x) => `
-        <button class="wide" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}">
-          <div class="thumb">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}<span class="playdot">${ICON.play}</span><div class="bar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></div></div>
-          <div class="title">${esc(x.name)}</div>
-          <div class="sub">${x.season != null ? `S${x.season} : É${x.episode} · ${esc(x.episodeTitle || "")}` : `Il reste ${Math.max(1, Math.round((x.duration - x.position) / 60000))} min`}</div>
+      sec.innerHTML = `<h2 class="section-title"><span class="st plain">Continuer à regarder</span><span class="small muted">Appui long : options</span></h2><div class="row">${cont.map((x) => `
+        <button class="ccard" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}" data-menu="cont|${esc(x.videoId)}">
+          <span class="cimg">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}</span><span class="cshade"></span>
+          <span class="cplay">${ICON.play}</span>
+          <span class="cinfo"><b>${esc(x.name)}</b><span>${x.season != null ? `S${x.season} · É${x.episode}${x.episodeTitle ? " · " + esc(x.episodeTitle) : ""}` : `Il reste ${fmtMin(Math.max(1, (x.duration - x.position) / 60000))}`}</span></span>
+          <span class="cbar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></span>
         </button>`).join("")}</div>`;
       sec.querySelectorAll("[data-resume]").forEach((b) => b.addEventListener("click", () => {
         const [t, m, v] = b.dataset.resume.split("|"); go(`#/sources/${enc(t)}/${enc(m)}/${enc(v)}`);
@@ -1208,6 +1237,51 @@
     }
   }
 
+
+  // ------------------------------------------------------------------ appui long : menu d'options sur les cartes
+  function actionSheet(title, actions) {
+    const box = document.createElement("div"); box.className = "as-sheet";
+    box.innerHTML = `<div class="as-card"><b class="as-t">${esc(title)}</b>${actions.map((a, i) => `<button class="as-btn ${a.danger ? "danger" : ""}" data-a="${i}">${a.icon || ""}<span>${esc(a.label)}</span></button>`).join("")}
+      <button class="as-btn cancel" data-x>Annuler</button></div>`;
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) return box.remove();
+      const b = e.target.closest("[data-a]"); if (b) { box.remove(); actions[+b.dataset.a].run(); } });
+  }
+  function setProg(videoId, f) { const i = S.prog.findIndex((x) => x.videoId === videoId); if (i < 0) return; S.prog[i] = { ...S.prog[i], ...f(S.prog[i]), updatedAt: Date.now() }; saveProg(); }
+  function cardMenu(el) {
+    const [kind, ref] = (el.dataset.menu || "").split("|");
+    if (kind === "cont") {
+      const x = S.prog.find((p) => p.videoId === ref); if (!x) return;
+      const m = { id: x.metaId, type: x.type, name: x.name, poster: x.poster, background: x.background };
+      actionSheet(x.name, [
+        { label: "Reprendre la lecture", icon: ICON.play, run: () => go(`#/sources/${enc(x.type)}/${enc(x.metaId)}/${enc(x.videoId)}`) },
+        { label: "Voir la fiche", icon: ICON.movie, run: () => go(`#/title/${enc(x.type)}/${enc(x.metaId)}`) },
+        { label: inLib(x.metaId) ? "Retirer de Ma liste" : "Ajouter à Ma liste", icon: ICON.heart, run: () => { toggleLib(m); toast(inLib(x.metaId) ? "Ajouté à Ma liste ✓" : "Retiré de Ma liste"); } },
+        { label: "Marquer comme vu", icon: ICON.check, run: () => { setProg(x.videoId, (p) => ({ position: p.duration || 1, duration: p.duration || 1 })); toast("Marqué comme vu ✓"); route(); } },
+        { label: "Retirer de Continuer à regarder", danger: true, icon: ICON.trash, run: () => { S.prog.filter((p) => p.metaId === x.metaId).forEach((p) => setProg(p.videoId, () => ({ position: 0 }))); toast("Retiré ✓"); route(); } },
+      ]);
+      return;
+    }
+    const [type, id] = (el.dataset.open || "").split("|"); if (!id) return;
+    const name = el.getAttribute("aria-label") || "";
+    const img = el.querySelector("img"); const m = { id, type, name, poster: img ? img.getAttribute("src") : null, background: null };
+    const acts = [{ label: "Ouvrir", icon: ICON.play, run: () => el.click() }];
+    if (type === "movie" || type === "series") acts.push({ label: inLib(id) ? "Retirer de Ma liste" : "Ajouter à Ma liste", icon: ICON.heart, run: () => { toggleLib(m); toast(inLib(id) ? "Ajouté à Ma liste ✓" : "Retiré de Ma liste"); } });
+    acts.push({ label: "Partager le titre", icon: ICON.doc, run: async () => { try { await navigator.share({ title: name, text: name + " — à regarder sur TVO" }); } catch { try { await navigator.clipboard.writeText(name); toast("Titre copié"); } catch {} } } });
+    actionSheet(name, acts);
+  }
+  (() => {
+    let timer = null, startX = 0, startY = 0, fired = false;
+    document.addEventListener("touchstart", (e) => {
+      const el = e.target.closest("[data-menu], [data-open]"); if (!el || el.closest(".as-sheet")) return;
+      fired = false; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+      timer = setTimeout(() => { fired = true; if (navigator.vibrate) navigator.vibrate(12); cardMenu(el); }, 480);
+    }, { passive: true });
+    document.addEventListener("touchmove", (e) => { if (timer && (Math.abs(e.touches[0].clientX - startX) > 10 || Math.abs(e.touches[0].clientY - startY) > 10)) { clearTimeout(timer); timer = null; } }, { passive: true });
+    document.addEventListener("touchend", () => { clearTimeout(timer); timer = null; }, { passive: true });
+    document.addEventListener("click", (e) => { if (fired) { fired = false; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+    document.addEventListener("contextmenu", (e) => { const el = e.target.closest("[data-menu], [data-open]"); if (el) { e.preventDefault(); cardMenu(el); } });
+  })();
   // ------------------------------------------------------------------ sagas et collections (TMDB)
   const COLLECTIONS = ["Toy Story", "Fast & Furious", "American Pie", "Harry Potter", "Star Wars", "Le Seigneur des anneaux", "Le Hobbit", "Indiana Jones",
     "Retour vers le futur", "Jurassic Park", "Pirates des Caraïbes", "Shrek", "L'Âge de glace", "Moi, moche et méchant", "Madagascar", "Kung Fu Panda", "Cars",
@@ -1799,7 +1873,7 @@
   }
 
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
-  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
+  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
@@ -1820,10 +1894,22 @@
     const draw = () => {
       app.innerHTML = header("Réglages", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `
       <div class="list" style="margin-top:8px">
-        <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(p, "sm")}<b style="flex:1">${esc(p.name)}${isAdmin(p) ? ' <span class="tag">Administrateur</span>' : ""}</b>
+        <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(p, "sm")}<span style="flex:1;min-width:0;display:grid;gap:3px"><b>${esc(p.name)}</b><span><span class="pstat ${profileStatus(p)[1]}">${esc(profileStatus(p)[0])}</span>${p.limit ? ` <span class="small muted">· ${fmtMin(usedToday(p.id))} / ${fmtMin(p.limit)} aujourd'hui</span>` : ""}</span></span>
           <button class="btn" id="editP">${ICON.edit} Modifier</button></div>
         <button class="btn block" id="switchP">Changer de profil</button>
       </div>
+      ${isAdmin(p) ? `<h2 class="section-title section"><span>Gestion des profils</span></h2>
+      <div class="list" id="pman"></div>
+      <h2 class="section-title section"><span>Clés API</span></h2>
+      <div class="list">
+        <div class="card small muted">Visibles par l'administrateur uniquement. Masquées par défaut.</div>
+        <div class="card keyrow"><span class="ht"><b>TMDB</b><small>Titres, résumés, affiches en français</small></span></div>
+        <div class="keybox"><input class="field selectable" id="kTmdb" type="password" autocomplete="off" spellcheck="false" value="${esc(tmdbKey() || "")}" placeholder="Aucune clé">
+          <button class="icon-btn" data-eye="kTmdb" aria-label="Afficher">👁</button><button class="icon-btn" data-copy="kTmdb" aria-label="Copier">⧉</button></div>
+        <div class="two-btn"><button class="btn primary" id="kSave">Enregistrer</button>${tmdbKey() ? '<button class="btn danger" id="kDel">Retirer</button>' : ""}</div>
+        <div class="card keyrow"><span class="ht"><b>Clé de synchronisation</b><small>Identifie tes données sur le serveur. Ne la partage jamais.</small></span></div>
+        <div class="keybox"><input class="field selectable" id="kSync" type="password" readonly value="${esc(syncId())}"><button class="icon-btn" data-eye="kSync" aria-label="Afficher">👁</button><button class="icon-btn" data-copy="kSync" aria-label="Copier">⧉</button></div>
+      </div>` : ""}
       <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
         ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted">Compte « ${esc(acct().user)} » · tes appareils sont synchronisés</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
@@ -1988,6 +2074,41 @@
       });
       $("#switchP").addEventListener("click", () => go("#/profiles"));
       if ($("#addA")) $("#addA").addEventListener("click", () => go("#/addon-add"));
+      app.querySelectorAll("[data-eye]").forEach((b) => b.addEventListener("click", () => { const i = $("#" + b.dataset.eye); i.type = i.type === "password" ? "text" : "password"; b.classList.toggle("on", i.type === "text"); }));
+      app.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => { try { await navigator.clipboard.writeText($("#" + b.dataset.copy).value); toast("Copié ✓"); } catch { toast("Copie impossible"); } }));
+      if ($("#kSave")) $("#kSave").addEventListener("click", async () => {
+        const k = $("#kTmdb").value.trim(); if (!k) return toast("Colle ta clé TMDB");
+        toast("Vérification…");
+        try { await tget("/configuration", {}, k); } catch (e) { return toast("Clé refusée par TMDB", 4000); }
+        LS.set("tmdb_key", k); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); syncNow(); toast("Clé enregistrée ✓"); draw();
+      });
+      if ($("#kDel")) $("#kDel").addEventListener("click", () => { if (!confirm("Retirer la clé TMDB ?")) return; LS.set("tmdb_key", null); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); draw(); });
+      if ($("#pman")) {
+        const drawP = () => {
+          $("#pman").innerHTML = S.profiles.map((pp) => { const [st, cls] = profileStatus(pp); const adm = isAdmin(pp);
+            const days = pp.trialUntil ? Math.max(0, Math.ceil((pp.trialUntil - Date.now()) / 864e5)) : 0;
+            return `<div class="card pm">
+              <div class="pm-top">${avatar(pp, "sm")}<span class="ht"><b>${esc(pp.name)}</b><span><span class="pstat ${cls}">${esc(st)}</span>${pp.limit ? ` <span class="small muted">${fmtMin(usedToday(pp.id))} / ${fmtMin(pp.limit)} aujourd'hui</span>` : ` <span class="small muted">${fmtMin(usedToday(pp.id))} aujourd'hui</span>`}</span></span>
+                ${adm ? "" : `<label class="sw mini"><input type="checkbox" data-pon="${esc(pp.id)}" ${pp.disabled ? "" : "checked"}><i></i></label>`}</div>
+              ${adm ? `<div class="small muted">L'administrateur a toujours accès à tout.</div>` : `
+              <div class="pm-l">Période d'essai</div>
+              <div class="chips">${[[0, "Aucune"], [3, "3 jours"], [7, "7 jours"], [30, "30 jours"]].map(([d, l]) => `<button class="chip ${(d === 0 ? !pp.trialUntil : pp.trialUntil && pp.trialDays === d) ? "on" : ""}" data-ptr="${esc(pp.id)}|${d}">${l}</button>`).join("")}</div>
+              ${pp.trialUntil ? `<div class="small muted">${days > 0 ? `Se termine le ${new Date(pp.trialUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${hm(pp.trialUntil)}` : "Terminée : le profil ne peut plus regarder."}</div>` : ""}
+              <div class="pm-l">Temps d'écran par jour</div>
+              <div class="chips">${[[0, "Illimité"], [30, "30 min"], [60, "1 h"], [120, "2 h"], [180, "3 h"], [300, "5 h"]].map(([m, l]) => `<button class="chip ${(pp.limit || 0) === m ? "on" : ""}" data-plim="${esc(pp.id)}|${m}">${l}</button>`).join("")}</div>
+              ${usedToday(pp.id) ? `<button class="btn sm" data-preset="${esc(pp.id)}">Remettre le compteur du jour à zéro</button>` : ""}`}
+              <button class="btn sm" data-pedit="${esc(pp.id)}">Modifier le profil (nom, avatar, enfant, code)</button></div>`; }).join("")
+            + `<button class="btn accent block" id="pAdd">${ICON.plus} Ajouter un profil</button>`;
+          const upd = (id, f) => { const pp = S.profiles.find((x) => x.id === id); if (!pp) return; f(pp); pp.t = Date.now(); saveProfiles(); drawP(); };
+          $("#pman").querySelectorAll("[data-pon]").forEach((b) => b.addEventListener("change", () => upd(b.dataset.pon, (pp) => { pp.disabled = !b.checked; })));
+          $("#pman").querySelectorAll("[data-ptr]").forEach((b) => b.addEventListener("click", () => { const [id, d] = b.dataset.ptr.split("|"); upd(id, (pp) => { pp.trialUntil = +d ? Date.now() + +d * 864e5 : null; pp.trialDays = +d || null; }); }));
+          $("#pman").querySelectorAll("[data-plim]").forEach((b) => b.addEventListener("click", () => { const [id, m] = b.dataset.plim.split("|"); upd(id, (pp) => { pp.limit = +m || null; }); }));
+          $("#pman").querySelectorAll("[data-preset]").forEach((b) => b.addEventListener("click", () => { const u = LS.get("usage", {}); if (u[b.dataset.preset]) delete u[b.dataset.preset][today()]; LS.set("usage", u); drawP(); }));
+          $("#pman").querySelectorAll("[data-pedit]").forEach((b) => b.addEventListener("click", () => go("#/profile/" + enc(b.dataset.pedit))));
+          $("#pAdd").addEventListener("click", () => go("#/profile/new"));
+        };
+        drawP();
+      }
       app.querySelectorAll("[data-pa]").forEach((b) => b.addEventListener("click", () => {
         const [i, pid] = b.dataset.pa.split("|"); const a = S.addons[+i]; const pp = S.profiles.find((x) => x.id === pid); if (!a || !pp) return;
         const off = new Set(pp.off || []); off.has(a.manifest.id) ? off.delete(a.manifest.id) : off.add(a.manifest.id);

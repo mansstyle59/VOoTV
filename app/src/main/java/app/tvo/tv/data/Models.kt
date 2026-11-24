@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 data class Profile(
     val id: String, val name: String, val color: Long, val t: Long = 0,
     val icon: String? = null, val kids: Boolean = false, val pin: String? = null, val admin: Boolean = false, val off: List<String> = emptyList(),
+    val disabled: Boolean = false, val trialUntil: Long? = null, val trialDays: Int? = null, val limit: Int? = null,
 )
 
 @Serializable
@@ -170,6 +171,7 @@ data class PlayRequest(
 data class SyncProfile(
     val id: String, val name: String, val color: String, val t: Long = 0, val del: Boolean = false,
     val icon: String? = null, val kids: Boolean = false, val pin: String? = null, val admin: Boolean = false, val off: List<String> = emptyList(),
+    val disabled: Boolean = false, val trialUntil: Long? = null, val trialDays: Int? = null, val limit: Int? = null,
 )
 
 @Serializable
