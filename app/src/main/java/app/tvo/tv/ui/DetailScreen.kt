@@ -52,7 +52,8 @@ private sealed interface Load<out T> { data object Loading : Load<Nothing>; data
 
 @Composable
 fun DetailScreen(type: String, id: String, nav: Nav) {
-    val addons by Tvo.store.addons.collectAsState()
+    val rawA by Tvo.store.addons.collectAsState()
+    val addons = remember(rawA) { Tvo.store.allowed(rawA) }
     val state by produceState<Load<MetaDetail>>(Load.Loading, type, id) {
         value = Tvo.client.meta(addons, type, id)?.let { Load.Ok(it) } ?: Load.Failed
     }

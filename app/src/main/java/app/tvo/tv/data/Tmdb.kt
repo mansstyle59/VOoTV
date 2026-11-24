@@ -89,7 +89,8 @@ object Tmdb {
     private val cache = ConcurrentHashMap<String, JsonObject>()
 
     /** Add-ons as seen by catalogs: TMDB first, Cinemeta catalogs hidden (Cinemeta still provides episodes). */
-    fun withTmdb(addons: List<Addon>, tmdbKey: String?): List<Addon> {
+    fun withTmdb(addons: List<Addon>, tmdbKey: String?, kids: Boolean = false): List<Addon> {
+        if (kids) return listOf(addon.copy(manifest = addon.manifest.copy(catalogs = addon.manifest.catalogs.filter { it.id == "kids" })))
         if (tmdbKey.isNullOrBlank() && !proxyOk) return addons
         return listOf(addon) + addons.map {
             if (it.manifest.id == "com.linvo.cinemeta") it.copy(manifest = it.manifest.copy(catalogs = emptyList())) else it

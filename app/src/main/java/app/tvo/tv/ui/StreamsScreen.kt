@@ -61,7 +61,8 @@ import kotlinx.coroutines.launch
 fun StreamsScreen(type: String, metaId: String, videoId: String) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
-    val addons by Tvo.store.addons.collectAsState()
+    val rawA by Tvo.store.addons.collectAsState()
+    val addons = remember(rawA) { Tvo.store.allowed(rawA) }
     val meta by produceState<MetaDetail?>(Tvo.client.metaCache["$type/$metaId"], metaId) {
         if (value == null) value = Tvo.client.meta(addons, type, metaId)
     }

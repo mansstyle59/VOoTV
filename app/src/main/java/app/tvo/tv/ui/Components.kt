@@ -195,11 +195,11 @@ fun TvoButton(
 }
 
 @Composable
-fun Avatar(name: String, color: Long, size: Dp, modifier: Modifier = Modifier) {
+fun Avatar(name: String, color: Long, size: Dp, modifier: Modifier = Modifier, icon: String? = null) {
     Box(modifier.size(size).clip(RoundedCornerShape(size / 4))
         .background(Brush.linearGradient(listOf(Color(color), Color(color).copy(alpha = 0.55f)))),
         contentAlignment = Alignment.Center) {
-        Text(name.take(1).uppercase(), fontSize = (size.value * 0.45f).sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(icon?.takeIf { it.isNotBlank() } ?: name.take(1).uppercase(), fontSize = (size.value * (if (icon.isNullOrBlank()) 0.45f else 0.5f)).sp, fontWeight = FontWeight.Bold, color = Color.White)
     }
 }
 

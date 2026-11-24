@@ -100,7 +100,7 @@ fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () 
 fun GenreScreen(type: String, genre: String, nav: Nav) {
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()
-    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
+    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, Tvo.store.currentProfile.value?.kids == true) }
     val items = remember { mutableStateListOf<MetaPreview>() }
     var loading by remember { mutableStateOf(false) }
     var end by remember { mutableStateOf(false) }
@@ -136,7 +136,7 @@ fun SearchSection(nav: Nav) {
     var query by rememberSaveable { mutableStateOf("") }
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()
-    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
+    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, Tvo.store.currentProfile.value?.kids == true) }
     val firstKey = remember { FocusRequester() }
     val results by produceState<List<Pair<String, List<MetaPreview>>>?>(emptyList(), query, addons) {
         if (query.trim().length < 2) { value = emptyList(); return@produceState }
@@ -195,7 +195,7 @@ fun SettingsSection(nav: Nav) {
         item { Heading("Profil") }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                profile?.let { Avatar(it.name, it.color, 44.dp); Text(it.name, fontSize = 18.sp, color = TvoColors.Text, modifier = Modifier.padding(end = 12.dp)) }
+                profile?.let { Avatar(it.name, it.color, 44.dp, icon = it.icon); Text(it.name, fontSize = 18.sp, color = TvoColors.Text, modifier = Modifier.padding(end = 12.dp)) }
                 TvoButton("Changer de profil", nav.switchProfile, icon = Icons.Default.Person)
                 profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
             }

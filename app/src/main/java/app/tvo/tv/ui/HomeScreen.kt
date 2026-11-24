@@ -210,7 +210,7 @@ private fun TopBar(profile: Profile?, onSearch: () -> Unit, onSettings: () -> Un
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
             border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(14.dp))),
-        ) { Avatar(profile.name, profile.color, 44.dp) }
+        ) { Avatar(profile.name, profile.color, 44.dp, icon = profile.icon) }
     }
 }
 
@@ -311,7 +311,8 @@ fun BrowseSection(type: String?, nav: Nav) {
     val store = Tvo.store
     val rawAddons by store.addons.collectAsState()
     val tmdbKey by store.tmdbKey.collectAsState()
-    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
+    val prof by store.currentProfile.collectAsState()
+    val addons = remember(rawAddons, tmdbKey, prof) { app.tvo.tv.data.Tmdb.withTmdb(store.allowed(rawAddons), tmdbKey, prof?.kids == true) }
     val progress by store.progress.collectAsState()
     val library by store.library.collectAsState()
     var focusGiven by remember(type) { mutableStateOf(false) }
@@ -511,7 +512,8 @@ fun MetaLine(type: String, year: String?, rating: String?, genres: List<String>,
 /** Live TV : rangées de chaînes (Freebox TV, listes M3U, add-ons de chaînes). */
 @Composable
 fun LiveSection(nav: Nav) {
-    val raw by Tvo.store.addons.collectAsState()
+    val raw0 by Tvo.store.addons.collectAsState()
+    val raw = remember(raw0) { Tvo.store.allowed(raw0) }
     val rows = remember(raw) { buildRows(raw, "tv") + buildRows(raw, "channel") }
     val scope = rememberCoroutineScope()
     var msg by remember { mutableStateOf<String?>(null) }

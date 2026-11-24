@@ -78,8 +78,20 @@ class Store(ctx: Context) {
         progress.value = load("progress_${p.id}") ?: emptyList()
     }
 
+    /** Administrateur : le profil marqué admin, sinon le premier. */
+    fun isAdmin(p: Profile?): Boolean = p != null && (p.admin || (profiles.value.none { it.admin } && profiles.value.firstOrNull()?.id == p.id))
+    /** Add-ons autorisés pour le profil en cours (choisis par l'administrateur). */
+    fun allowed(list: List<Addon>): List<Addon> { val off = currentProfile.value?.off ?: emptyList(); return if (off.isEmpty()) list else list.filter { it.manifest.id !in off } }
+    fun setAddonForProfile(profileId: String, addonId: String, on: Boolean) {
+        val list = profiles.value.map { p -> if (p.id != profileId) p else p.copy(off = if (on) p.off - addonId else (p.off + addonId).distinct(), t = now()) }
+        profiles.value = list; save("profiles", list)
+        list.firstOrNull { it.id == currentProfile.value?.id }?.let { currentProfile.value = it }
+        onChange()
+    }
     fun upsertProfile(id: String?, name: String, color: Long): Profile {
-        val p = Profile(id ?: UUID.randomUUID().toString(), name.trim().ifBlank { "Profil" }, color, now())
+        val old = profiles.value.firstOrNull { it.id == id }
+        val p = (old ?: Profile(UUID.randomUUID().toString(), "", color, admin = profiles.value.isEmpty()))
+            .copy(name = name.trim().ifBlank { "Profil" }, color = color, t = now())
         val list = profiles.value.toMutableList()
         val idx = list.indexOfFirst { it.id == p.id }
         if (idx >= 0) list[idx] = p else list.add(p)
@@ -175,7 +187,7 @@ class Store(ctx: Context) {
     @Synchronized
     fun exportDoc(): SyncDoc {
         val profs = mutableMapOf<String, SyncProfile>()
-        profiles.value.forEach { profs[it.id] = SyncProfile(it.id, it.name, hex(it.color), it.t) }
+        profiles.value.forEach { profs[it.id] = SyncProfile(it.id, it.name, hex(it.color), it.t, false, it.icon, it.kids, it.pin, it.admin, it.off) }
         (load<Map<String, Long>>("profdel") ?: emptyMap()).forEach { (id, t) -> if (id !in profs) profs[id] = SyncProfile(id, "", "#8B5CF6", t, true) }
         val lib = mutableMapOf<String, Map<String, SyncLib>>()
         val prog = mutableMapOf<String, Map<String, Progress>>()
@@ -198,7 +210,7 @@ class Store(ctx: Context) {
         val alive = d.profiles.values.filter { !it.del }
         val order = profiles.value.map { it.id }
         val list = alive.sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
-            .map { Profile(it.id, it.name, color(it.color), it.t) }
+            .map { Profile(it.id, it.name, color(it.color), it.t, it.icon, it.kids, it.pin, it.admin, it.off) }
         profiles.value = list; save("profiles", list)
         save("profdel", d.profiles.values.filter { it.del }.associate { it.id to it.t })
         list.forEach { p ->

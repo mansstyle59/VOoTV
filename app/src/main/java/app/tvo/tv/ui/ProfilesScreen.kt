@@ -58,6 +58,13 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
     val first = remember { FocusRequester() }
 
     LaunchedEffect(profiles.isEmpty()) { if (profiles.isEmpty()) onEdit("new") }
+    var pinFor by remember { mutableStateOf<Pair<app.tvo.tv.data.Profile, Boolean>?>(null) }
+    pinFor?.let { (p, forEdit) ->
+        PinDialog("Code de ${p.name}", onCancel = { pinFor = null }) { code ->
+            if (pinHash(code) == p.pin) { pinFor = null; if (forEdit) onEdit(p.id) else { store.selectProfile(p); onSelected() } ; true } else false
+        }
+        return
+    }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1A1530), TvoColors.Bg), radius = 1400f))) {
         Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.padding(start = 48.dp, top = 32.dp).height(40.dp))
@@ -67,7 +74,8 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 profiles.forEachIndexed { i, p ->
                     ProfileTile(p, manage, Modifier.let { if (i == 0) it.focusRequester(first) else it }) {
-                        if (manage) onEdit(p.id) else { store.selectProfile(p); onSelected() }
+                        if (p.pin != null) pinFor = p to manage
+                        else if (manage) onEdit(p.id) else { store.selectProfile(p); onSelected() }
                     }
                 }
                 if (profiles.size < 6) AddTile { onEdit("new") }
@@ -91,7 +99,7 @@ private fun ProfileTile(p: Profile, manage: Boolean, modifier: Modifier, onClick
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         ) {
-            Avatar(p.name, p.color, 132.dp)
+            Avatar(p.name, p.color, 132.dp, icon = p.icon)
             if (manage) Box(Modifier.fillMaxSize().background(Color(0x88000000)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Edit, "Modifier", Modifier.size(40.dp), tint = Color.White)
             }
@@ -168,4 +176,29 @@ fun ProfileEditScreen(id: String, onDone: () -> Unit) {
         }
     }
     LaunchedEffect(Unit) { delay(80); runCatching { firstKey.requestFocus() } }
+}
+
+
+/** Même empreinte que sur le téléphone (SHA-256 de "tvo-pin:" + code). */
+fun pinHash(pin: String): String =
+    java.security.MessageDigest.getInstance("SHA-256").digest("tvo-pin:$pin".toByteArray()).joinToString("") { "%02x".format(it) }
+
+@Composable
+private fun PinDialog(title: String, onCancel: () -> Unit, onSubmit: (String) -> Boolean) {
+    var typed by remember { mutableStateOf("") }
+    var wrong by remember { mutableStateOf(false) }
+    val fr = remember { FocusRequester() }
+    Box(Modifier.fillMaxSize().background(TvoColors.Bg), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            Text("●".repeat(typed.length) + "○".repeat(4 - typed.length), fontSize = 34.sp, color = TvoColors.Text)
+            if (wrong) Text("Code incorrect", fontSize = 15.sp, color = Color(0xFFFF6B6B))
+            DigitPad({ d ->
+                if (typed.length < 4) typed += d
+                if (typed.length == 4) { if (!onSubmit(typed)) { wrong = true; typed = "" } }
+            }, { typed = typed.dropLast(1) }, first = fr)
+            TvoButton("Annuler", onCancel)
+        }
+    }
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(100); runCatching { fr.requestFocus() } }
 }

@@ -280,7 +280,7 @@ class PlayerActivity : ComponentActivity() {
         nextUp = NextUp("Recherche de l'épisode suivant…", loading = true)
         lifecycleScope.launch {
             saveProgress(finished = true)
-            val addons = Tvo.store.addons.value
+            val addons = Tvo.store.allowed(Tvo.store.addons.value)
             val meta = Tvo.client.meta(addons, req.type, req.metaId)
             val eps = meta?.episodes ?: emptyList()
             val idx = eps.indexOfFirst { it.id == req.videoId }

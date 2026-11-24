@@ -3,7 +3,10 @@ package app.tvo.tv.data
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Profile(val id: String, val name: String, val color: Long, val t: Long = 0)
+data class Profile(
+    val id: String, val name: String, val color: Long, val t: Long = 0,
+    val icon: String? = null, val kids: Boolean = false, val pin: String? = null, val admin: Boolean = false, val off: List<String> = emptyList(),
+)
 
 @Serializable
 data class AddonResource(
@@ -164,7 +167,10 @@ data class PlayRequest(
 
 // ---------- sync document (same JSON shape on TV, Android and iPhone) ----------
 @Serializable
-data class SyncProfile(val id: String, val name: String, val color: String, val t: Long = 0, val del: Boolean = false)
+data class SyncProfile(
+    val id: String, val name: String, val color: String, val t: Long = 0, val del: Boolean = false,
+    val icon: String? = null, val kids: Boolean = false, val pin: String? = null, val admin: Boolean = false, val off: List<String> = emptyList(),
+)
 
 @Serializable
 data class SyncLib(val item: LibraryItem, val t: Long = 0, val del: Boolean = false)

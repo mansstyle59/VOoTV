@@ -100,7 +100,8 @@
     S.lib = LS.get("lib." + p.id, []);
     S.prog = LS.get("prog." + p.id, []);
   }
-  const saveProfiles = () => { LS.set("profiles", S.profiles); changed(); };
+  // Profils : enregistrés tout de suite sur le téléphone, puis envoyés aux autres appareils sans attendre
+  const saveProfiles = () => { LS.set("profiles", S.profiles); clearTimeout(syncTimer); setTimeout(() => syncNow(), 300); };
   const saveAddons = (user = true) => { LS.set("addons", S.addons); if (user) { LS.set("addons_t", Date.now()); changed(); } };
   const saveLib = () => { if (S.profile) { LS.set("lib." + S.profile.id, S.lib); changed(); } };
   const saveProg = () => { if (S.profile) { LS.set("prog." + S.profile.id, S.prog); changed(); } };
@@ -749,8 +750,9 @@
     const order = S.profiles.map((p) => p.id);
     S.profiles = Object.values(d.profiles || {}).filter((p) => !p.del)
       .sort((x, y) => ((order.indexOf(x.id) + 1 || 1e9) - (order.indexOf(y.id) + 1 || 1e9)))
-      .map((p) => ({ id: p.id, name: p.name, color: p.color, t: p.t || 0 }));
+      .map((p) => { const { del, ...rest } = p; return { ...rest, t: p.t || 0 }; });
     LS.set("profiles", S.profiles);
+    if (S.profile) { const cur = S.profiles.find((x) => x.id === S.profile.id); if (cur) S.profile = cur; }
     LS.set("profdel", Object.fromEntries(Object.values(d.profiles || {}).filter((p) => p.del).map((p) => [p.id, p.t])));
     S.profiles.forEach((p) => {
       const l = Object.values((d.lib || {})[p.id] || {});
@@ -1685,7 +1687,7 @@
         const [i, pid] = b.dataset.pa.split("|"); const a = S.addons[+i]; const pp = S.profiles.find((x) => x.id === pid); if (!a || !pp) return;
         const off = new Set(pp.off || []); off.has(a.manifest.id) ? off.delete(a.manifest.id) : off.add(a.manifest.id);
         pp.off = [...off]; pp.t = Date.now(); if (S.profile.id === pp.id) S.profile.off = pp.off;
-        LS.set("profiles", S.profiles); changed(); cache.clear(); draw();
+        saveProfiles(); cache.clear(); draw();
       }));
       app.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => {
         const i = Number(b.dataset.up); const [x] = S.addons.splice(i, 1); S.addons.splice(i - 1, 0, x); saveAddons(); draw();
@@ -2073,5 +2075,6 @@
       if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); }
     }, 450);
   })();
+  document.addEventListener("visibilitychange", () => { if (document.hidden && syncTimer) { clearTimeout(syncTimer); syncTimer = null; syncNow(); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) autoUpdate().then((ok) => ok && applyUpdate()); });
 })();
