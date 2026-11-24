@@ -26,6 +26,19 @@
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.2V21h3.8l11-11-3.8-3.8zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8z"/></svg>',
     up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
+    live: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6M15.8 8.2a5.4 5.4 0 0 1 0 7.6M5.2 5.2a9.6 9.6 0 0 0 0 13.6M18.8 5.2a9.6 9.6 0 0 1 0 13.6"/></svg>',
+    trend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+    grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>',
+    clap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="m3 9 2.5-5 15 2.5-1 2.5"/></svg>',
+    bolt: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
+    mask: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v6a8 8 0 0 1-16 0zm4 5.5a1.5 1.5 0 1 0 0 .01M16 9.5a1.5 1.5 0 1 0 0 .01M8 13c1 2 7 2 8 0"/></svg>',
+    ufo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="13" rx="9" ry="3.5"/><path d="M7 11a5 5 0 0 1 10 0M8 18l-1 3M16 18l1 3M12 17v4"/></svg>',
+    ghost: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zm-3 7.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg>',
+    knife: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 3 6 17l-2 4 4-2L22 5z"/><path d="m12 11 2 2"/></svg>',
+    heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20s-7-4.4-8.8-8.8C2 7.9 4 5 7.2 5c1.9 0 3.2 1 4.8 2.6C13.6 6 14.9 5 16.8 5 20 5 22 7.9 20.8 11.2 19 15.6 12 20 12 20z"/></svg>',
+    smile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2.5 4 2.5 4-2.5 4-2.5M9 9.5h.01M15 9.5h.01"/></svg>',
+    doc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4z" fill="currentColor"/></svg>',
+    more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="9" r="1.8"/><circle cx="12" cy="9" r="1.8"/><circle cx="18" cy="9" r="1.8"/><circle cx="6" cy="15" r="1.8"/><circle cx="12" cy="15" r="1.8"/><circle cx="18" cy="15" r="1.8"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
   };
   const LOGO = `<img class="logo" src="logo-tv.png" alt="TVO">`;
@@ -552,10 +565,15 @@
   const portraitHTML = (m) => {
     const tv = m.type === "tv" || m.type === "channel";
     return `<button class="pcard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
-      <span class="pimg ${tv ? "channel" : ""}">${m.poster || m.background ? `<img src="${esc(m.poster || m.background)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
-        <span class="pplay">${ICON.play}</span><span class="ptitle">${esc(m.name)}</span></span>
-      <span class="pmeta"><b>${m.imdbRating ? "★ " + esc(m.imdbRating) : ""}</b><span>${esc(m.releaseInfo || typeLabel(m.type, false))}</span></span></button>`;
+      <span class="pimg ${tv ? "channel" : ""}">${m.poster || m.background ? `<img src="${esc(m.poster || m.background)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="pfall">${esc(m.name)}</span>`}
+        ${m.imdbRating ? `<span class="rate">★ ${esc(m.imdbRating)}</span>` : tv ? '<span class="rate live">● En direct</span>' : ""}</span>
+      <span class="pname">${esc(m.name)}</span></button>`;
   };
+  const landCard = (m) => `<button class="lcard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+      <span class="limg">${m.background || m.poster ? `<img src="${esc(m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${m.imdbRating ? `<span class="rate">★ ${esc(m.imdbRating)}</span>` : ""}</span>
+      <span class="pname">${esc(m.name)}</span></button>`;
+  const isLandRow = (title) => /^(Nouv|Dernier|Actuellement|Bientôt)/.test(title);
+  const rowIcon = (title) => /tendance|populaire/i.test(title) ? ICON.trend : /^(Nouv|Dernier|Actuellement|Bientôt)/.test(title) ? ICON.doc : /chaîne|sport|jeunesse/i.test(title) ? ICON.live : ICON.movie;
   const header = (title, extra = "") => `<header class="header">${title ? `<h1>${esc(title)}</h1>` : LOGO + '<span class="spacer"></span>'}${extra}</header>`;
   const metaLine = (m) => `<div class="meta-line"><span class="badge">${typeLabel(m.type, false)}</span>
       ${m.releaseInfo ? `<span>${esc(m.releaseInfo)}</span>` : ""}
@@ -569,7 +587,7 @@
     if (el) { const [type, id] = el.dataset.open.split("|"); go(`#/title/${enc(type)}/${enc(id)}`); }
   });
   // Ombre sous l'en-tête au défilement
-  window.addEventListener("scroll", () => { const h = $(".header"); if (h) h.classList.toggle("scrolled", window.scrollY > 4); }, { passive: true });
+  window.addEventListener("scroll", () => { const h = $(".header"); if (h) h.classList.toggle("scrolled", window.scrollY > 4); document.body.classList.toggle("scrolled-bg", window.scrollY > 4); }, { passive: true });
 
   function setTabs(active) {
     if (!active) { tabs.hidden = true; document.body.classList.add("no-tabs"); return; }
@@ -588,6 +606,10 @@
     const h = homeLayout();
     const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
     return rows.filter((r) => !h.hidden.includes(r.key)).sort((a, b) => idx(a.key) - idx(b.key));
+  }
+  function navChips(active) {
+    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live]];
+    return `<nav class="navchips">${items.map(([k, l, i]) => `<a class="nchip ${k === active ? "on" : ""}" href="#/${k}">${i}<span>${l}</span></a>`).join("")}</nav>`;
   }
   function buildRows(type) {
     const rows = [];
@@ -614,8 +636,8 @@
 
   function rowShell(row) {
     const sec = document.createElement("section");
-    sec.className = "section panel";
-    sec.innerHTML = `<h2 class="section-title"><span>${esc(row.title)} <i class="arrow">→</i></span></h2>
+    sec.className = "section";
+    sec.innerHTML = `<h2 class="section-title"><span class="st">${rowIcon(row.title)}${esc(row.title)}</span><a href="#/catalog/${enc(row.key)}">Voir tout →</a></h2>
       <div class="row">${Array.from({ length: 4 }, () => '<div class="pcard"><span class="pimg skeleton"></span></div>').join("")}</div>`;
     return sec;
   }
@@ -627,7 +649,7 @@
       try {
         const list = await catalog(row.a, row.c, row.extra);
         if (!list.length) { en.target.remove(); return; }
-        en.target.querySelector(".row").innerHTML = list.map(portraitHTML).join("");
+        en.target.querySelector(".row").innerHTML = list.map(isLandRow(row.title) ? landCard : portraitHTML).join("");
         onFirst && onFirst(list);
       } catch { en.target.remove(); }
     }), { rootMargin: "400px 0px" });
@@ -702,10 +724,11 @@
   function screenBrowse(type) {
     setTabs(type === "movie" ? "movies" : type === "series" ? "series" : "home");
     const p = S.profile;
-    app.innerHTML = `<header class="header">${MARK}
-      <button class="search-pill" id="pill">${ICON.search}<span>Rechercher${type ? " des " + typeLabel(type).toLowerCase() : ""}…</span></button>
-      <button class="icon-btn" id="settings" aria-label="Réglages" style="background:var(--surface)">${ICON.settings}</button>
+    app.innerHTML = `<header class="header topbar">${LOGO}<span class="spacer"></span>
+      <button class="icon-btn" id="pill" aria-label="Rechercher">${ICON.search}</button>
+      <button class="icon-btn" id="settings" aria-label="Réglages">${ICON.settings}</button>
       <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>
+      ${navChips(type ? (type === "movie" ? "movies" : "series") : "home")}
       <div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
     $("#pill").addEventListener("click", () => go("#/search"));
     $("#settings").addEventListener("click", () => go("#/settings"));
@@ -716,8 +739,8 @@
     const hidden = type ? [] : homeLayout().hidden;
     const cont = continueWatching().filter((x) => !type || x.type === type);
     if (cont.length && !hidden.includes("continue")) {
-      const sec = document.createElement("section"); sec.className = "section panel";
-      sec.innerHTML = `<h2 class="section-title"><span>Continuer à regarder <i class="arrow">→</i></span></h2><div class="row">${cont.map((x) => `
+      const sec = document.createElement("section"); sec.className = "section";
+      sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.play}Continuer à regarder</span></h2><div class="row">${cont.map((x) => `
         <button class="wide" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}">
           <div class="thumb">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}<span class="playdot">${ICON.play}</span><div class="bar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></div></div>
           <div class="title">${esc(x.name)}</div>
@@ -730,15 +753,16 @@
     }
     const lib = S.lib.filter((x) => !type || x.type === type);
     if (lib.length && !hidden.includes("library")) {
-      const sec = document.createElement("section"); sec.className = "section panel";
-      sec.innerHTML = `<h2 class="section-title"><span>Ma liste <i class="arrow">→</i></span><a href="#/list">Tout voir</a></h2><div class="row">${lib.map(portraitHTML).join("")}</div>`;
+      const sec = document.createElement("section"); sec.className = "section";
+      sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.heart}Ma liste</span><a href="#/list">Voir tout →</a></h2><div class="row">${lib.map(portraitHTML).join("")}</div>`;
       rowsEl.appendChild(sec);
     }
     if (!type && !hidden.includes("genres")) {
-      const pal = [["#7C3AED", "#2563EB"], ["#DB2777", "#F97316"], ["#059669", "#22D3EE"], ["#1E3A8A", "#7C3AED"], ["#7F1D1D", "#111827"], ["#0F766E", "#1E293B"], ["#B45309", "#7C2D12"], ["#334155", "#0EA5E9"]];
+      const cats = [["Action", ICON.bolt, "#ef4444"], ["Comedy", ICON.smile, "#f59e0b"], ["Sci-Fi", ICON.ufo, "#8b5cf6"], ["Thriller", ICON.knife, "#14b8a6"],
+        ["Romance", ICON.heart, "#ec4899"], ["Horror", ICON.ghost, "#64748b"], ["Animation", ICON.smile, "#22c55e"], ["Documentary", ICON.doc, "#0ea5e9"]];
       const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span>Explorer par catégorie</span></h2><div class="genres">${HOME_GENRES.map((g, i) =>
-        `<button class="genre" style="background:linear-gradient(135deg, ${pal[i][0]}, ${pal[i][1]})" data-g="${g}">${genreLabel(g)}</button>`).join("")}</div>`;
+      sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.grid}Catégories</span></h2><div class="cats">${cats.map(([g, ic, c]) =>
+        `<button class="cat" style="--c:${c}" data-g="${g}"><span class="ci">${ic}</span><span>${genreLabel(g)}</span></button>`).join("")}</div>`;
       sec.querySelectorAll("[data-g]").forEach((b) => b.addEventListener("click", () => go(`#/genre/movie/${enc(b.dataset.g)}`)));
       rowsEl.appendChild(sec);
     }
@@ -756,27 +780,70 @@
     let i = 0, timer;
     const draw = () => {
       const m = items[i];
-      const badge = m.imdbRating ? "★ " + m.imdbRating : m.releaseInfo;
-      el.innerHTML = `<div class="hero2">
+      el.innerHTML = `<div class="hero3">
         <img class="art" src="${esc(m.background || m.poster)}" alt="">
         <div class="shade"></div>
         <div class="info">
-          <div class="ttl"><h2>${esc(m.name)}</h2>${badge ? `<span class="pill">${esc(badge)}</span>` : ""}</div>
+          ${m.logo ? `<img class="hlogo" src="${esc(m.logo)}" alt="${esc(m.name)}" onerror="this.outerHTML='<h2>${esc(m.name).replace(/'/g, "")}</h2>'">` : `<h2>${esc(m.name)}</h2>`}
+          <div class="hmeta">${m.imdbRating ? `<span class="ybadge">★ ${esc(m.imdbRating)}</span>` : ""}${m.releaseInfo ? `<span>${esc(m.releaseInfo)}</span>` : ""}${m.genres && m.genres[0] ? `<span>${esc(genreLabel(m.genres[0]))}</span>` : ""}</div>
           ${m.description ? `<p>${esc(m.description)}</p>` : ""}
           <div class="actions">
             <button class="btn blue" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play} Regarder</button>
-            <button class="btn outline" id="heroList">${inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste"}</button>
+            <button class="btn outline" id="heroList">${inLib(m.id) ? ICON.check : ICON.plus} Ma liste</button>
           </div>
-        </div>
-        <div class="dots">${items.map((x, k) => `<button class="${k === i ? "on" : ""}" data-k="${k}" aria-label="${esc(x.name)}"></button>`).join("")}</div></div>`;
+          <div class="dots">${items.map((x, k) => `<button class="${k === i ? "on" : ""}" data-k="${k}" aria-label="${esc(x.name)}"></button>`).join("")}</div>
+        </div></div>`;
       $("#heroList").addEventListener("click", (e) => {
-        toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste";
+        toggleLib(m); e.currentTarget.innerHTML = (inLib(m.id) ? ICON.check : ICON.plus) + " Ma liste";
         toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste");
       });
       el.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { i = Number(b.dataset.k); restart(); draw(); }));
     };
+    let x0 = null;
+    el.ontouchstart = (e) => (x0 = e.touches[0].clientX);
+    el.ontouchend = (e) => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) { i = (i + (dx < 0 ? 1 : items.length - 1)) % items.length; restart(); draw(); } x0 = null; };
     const restart = () => { clearInterval(timer); timer = setInterval(() => { if (!document.body.contains(el)) return clearInterval(timer); i = (i + 1) % items.length; draw(); }, 8000); };
     draw(); restart();
+  }
+
+  // Live TV : toutes les catégories de chaînes
+  function screenLive() {
+    setTabs("home");
+    const p = S.profile;
+    app.innerHTML = `<header class="header topbar">${LOGO}<span class="spacer"></span>
+      <button class="icon-btn" id="pill" aria-label="Rechercher">${ICON.search}</button>
+      <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>${navChips("live")}<div id="rows"></div>`;
+    $("#pill").addEventListener("click", () => go("#/search"));
+    $("#who").addEventListener("click", () => go("#/profiles"));
+    const rows = buildRows("tv").concat(buildRows("channel"));
+    if (!rows.length) {
+      $("#rows").innerHTML = `<div class="empty"><h2>Aucune chaîne</h2>Ajoute « Chaînes TV gratuites (France) » dans Réglages › Add-ons › Suggestions.</div>
+        <div class="pad"><button class="btn blue block" id="addLive">${ICON.plus} Ajouter les chaînes gratuites</button></div>`;
+      $("#addLive").addEventListener("click", () => { S.addons.push(FREETV.addon); saveAddons(); cache.clear(); screenLive(); });
+      return;
+    }
+    lazyRows($("#rows"), rows);
+  }
+
+  // « Voir tout » d'une rangée
+  async function screenCatalog(key) {
+    setTabs("home");
+    const row = [...buildRows(null), ...buildRows("movie"), ...buildRows("series")].find((r) => r.key === key);
+    app.innerHTML = header(row ? row.title : "Catalogue", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`)
+      + `<div class="grid" id="g" style="margin-top:8px"></div><div id="more" class="empty small">Chargement…</div>`;
+    if (!row) { $("#more").textContent = "Catalogue introuvable."; return; }
+    const ids = new Set(); let busy = false, end = false;
+    const load = async () => {
+      if (busy || end) return; busy = true;
+      const extra = { ...row.extra }; if (ids.size && catSupports(row.c, "skip")) extra.skip = String(ids.size);
+      let list = []; try { list = await catalog(row.a, row.c, extra); } catch { /* */ }
+      const fresh = list.filter((m) => !ids.has(m.id)); fresh.forEach((m) => ids.add(m.id));
+      $("#g").insertAdjacentHTML("beforeend", fresh.map(portraitHTML).join(""));
+      if (!fresh.length || !catSupports(row.c, "skip")) { end = true; $("#more").textContent = ids.size ? "" : "Rien à afficher."; }
+      busy = false;
+    };
+    new IntersectionObserver((e) => e[0].isIntersecting && load(), { rootMargin: "600px 0px" }).observe($("#more"));
+    load();
   }
 
   function screenList() {
@@ -1286,6 +1353,8 @@
     switch (page) {
       case "home": case "": case undefined: return screenBrowse(null);
       case "movies": return screenBrowse("movie");
+      case "live": return screenLive();
+      case "catalog": return screenCatalog(a);
       case "series": return screenBrowse("series");
       case "list": return screenList();
       case "search": return screenSearch();

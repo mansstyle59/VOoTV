@@ -13,6 +13,9 @@ object FreeTv {
     const val URL = "freetv://fr"
     private const val PLAYLIST = "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_france.m3u8"
 
+    val CATEGORIES = listOf("gen" to "Chaînes généralistes", "info" to "Chaînes d'info", "sport" to "Sport",
+        "kids" to "Jeunesse", "local" to "Chaînes régionales et locales", "other" to "Autres chaînes")
+
     val addon = Addon(URL, AddonManifest(
         id = "tvo.freetv.fr", name = "Chaînes TV gratuites (France)", version = "1",
         description = "Chaînes gratuites et légales en direct (liste Free-TV/IPTV).",
@@ -22,9 +25,6 @@ object FreeTv {
             CatalogDef("tv", "search", "Chaînes TV", listOf(ExtraDef("search", isRequired = true))),
         idPrefixes = listOf("freetv:"),
     ))
-
-    val CATEGORIES = listOf("gen" to "Chaînes généralistes", "info" to "Chaînes d'info", "sport" to "Sport",
-        "kids" to "Jeunesse", "local" to "Chaînes régionales et locales", "other" to "Autres chaînes")
 
     /** Sorts a channel into a category from its name (the playlist has no useful groups). */
     fun categoryOf(name: String): String {
