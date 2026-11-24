@@ -151,11 +151,21 @@
     TV: { Action: 10759, Animation: 16, Comedy: 35, Crime: 80, Documentary: 99, Drama: 18, Family: 10751, Mystery: 9648, "Sci-Fi": 10765, War: 10768, Western: 37 },
   };
   const tmdbKey = () => LS.get("tmdb_key", null);
+  // Relais TVO (clé TMDB gardée sur le serveur) : utilisé quand il n'y a pas de clé personnelle.
+  const TMDB_PROXY = "https://vfxblubjsxwseacmslnu.supabase.co/functions/v1/tvo-tmdb";
+  let proxyOk = LS.get("tmdb_proxy_ok", false);
+  const tmdbOn = () => !!tmdbKey() || proxyOk;
+  async function checkProxy() {
+    try { const r = await fetch(`${TMDB_PROXY}?path=/configuration`); proxyOk = r.ok; } catch { /* hors ligne : garder l'état */ }
+    LS.set("tmdb_proxy_ok", proxyOk); return proxyOk;
+  }
   const tcat = (type, id, name, genres, search) => ({ type, id, name, extraRequired: [], extraSupported: [],
     extra: [...(genres ? [{ name: "genre", isRequired: false, options: Object.keys(genres) }] : []), ...(search ? [{ name: "search", isRequired: false, options: [] }] : []), { name: "skip", isRequired: false, options: [] }] });
   TMDB.addon = { url: TMDB.URL, manifest: { id: "tmdb", name: "TMDB", version: "3", description: "Catalogues, titres et résumés en français",
     types: ["movie", "series"], resources: [{ name: "catalog" }], idPrefixes: null, catalogs: [
+      ...seasonCats(),
       tcat("movie", "latest", "Derniers films sortis"),
+      tcat("movie", "kids", "Films pour enfants"), tcat("series", "kids", "Dessins animés et séries enfants"),
       tcat("movie", "trending", "Films tendance cette semaine"), tcat("series", "trending", "Séries tendance cette semaine"),
       tcat("movie", "popular", "Films populaires", TMDB.MOVIE, true), tcat("series", "popular", "Séries populaires", TMDB.TV, true),
       tcat("movie", "now_playing", "Actuellement au cinéma"), tcat("movie", "upcoming", "Bientôt au cinéma"),
@@ -165,11 +175,16 @@
       tcat("movie", "top_rated", "Films les mieux notés"), tcat("series", "top_rated", "Séries les mieux notées")] } };
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
   function catalogAddons() {
-    if (!tmdbKey()) return S.addons;
+    if (!tmdbOn()) return S.addons;
     return [TMDB.addon, ...S.addons.map((a) => (a.manifest.id === "com.linvo.cinemeta" ? { ...a, manifest: { ...a.manifest, catalogs: [] } } : a))];
   }
   async function tget(path, params = {}, key = tmdbKey()) {
-    if (!key) throw new Error("Clé TMDB manquante");
+    if (!key) {
+      const q = new URLSearchParams({ path, language: "fr-FR", ...params }).toString();
+      const url = `${TMDB_PROXY}?${q}`;
+      if (cache.has(url)) return cache.get(url);
+      const d = await getJson(url, 15000); cache.set(url, d); return d;
+    }
     const bearer = key.startsWith("eyJ");
     const q = new URLSearchParams({ language: "fr-FR", ...params, ...(bearer ? {} : { api_key: key }) }).toString();
     const url = `${TMDB.API}${path}?${q}`;
@@ -179,6 +194,22 @@
     return d;
   }
   const today = () => new Date().toISOString().slice(0, 10);
+  /** Catalogues d'événements selon la date (récents puis classiques). */
+  function seasonCats() {
+    const d = new Date(), mo = d.getMonth() + 1, day = d.getDate();
+    const ev = mo === 12 || (mo === 11 && day >= 15) ? ["christmas", "Noël"] : mo === 10 || (mo === 11 && day <= 2) ? ["halloween", "Halloween"]
+      : mo === 2 && day <= 15 ? ["valentine's day", "Saint-Valentin"] : (mo === 3 && day >= 15) || (mo === 4 && day <= 25) ? ["easter", "Pâques"]
+      : mo === 7 || mo === 8 ? ["summer vacation", "Vacances d'été"] : mo === 1 && day <= 7 ? ["new year's eve", "Nouvel An"] : null;
+    if (!ev) return [];
+    return [tcat("movie", `ev_${ev[0]}_new`, `Films de ${ev[1]} récents`), tcat("movie", `ev_${ev[0]}_old`, `Classiques de ${ev[1]}`)];
+  }
+  const kwCache = {};
+  async function keywordId(q) {
+    if (kwCache[q]) return kwCache[q];
+    const r = await tget("/search/keyword", { query: q });
+    const hit = (r.results || []).find((k) => k.name.toLowerCase() === q) || (r.results || [])[0];
+    return (kwCache[q] = hit ? String(hit.id) : null);
+  }
   const tkind = (t) => (t === "series" ? "tv" : "movie");
   const timg = (p, size) => (p ? TMDB.IMG + size + p : null);
   const rating = (v) => (v > 0 ? v.toFixed(1) : null);
@@ -197,6 +228,11 @@
       : c.id === "trending" ? await tget(`/trending/${k}/week`, { page })
       : c.id === "now_playing" ? await tget("/movie/now_playing", { page, region: "FR" })
       : c.id === "upcoming" ? await tget("/movie/upcoming", { page, region: "FR" })
+      : c.id === "kids" ? await tget(`/discover/${k}`, k === "tv" ? { page, with_genres: "10762", sort_by: "popularity.desc" }
+          : { page, with_genres: "10751", without_genres: "27,53,80", certification_country: "FR", "certification.lte": "U", sort_by: "popularity.desc", "vote_count.gte": "50" })
+      : c.id.startsWith("ev_") ? await (async () => { const [, q, kind] = c.id.split("_"); const kw = await keywordId(q); if (!kw) return { results: [] };
+          return tget("/discover/movie", { page, with_keywords: kw, sort_by: kind === "new" ? "primary_release_date.desc" : "vote_average.desc",
+            "primary_release_date.lte": today(), "vote_count.gte": kind === "new" ? "15" : "200" }); })()
       : c.id === "latest" ? await tget("/discover/movie", { page, region: "FR", sort_by: "primary_release_date.desc", "primary_release_date.lte": today(), "vote_count.gte": "20", with_release_type: "3|4|6" })
       : c.id.startsWith("pv_") ? await (async () => { const [, pid, sort] = c.id.split("_");
           return tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate",
@@ -257,6 +293,7 @@
           return { ...v, title: name || "Épisode " + (v.episode ?? ""), overview: e.overview || null, thumbnail: timg(e.still_path, "w300") || v.thumbnail, released: v.released || e.air_date || null };
         });
       }
+      m.tmdbId = String(tid); m.tmdbKind = k;
       m.episodes = m.videos.filter((v) => v.season != null).sort((x, y) => ((x.season || 1e9) - (y.season || 1e9)) || ((x.episode || 0) - (y.episode || 0)));
       return m;
     } catch { return base; }
@@ -478,7 +515,7 @@
     const tmdbId = id.startsWith("tmdb:") ? id.split(":")[2] : null;
     const realId = tmdbId ? (await tmdbImdb(id)) || id : id;
     let m = metaCache.get(type + "/" + realId) || (realId.startsWith("tmdb:") ? null : await addonMeta(type, realId));
-    if (tmdbKey()) m = await tmdbEnrich(type, realId.startsWith("tt") ? realId : null, tmdbId, m);
+    if (tmdbOn()) m = await tmdbEnrich(type, realId.startsWith("tt") ? realId : null, tmdbId, m);
     if (m) { metaCache.set(k, m); metaCache.set(type + "/" + m.id, m); }
     return m;
   }
@@ -681,7 +718,7 @@
     if (!active) { tabs.hidden = true; document.body.classList.add("no-tabs"); return; }
     document.body.classList.remove("no-tabs");
     tabs.hidden = false;
-    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart]];
+    const items = [["home", "Accueil", ICON.home], ["discover", "Découvrir", ICON.search], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings]];
     tabs.innerHTML = items.map(([k, l, i]) => `<button class="tab ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("");
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
       if (location.hash === "#/" + b.dataset.tab) window.scrollTo({ top: 0, behavior: "smooth" }); else go("#/" + b.dataset.tab);
@@ -822,7 +859,11 @@
   function screenBrowse(type) {
     setTabs(type === "movie" ? "movies" : type === "series" ? "series" : "home");
     const p = S.profile;
-    app.innerHTML = topBar(type ? typeLabel(type) : "") + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
+    app.innerHTML = (type ? topBar(typeLabel(type)) : `<header class="header homebar">
+        <button data-go="#/profiles" aria-label="Changer de profil">${avatar(p, "sm")}</button>
+        <h1>Tendances pour toi</h1>
+        <button class="icon-btn round" data-go="#/discover" aria-label="Rechercher">${ICON.search}</button></header>`)
+      + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
     showUpdateBanner($("#upd"));
     const rowsEl = $("#rows");
 
@@ -830,7 +871,7 @@
     const cont = continueWatching().filter((x) => !type || x.type === type);
     if (cont.length && !hidden.includes("continue")) {
       const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.play}Continuer à regarder</span></h2><div class="row">${cont.map((x) => `
+      sec.innerHTML = `<h2 class="section-title"><span class="st plain">Continuer à regarder</span><a href="#/list">Voir tout</a></h2><div class="row">${cont.map((x) => `
         <button class="wide" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}">
           <div class="thumb">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}<span class="playdot">${ICON.play}</span><div class="bar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></div></div>
           <div class="title">${esc(x.name)}</div>
@@ -847,7 +888,7 @@
       sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.heart}Ma liste</span><a href="#/list">Voir tout →</a></h2><div class="row">${lib.map(portraitHTML).join("")}</div>`;
       rowsEl.appendChild(sec);
     }
-    if (!type && !hidden.includes("genres")) {
+    if (false && !type && !hidden.includes("genres")) {
       const cats = [["Action", ICON.bolt, "#ef4444"], ["Comedy", ICON.smile, "#f59e0b"], ["Sci-Fi", ICON.ufo, "#8b5cf6"], ["Thriller", ICON.knife, "#14b8a6"],
         ["Romance", ICON.heart, "#ec4899"], ["Horror", ICON.ghost, "#64748b"], ["Animation", ICON.smile, "#22c55e"], ["Documentary", ICON.doc, "#0ea5e9"]];
       const sec = document.createElement("section"); sec.className = "section";
@@ -865,7 +906,7 @@
     let heroDone = false;
     lazyRows(rowsEl, rows, (list) => {
       if (heroDone) return; heroDone = true;
-      if (list.length) renderHero($("#hero"), list);
+      if (list.length) (type ? renderHero : renderCarousel)($("#hero"), list);
     });
   }
 
@@ -920,11 +961,39 @@
     setTabs("home");
     const pr = PROVIDERS.find((x) => x[0] === pid) || [pid, "Plateforme", "#2f5bff"];
     app.innerHTML = header(pr[1], `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `<div id="rows"></div>`;
-    if (!tmdbKey()) { $("#rows").innerHTML = `<div class="empty"><h2>Clé TMDB nécessaire</h2>Ajoute ta clé TMDB dans Réglages pour voir les catalogues par plateforme.</div>`; return; }
+    if (!tmdbOn()) { $("#rows").innerHTML = `<div class="empty"><h2>Clé TMDB nécessaire</h2>Ajoute ta clé TMDB dans Réglages pour voir les catalogues par plateforme.</div>`; return; }
     const mk = (type, id, name, sort) => ({ key: `prov|${pid}|${type}|${id}`, title: name, a: TMDB.addon,
       c: { type, id: `pv_${pid}_${sort}`, name, extra: [{ name: "skip", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }, extra: {} });
     lazyRows($("#rows"), [mk("movie", "new", "Nouveaux films", "new"), mk("series", "new", "Nouvelles séries", "new"),
       mk("movie", "pop", "Films populaires", "pop"), mk("series", "pop", "Séries populaires", "pop"), mk("movie", "top", "Films les mieux notés", "top"), mk("series", "top", "Séries les mieux notées", "top")]);
+  }
+
+  /** Carrousel « Tendances pour toi » : grande affiche au centre. */
+  function renderCarousel(el, list) {
+    const items = list.filter((m) => m.poster).slice(0, 10);
+    el.innerHTML = `<div class="carousel" id="car">${items.map((m) => `<button class="cslide" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+      <img src="${esc(m.poster)}" alt="" loading="lazy"><span class="cmeta"><b>${esc(m.name)}</b><span>${[m.releaseInfo, m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</span></span></button>`).join("")}</div>`;
+    const car = $("#car");
+    const io = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("center", e.intersectionRatio > 0.75)), { root: car, threshold: [0, 0.75, 1] });
+    car.querySelectorAll(".cslide").forEach((x) => io.observe(x));
+    requestAnimationFrame(() => { const second = car.children[1]; if (second) car.scrollLeft = second.offsetLeft - (car.clientWidth - second.clientWidth) / 2; });
+  }
+
+  /** Découvrir : recherche + Films / Séries + catégories + plateformes. */
+  function screenDiscover() {
+    setTabs("discover");
+    app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur, chaîne…</span></button></div>
+      <div class="disc-grid pad">
+        <a class="disc" href="#/movies">${ICON.clap}<b>Films</b></a><a class="disc" href="#/series">${ICON.series}<b>Séries</b></a>
+        <a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a><a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a></div>
+      <div id="rows"></div>`;
+    const rowsEl = $("#rows");
+    const cats = [["Action", ICON.bolt, "#ef4444"], ["Comedy", ICON.smile, "#f59e0b"], ["Sci-Fi", ICON.ufo, "#8b5cf6"], ["Thriller", ICON.knife, "#14b8a6"],
+      ["Romance", ICON.heart, "#ec4899"], ["Horror", ICON.ghost, "#64748b"], ["Animation", ICON.smile, "#22c55e"], ["Documentary", ICON.doc, "#0ea5e9"]];
+    rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories</span></h2><div class="cats">${cats.map(([g, ic, c]) =>
+      `<a class="cat" style="--c:${c}" href="#/genre/movie/${enc(g)}"><span class="ci">${ic}</span><span>${genreLabel(g)}</span></a>`).join("")}</div></section>
+      <section class="section"><h2 class="section-title"><span class="st plain">Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
+      `<a class="prov" style="--c:${c}" href="#/provider/${id}">${esc(n)}</a>`).join("")}</div></section>`;
   }
 
   // Live TV : toutes les catégories de chaînes
@@ -1042,72 +1111,93 @@
     return { vid: next.id, prog: S.prog.find((p) => p.videoId === next.id) };
   }
 
+  const stars = (r) => { const n = Math.round((parseFloat(r) || 0) / 2); return n ? "★".repeat(n) + "☆".repeat(5 - n) : ""; };
   async function screenTitle(type, id) {
     setTabs(null);
-    app.innerHTML = `<div class="detail-top"><div class="backdrop skeleton"></div></div><div class="empty">Chargement…</div>`;
+    app.innerHTML = `<div class="dt-hero skeleton"></div><div class="empty">Chargement…</div>`;
     const m = await meta(type, id);
     if (!m) { app.innerHTML = header("", `<button class="icon-btn" onclick="history.back()">${ICON.back}</button>`) + `<div class="empty"><h2>Fiche introuvable</h2>Aucun add-on n'a pu fournir ce titre.</div>`; return; }
     const { vid, prog } = resumeTarget(m);
     const tv = m.videos.find((v) => v.id === vid);
     const started = prog && !finished(prog) && fraction(prog) > 0.02;
-    const label = started ? (tv && tv.season != null ? `Reprendre S${tv.season} : É${tv.episode}` : "Reprendre")
-      : (tv && tv.season != null ? `Lecture S${tv.season} : É${tv.episode}` : "Lecture");
+    const label = started ? (tv && tv.season != null ? `Reprendre · É${tv.episode}` : "Reprendre")
+      : (tv && tv.season != null ? `Lecture · S${tv.season} É${tv.episode}` : "Lecture");
     const seasons = [...new Set(m.episodes.map((e) => e.season))];
     let season = tv && tv.season != null ? tv.season : seasons[0];
+    const tabsDef = [...(seasons.length ? [["eps", "Épisodes"]] : []), ...(m.people && m.people.length ? [["cast", "Distribution"]] : []),
+      ...(m.tmdbId ? [["sim", "Similaires"]] : []), ["info", "Infos"]];
+    let tab = tabsDef[0][0];
+    const metaRow = [m.releaseInfo, m.imdbRating ? `<span class="stars">${stars(m.imdbRating)}</span>` : "", m.genres && m.genres[0] ? esc(genreLabel(m.genres[0])) : "", m.runtime ? esc(m.runtime) : ""]
+      .filter(Boolean).join('<i class="sep"></i>');
 
     app.innerHTML = `
-      <div class="detail-top">
-        <button class="icon-btn floating-back" onclick="history.back()" aria-label="Retour">${ICON.back}</button>
-        <img class="backdrop" src="${esc(m.background || m.poster || "")}" alt="">
+      <div class="dt-hero">
+        <img src="${esc(m.background || m.poster || "")}" alt="">
         <div class="shade"></div>
+        <button class="icon-btn round floating-back" onclick="history.back()" aria-label="Retour">${ICON.back}</button>
       </div>
-      <div class="detail-body">
-        ${m.logo ? `<img class="logo-img" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h1>${esc(m.name)}</h1>`}
-        ${metaLine(m)}
-        <div class="detail-actions">
-          <button class="btn primary block" id="play">${ICON.play} ${esc(label)}</button>
-          ${started ? `<div class="small muted">Il reste ${Math.max(1, Math.round((prog.duration - prog.position) / 60000))} min</div>` : ""}
-          <div class="two"><button class="btn" id="lib">${inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste"}</button>
-          <button class="btn" id="share">Partager</button></div>
+      <div class="dt-body">
+        ${m.logo ? `<img class="dt-logo" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h1>${esc(m.name)}</h1>`}
+        <div class="dt-meta">${metaRow}</div>
+        ${m.description ? `<p class="dt-desc clamp" id="desc">${esc(m.description)}</p>` : !tmdbOn() ? `<p class="dt-desc small" style="color:var(--cyan)">Résumé en français indisponible pour l'instant.</p>` : ""}
+        <button class="btn pill block" id="play">${ICON.play} ${esc(label)}</button>
+        ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
+        <div class="dt-actions">
+          <button id="lib">${inLib(m.id) ? ICON.check : ICON.plus}<span>Ma liste</span></button>
+          <button id="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg><span>Partager</span></button>
         </div>
-        ${m.description ? `<div class="desc ${m.description.length > 180 ? "clamp" : ""}" id="desc">${esc(m.description)}</div>${m.description.length > 180 ? '<button class="more" id="moreDesc">Lire la suite</button>' : ""}` : ""}
-        ${!m.description && !tmdbKey() ? `<div class="small" style="color:var(--cyan);margin-top:8px">Ajoute ta clé TMDB (Réglages) pour les résumés en français.</div>` : ""}
-        ${m.people && m.people.length ? "" : m.cast.length ? `<div class="people">Avec : ${m.cast.map(esc).join(", ")}</div>` : ""}
-        ${m.director.length ? `<div class="people">Réalisation : ${m.director.map(esc).join(", ")}</div>` : ""}
       </div>
-      ${m.people && m.people.length ? `<section class="section"><h2 class="section-title"><span class="st">${ICON.series}Distribution</span></h2>
-        <div class="row people-row">${m.people.map((pp) => `<a class="bubble" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
-          <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div></section>` : ""}
-      ${seasons.length ? `<section class="section"><div class="chips" id="seasons"></div><div class="episodes" id="eps" style="margin-top:14px"></div></section>` : ""}`;
+      <div class="dt-tabs" id="dtTabs"></div>
+      <div id="dtPane"></div>`;
+
+    const drawTabs = () => {
+      $("#dtTabs").innerHTML = tabsDef.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-t="${k}">${l}</button>`).join("");
+      $("#dtTabs").querySelectorAll("[data-t]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.t; drawTabs(); drawPane(); }));
+    };
+    const drawPane = async () => {
+      const pane = $("#dtPane");
+      if (tab === "eps") {
+        pane.innerHTML = `<div class="snum">${seasons.map((x) => `<button class="${x === season ? "on" : ""}" data-s="${x}">${x === 0 ? "Bonus" : String(x).padStart(2, "0")}</button>`).join("")}</div>
+          <h3 class="pane-t">${season === 0 ? "Bonus" : "Saison " + season} · ${m.episodes.filter((e) => e.season === season).length} épisodes</h3>
+          <div class="eplist">${m.episodes.filter((e) => e.season === season).map((e) => {
+            const p = S.prog.find((x) => x.videoId === e.id);
+            return `<button class="ep" data-v="${esc(e.id)}"><span class="th">${e.thumbnail || m.background ? `<img src="${esc(e.thumbnail || m.background)}" alt="" loading="lazy">` : ""}
+                <span class="pl">${ICON.play}</span>${p ? `<span class="bar"><i style="width:${Math.round(fraction(p) * 100)}%"></i></span>` : ""}</span>
+              <span class="tx"><b>${e.episode ?? "?"}. ${esc(e.title || "Épisode " + (e.episode ?? ""))}</b>
+                <small>${p && finished(p) ? "Vu · " : ""}${e.released ? new Date(e.released).toLocaleDateString("fr-FR") : ""}</small>
+                ${e.overview ? `<span class="ov">${esc(e.overview)}</span>` : ""}</span></button>`;
+          }).join("")}</div>`;
+        pane.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => { season = Number(b.dataset.s); drawPane(); }));
+        pane.querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(b.dataset.v)}`)));
+        const on = pane.querySelector(".snum .on"); if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
+      } else if (tab === "cast") {
+        pane.innerHTML = `<div class="castgrid">${m.people.map((pp) => `<a class="bubble" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
+          <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div>`;
+      } else if (tab === "sim") {
+        pane.innerHTML = `<div class="empty small">Chargement…</div>`;
+        try {
+          const r = await tget(`/${m.tmdbKind}/${m.tmdbId}/recommendations`);
+          const list = (r.results || []).map((o) => tpreview(o, m.tmdbKind === "tv" ? "series" : "movie")).filter((x) => x && x.poster);
+          pane.innerHTML = list.length ? `<div class="grid">${list.map(portraitHTML).join("")}</div>` : `<div class="empty small">Aucune suggestion.</div>`;
+        } catch { pane.innerHTML = `<div class="empty small">Suggestions indisponibles.</div>`; }
+      } else {
+        pane.innerHTML = `<div class="list"><div class="card info">
+          ${m.genres && m.genres.length ? `<p><b>Genres</b>${m.genres.map(genreLabel).map(esc).join(", ")}</p>` : ""}
+          ${m.director && m.director.length ? `<p><b>Réalisation</b>${m.director.map(esc).join(", ")}</p>` : ""}
+          ${m.cast && m.cast.length ? `<p><b>Avec</b>${m.cast.map(esc).join(", ")}</p>` : ""}
+          ${m.releaseInfo ? `<p><b>Année</b>${esc(m.releaseInfo)}</p>` : ""}${m.runtime ? `<p><b>Durée</b>${esc(m.runtime)}</p>` : ""}
+          ${m.imdbRating ? `<p><b>Note</b>${esc(m.imdbRating)} / 10</p>` : ""}</div></div>`;
+      }
+    };
+    drawTabs(); drawPane();
 
     $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
-    $("#lib").addEventListener("click", (e) => { toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste"; });
+    $("#lib").addEventListener("click", (e) => { toggleLib(m); e.currentTarget.innerHTML = (inLib(m.id) ? ICON.check : ICON.plus) + "<span>Ma liste</span>"; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); });
     $("#share").addEventListener("click", async () => {
       const text = `${m.name}${m.releaseInfo ? " (" + m.releaseInfo + ")" : ""} — à regarder sur TVO`;
       try { if (navigator.share) await navigator.share({ title: m.name, text }); else { await navigator.clipboard.writeText(text); toast("Copié"); } } catch { /* annulé */ }
     });
-    const md = $("#moreDesc");
-    if (md) md.addEventListener("click", () => { $("#desc").classList.toggle("clamp"); md.textContent = $("#desc").classList.contains("clamp") ? "Lire la suite" : "Réduire"; });
-
-    if (seasons.length) {
-      const drawSeasons = () => {
-        $("#seasons").innerHTML = seasons.map((s) => `<button class="chip ${s === season ? "on" : ""}" data-s="${s}">${s === 0 ? "Bonus" : "Saison " + s}</button>`).join("");
-        $("#seasons").querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => { season = Number(b.dataset.s); drawSeasons(); drawEps(); }));
-      };
-      const drawEps = () => {
-        $("#eps").innerHTML = m.episodes.filter((e) => e.season === season).map((e) => {
-          const p = S.prog.find((x) => x.videoId === e.id);
-          return `<button class="episode" data-v="${esc(e.id)}">
-            <div class="thumb">${e.thumbnail || m.background ? `<img src="${esc(e.thumbnail || m.background)}" alt="" loading="lazy">` : ""}
-              ${p && finished(p) ? '<span class="seen">VU</span>' : ""}${p && !finished(p) ? `<div class="bar"><i style="width:${Math.round(fraction(p) * 100)}%"></i></div>` : ""}</div>
-            <div><h3>${e.episode ?? "?"}. ${esc(e.title || "Épisode " + (e.episode ?? ""))}</h3>
-              ${e.released ? `<div class="small muted">${new Date(e.released).toLocaleDateString("fr-FR")}</div>` : ""}
-              ${e.overview ? `<p>${esc(e.overview)}</p>` : ""}</div></button>`;
-        }).join("");
-        $("#eps").querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(b.dataset.v)}`)));
-      };
-      drawSeasons(); drawEps();
-    }
+    const d = $("#desc"); if (d) d.addEventListener("click", () => d.classList.toggle("clamp"));
   }
 
   async function screenSources(type, metaId, videoId) {
@@ -1540,6 +1630,7 @@
       case "home": case "": case undefined: return screenBrowse(null);
       case "movies": return screenBrowse("movie");
       case "live": return screenLive();
+      case "discover": return screenDiscover();
       case "person": return screenPerson(a);
       case "provider": return screenProvider(a);
       case "catalog": return screenCatalog(a);
@@ -1571,6 +1662,8 @@
   });
   if (!location.hash || location.hash === "#/home") location.hash = S.profile ? "#/home" : "#/profiles";
   route();
+  const wasOn = proxyOk;
+  checkProxy().then((ok) => { if (ok !== wasOn && $("#player").hidden) { cache.clear(); route(); } });
   syncNow().then((ch) => { if (ch && $("#player").hidden) route(); }).finally(() => refreshAddons());
   setInterval(() => document.hidden || syncNow(), 120000);
   // À l'ouverture : télécharge la nouvelle version et l'applique tout de suite (hors lecture vidéo).

@@ -34,7 +34,10 @@ object Tmdb {
         id = "tmdb", name = "TMDB", version = "3", description = "Catalogues, titres et résumés en français",
         types = listOf("movie", "series"), resources = listOf(AddonResource("catalog")),
         catalogs = listOf(
+            *seasonCats().toTypedArray(),
             cat("movie", "latest", "Derniers films sortis"),
+            cat("movie", "kids", "Films pour enfants"),
+            cat("series", "kids", "Dessins animés et séries enfants"),
             cat("movie", "trending", "Films tendance cette semaine"),
             cat("series", "trending", "Séries tendance cette semaine"),
             cat("movie", "popular", "Films populaires", MOVIE_GENRES.keys, search = true),
@@ -53,20 +56,54 @@ object Tmdb {
         ),
     ))
 
+    /** Catalogues d'événements selon la date : récents puis classiques. */
+    private fun seasonCats(): List<CatalogDef> {
+        val d = java.time.LocalDate.now(); val m = d.monthValue; val day = d.dayOfMonth
+        val ev = when {
+            m == 12 || (m == 11 && day >= 15) -> "christmas" to "Noël"
+            m == 10 || (m == 11 && day <= 2) -> "halloween" to "Halloween"
+            m == 2 && day <= 15 -> "valentine's day" to "Saint-Valentin"
+            (m == 3 && day >= 15) || (m == 4 && day <= 25) -> "easter" to "Pâques"
+            m == 7 || m == 8 -> "summer vacation" to "Vacances d'été"
+            m == 1 && day <= 7 -> "new year's eve" to "Nouvel An"
+            else -> null
+        } ?: return emptyList()
+        return listOf(cat("movie", "ev_${ev.first}_new", "Films de ${ev.second} récents"), cat("movie", "ev_${ev.first}_old", "Classiques de ${ev.second}"))
+    }
+    private val kw = ConcurrentHashMap<String, String>()
+    private suspend fun keywordId(q: String): String? = kw[q] ?: runCatching {
+        val r = get("/search/keyword", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject } ?: emptyList()
+        (r.firstOrNull { it.s("name")?.lowercase() == q } ?: r.firstOrNull())?.i("id")?.toString()
+    }.getOrNull()?.also { kw[q] = it }
+
     private val key: String? get() = Tvo.store.tmdbKey.value?.takeIf { it.isNotBlank() }
-    val enabled: Boolean get() = key != null
+    /** Relais TVO : la clé TMDB reste sur le serveur (jamais dans l'appli). */
+    private const val PROXY = "https://vfxblubjsxwseacmslnu.supabase.co/functions/v1/tvo-tmdb"
+    @Volatile var proxyOk: Boolean = false
+    val enabled: Boolean get() = key != null || proxyOk
+
+    suspend fun checkProxy(): Boolean {
+        proxyOk = runCatching { Tvo.client.getJson("$PROXY?path=/configuration"); true }.getOrDefault(false)
+        return proxyOk
+    }
     private val cache = ConcurrentHashMap<String, JsonObject>()
 
     /** Add-ons as seen by catalogs: TMDB first, Cinemeta catalogs hidden (Cinemeta still provides episodes). */
     fun withTmdb(addons: List<Addon>, tmdbKey: String?): List<Addon> {
-        if (tmdbKey.isNullOrBlank()) return addons
+        if (tmdbKey.isNullOrBlank() && !proxyOk) return addons
         return listOf(addon) + addons.map {
             if (it.manifest.id == "com.linvo.cinemeta") it.copy(manifest = it.manifest.copy(catalogs = emptyList())) else it
         }
     }
 
     private suspend fun get(path: String, params: Map<String, String> = emptyMap(), k: String? = key): JsonObject {
-        val kk = k ?: throw IllegalStateException("Clé TMDB manquante")
+        if (k == null) {
+            val q = (mapOf("path" to path, "language" to "fr-FR") + params).entries.joinToString("&") { "${it.key}=${enc(it.value)}" }
+            val url = "$PROXY?$q"
+            cache[url]?.let { return it }
+            return Tvo.client.getJson(url).also { cache[url] = it }
+        }
+        val kk = k
         val bearer = kk.startsWith("eyJ")
         val q = (params + ("language" to (params["language"] ?: "fr-FR")) + (if (bearer) emptyMap() else mapOf("api_key" to kk)))
             .entries.joinToString("&") { "${it.key}=${enc(it.value)}" }
@@ -112,6 +149,14 @@ object Tmdb {
             cat.id == "trending" -> get("/trending/$k/week", mapOf("page" to page))
             cat.id == "now_playing" -> get("/movie/now_playing", mapOf("page" to page, "region" to "FR"))
             cat.id == "upcoming" -> get("/movie/upcoming", mapOf("page" to page, "region" to "FR"))
+            cat.id == "kids" -> get("/discover/$k", if (k == "tv") mapOf("page" to page, "with_genres" to "10762", "sort_by" to "popularity.desc")
+                else mapOf("page" to page, "with_genres" to "10751", "without_genres" to "27,53,80", "certification_country" to "FR", "certification.lte" to "U", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
+            cat.id.startsWith("ev_") -> {
+                val parts = cat.id.split("_"); val id = keywordId(parts[1])
+                if (id == null) JsonObject(emptyMap()) else get("/discover/movie", mapOf("page" to page, "with_keywords" to id,
+                    "sort_by" to if (parts[2] == "new") "primary_release_date.desc" else "vote_average.desc",
+                    "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to if (parts[2] == "new") "15" else "200"))
+            }
             cat.id == "latest" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "primary_release_date.desc",
                 "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20", "with_release_type" to "3|4|6"))
             cat.id.startsWith("prov_") -> get("/discover/$k", mapOf("page" to page, "watch_region" to "FR",
