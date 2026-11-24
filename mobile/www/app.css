@@ -1269,3 +1269,20 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .tv-hint { display: grid; gap: 8px; margin-bottom: 14px; border-color: rgba(143,194,255,.45) !important; }
 .tv-hint b.big { font-size: 22px; letter-spacing: .1em; color: #8fc2ff; }
 .tv-code { text-align: center; font-size: 26px !important; letter-spacing: .3em; }
+
+/* Connexion de la télé (QR code / code) */
+.tvl { min-height: 100vh; display: grid; place-content: center; gap: 28px; padding: 40px; justify-items: center; }
+.tvl-logo svg { height: 64px; width: auto; }
+.tvl-main { display: grid; grid-template-columns: auto minmax(0, 520px); gap: 44px; align-items: center; padding: 32px 40px; border-radius: 28px;
+  background: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.03)); border: 1px solid rgba(255,255,255,.14); }
+.tvl-qr { width: 260px; min-height: 260px; display: grid; justify-items: center; align-content: center; gap: 10px; padding: 14px; border-radius: 20px; background: #fff; color: #0a0f1e; text-align: center; }
+.tvl-qr svg { width: 232px; height: 232px; display: block; }
+.tvl-num { font-size: 22px; font-weight: 800; letter-spacing: .12em; color: #0a0f1e; }
+.tvl-txt h1 { margin: 0 0 12px; font-size: 34px; letter-spacing: -.02em; }
+.tvl-txt ol { margin: 0 0 22px; padding-left: 22px; display: grid; gap: 10px; font-size: 17px; line-height: 1.45; color: #dfe6ff; }
+.tvl-btns { display: flex; gap: 12px; }
+.tvl-btns .btn { margin: 0; min-width: 170px; }
+.tvl-btns .btn:focus-visible, .tvl-link:focus-visible, #tvlGo:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.tvl-codebox { display: grid; gap: 10px; margin-top: 18px; }
+.tvl-link { margin-top: 18px; padding: 6px 0; border: 0; background: none; color: #8fc2ff; font: inherit; font-size: 14px; cursor: pointer; }
+@media (max-width: 800px) { .tvl-main { grid-template-columns: 1fr; justify-items: center; text-align: left; } }
