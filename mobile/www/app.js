@@ -198,10 +198,22 @@
       : c.id === "now_playing" ? await tget("/movie/now_playing", { page, region: "FR" })
       : c.id === "upcoming" ? await tget("/movie/upcoming", { page, region: "FR" })
       : c.id === "latest" ? await tget("/discover/movie", { page, region: "FR", sort_by: "primary_release_date.desc", "primary_release_date.lte": today(), "vote_count.gte": "20", with_release_type: "3|4|6" })
+      : c.id.startsWith("pv_") ? await (async () => { const [, pid, sort] = c.id.split("_");
+          return tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate",
+            sort_by: sort === "new" ? (k === "tv" ? "first_air_date.desc" : "primary_release_date.desc") : sort === "top" ? "vote_average.desc" : "popularity.desc",
+            [k === "tv" ? "first_air_date.lte" : "primary_release_date.lte"]: today(), "vote_count.gte": sort === "top" ? "200" : "5" }); })()
       : c.id.startsWith("prov_") ? await tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: c.id.slice(5), with_watch_monetization_types: "flatrate",
           sort_by: k === "tv" ? "first_air_date.desc" : "primary_release_date.desc", [k === "tv" ? "first_air_date.lte" : "primary_release_date.lte"]: today(), "vote_count.gte": "5" })
       : await tget(`/${k}/${c.id}`, { page });
     return (d.results || []).map((o) => tpreview(o, c.type)).filter(Boolean);
+  }
+  async function tmdbPerson(id) {
+    const d = await tget(`/person/${id}`, { append_to_response: "combined_credits" });
+    const cc = d.combined_credits || {}; const seen = new Set();
+    const works = [...(cc.cast || []), ...(cc.crew || [])].filter((o) => o.media_type === "movie" || (o.media_type === "tv" && !(o.episode_count < 2) && !/self/i.test(o.character || "")))
+      .sort((x, y) => (y.popularity || 0) - (x.popularity || 0))
+      .map((o) => tpreview(o, o.media_type === "tv" ? "series" : "movie")).filter((m) => m && m.poster && !seen.has(m.id) && seen.add(m.id));
+    return { name: d.name, photo: timg(d.profile_path, "w342"), bio: d.biography || "", works };
   }
   async function tmdbImdb(id) {
     const [, type, tid] = id.split(":");
@@ -225,11 +237,12 @@
       const m = {
         id: imdb || b.id || `tmdb:${type}:${tid}`, type, name: d.title || d.name || b.name || "",
         poster: timg(d.poster_path, "w500") || b.poster || null, background: timg(d.backdrop_path, "w1280") || b.background || null,
-        logo: timg(logo, "w500") || b.logo || null, description: d.overview || b.description || null,
+        logo: timg(logo, "w500") || b.logo || null, description: d.overview || null,
         releaseInfo: b.releaseInfo || date.slice(0, 4) || null, imdbRating: b.imdbRating || rating(d.vote_average),
         genres: (d.genres || []).map((g) => g.name).filter(Boolean).length ? d.genres.map((g) => g.name) : (b.genres || []),
         runtime: d.runtime ? d.runtime + " min" : (d.episode_run_time && d.episode_run_time[0] ? d.episode_run_time[0] + " min" : b.runtime || null),
         cast: ((d.credits && d.credits.cast) || []).slice(0, 6).map((c) => c.name).filter(Boolean),
+        people: ((d.credits && d.credits.cast) || []).slice(0, 15).map((c) => ({ id: String(c.id), name: c.name, photo: timg(c.profile_path, "w185"), role: c.character || null })),
         director: b.director || [], defaultVideoId: b.defaultVideoId || null, videos: b.videos || [],
       };
       if (!m.cast.length) m.cast = b.cast || [];
@@ -241,7 +254,7 @@
         m.videos = m.videos.map((v) => {
           const e = by[`${v.season}:${v.episode}`]; if (!e) return v;
           const name = e.name && !/^[ÉE]pisode \d+$/.test(e.name) ? e.name : null;
-          return { ...v, title: name || v.title, overview: e.overview || v.overview, thumbnail: timg(e.still_path, "w300") || v.thumbnail, released: v.released || e.air_date || null };
+          return { ...v, title: name || "Épisode " + (v.episode ?? ""), overview: e.overview || null, thumbnail: timg(e.still_path, "w300") || v.thumbnail, released: v.released || e.air_date || null };
         });
       }
       m.episodes = m.videos.filter((v) => v.season != null).sort((x, y) => ((x.season || 1e9) - (y.season || 1e9)) || ((x.episode || 0) - (y.episode || 0)));
@@ -260,7 +273,7 @@
   FREETV.addon.manifest.catalogs = [...FREETV.CATS.map(([id, name]) => ({ type: "tv", id, name, extra: [], extraRequired: [], extraSupported: [] })),
     { type: "tv", id: "search", name: "Chaînes TV", extra: [{ name: "search", isRequired: true, options: [] }], extraRequired: [], extraSupported: [] }];
   function chanCategory(name) {
-    const n = name.toLowerCase();
+    const n = name.toLowerCase().replace(/^\d+\s*[-.:]?\s*/, "");
     if (/info|news|24|bfm|lci|cnews|lcp|sénat|senat|cgtn|euronews|africanews|inter/.test(n)) return "info";
     if (/sport|équipe|equipe/.test(n)) return "sport";
     if (/gulli|kids|junior|toon|enfant/.test(n)) return "kids";
@@ -303,7 +316,7 @@
       url: direct ? c.url : null, externalUrl: direct ? null : c.url, infoHash: null, headers: {}, needsHeaders: false, subtitles: [], bingeGroup: null, quality: 0 }];
   }
   const SUGGESTIONS = [
-    [FREETV.URL, "Chaînes TV gratuites (France)", "Arte, France 24, chaînes d'info… en direct", "Chaînes TV"],
+    ["m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV (abonnés Free)", "Toutes les chaînes de ta Freebox. Uniquement connecté à la Freebox (Wi-Fi ou câble).", "Chaînes TV"],
     ["https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube favorites", "Chaînes TV"],
     ["https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "The Movie Database Addon", "Catalogues TMDB (configurable en français)", "Catalogues"],
     ["https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Ce qui est sur Netflix, Prime, Disney+…", "Catalogues"],
@@ -319,6 +332,75 @@
     if (res.includes("catalog") || res.includes("meta")) return "Catalogues";
     if (res.includes("subtitles")) return "Sous-titres";
     return "Autres";
+  }
+
+
+  // ------------------------------------------------------------------ listes M3U de l'utilisateur (chaînes + logos)
+  const M3U = { P: "m3u:", lists: new Map() };
+  const isM3u = (s) => String(s).startsWith(M3U.P) || /\.m3u8?(\?|$)|get\.php|type=m3u/i.test(String(s).trim());
+  const m3uHash = (u) => { let h = 0; for (const ch of u) h = (h * 31 + ch.charCodeAt(0)) | 0; return (h >>> 0).toString(16); };
+  const slugify = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  function parseM3u(txt, h) {
+    const out = []; let info = null; let hdr = {}; const seen = new Set();
+    txt.split(/\r?\n/).forEach((l) => {
+      l = l.trim();
+      if (l.startsWith("#EXTINF")) { info = l; hdr = {}; }
+      else if (l.startsWith("#EXTVLCOPT:http-user-agent=")) hdr["User-Agent"] = l.split("=").slice(1).join("=");
+      else if (l.startsWith("#EXTVLCOPT:http-referrer=")) hdr.Referer = l.split("=").slice(1).join("=");
+      else if (l && !l.startsWith("#") && info) {
+        const attr = (n) => ((info.match(new RegExp(n + '="([^"]*)"')) || [])[1] || "").trim() || null;
+        const raw = (info.slice(info.lastIndexOf(",") + 1).replace(/[ⒼⓎⒹⓉⓈ]/g, "").trim()) || attr("tvg-name") || "Chaîne";
+        const num = parseInt(attr("tvg-chno"), 10) || parseInt((raw.match(/^(\d+)\s*[-.:]/) || [])[1], 10) || 9999;
+        const name = raw.replace(/^\d+\s*[-.:]\s*/, "");
+        const id = `${M3U.P}${h}:${slugify(name)}`;
+        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo"), url: l, group: attr("group-title") || "", chno: num, headers: { ...hdr } }); }
+        info = null;
+      }
+    });
+    return out;
+  }
+  async function m3uChannels(addonUrl) {
+    if (M3U.lists.has(addonUrl)) return M3U.lists.get(addonUrl);
+    const url = addonUrl.slice(M3U.P.length);
+    const txt = await (await fetch(url)).text();
+    const list = parseM3u(txt, m3uHash(url)); M3U.lists.set(addonUrl, list); return list;
+  }
+  const m3uUsesGroups = (list) => new Set(list.map((c) => c.group).filter(Boolean)).size > 1;
+  const m3uCat = (c, g) => (g ? c.group || "Autres" : chanCategory(c.name));
+  async function installM3u(input, name) {
+    const url = String(input).trim().replace(/^m3u:/, ""); const addonUrl = M3U.P + url;
+    M3U.lists.delete(addonUrl);
+    let list;
+    try { list = await m3uChannels(addonUrl); } catch (e) { throw new Error(/mafreebox/.test(url) ? "Freebox introuvable : connecte-toi au Wi-Fi de ta Freebox" : e.message); }
+    if (!list.length) throw new Error("liste vide ou illisible");
+    const g = m3uUsesGroups(list);
+    const cats = g ? [...new Set(list.map((c) => c.group || "Autres"))].slice(0, 40).map((x) => [x, x]) : FREETV.CATS.filter(([id]) => list.some((c) => chanCategory(c.name) === id));
+    return { url: addonUrl, manifest: { id: "tvo.m3u." + m3uHash(url), name: name || (/mafreebox/.test(url) ? `Freebox TV (${list.length} chaînes)` : `Ma liste M3U (${list.length} chaînes)`), version: "1", description: url,
+      types: ["tv"], idPrefixes: [`${M3U.P}${m3uHash(url)}:`], resources: [{ name: "catalog" }, { name: "meta" }, { name: "stream" }],
+      catalogs: [...cats.map(([id, n]) => ({ type: "tv", id, name: n, extra: [], extraRequired: [], extraSupported: [] })),
+        { type: "tv", id: "search", name: "Chaînes M3U", extra: [{ name: "search", isRequired: true, options: [] }], extraRequired: [], extraSupported: [] }] } };
+  }
+  const m3uPreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: c.logo, background: null, logo: c.logo,
+    description: "Chaîne en direct" + (c.group ? " · " + c.group : ""), releaseInfo: c.chno < 9999 ? "Canal " + c.chno : null, imdbRating: null, genres: ["En direct"] });
+  async function m3uCatalog(a, catId, extra) {
+    if (Number(extra.skip) > 0) return [];
+    const list = await m3uChannels(a.url); const g = m3uUsesGroups(list); const q = (extra.search || "").toLowerCase();
+    return list.filter((c) => (q ? c.name.toLowerCase().includes(q) : m3uCat(c, g) === catId)).sort((x, y) => x.chno - y.chno || x.name.localeCompare(y.name)).map(m3uPreview);
+  }
+  const m3uAddonFor = (id) => S.addons.find((a) => a.url.startsWith(M3U.P) && id.startsWith(`${M3U.P}${m3uHash(a.url.slice(M3U.P.length))}:`));
+  async function m3uMeta(id) {
+    const a = m3uAddonFor(id); if (!a) return null;
+    const c = (await m3uChannels(a.url)).find((x) => x.id === id); if (!c) return null;
+    return { ...m3uPreview(c), runtime: null, videos: [], cast: [], director: [], people: [], defaultVideoId: null, episodes: [] };
+  }
+  async function m3uStreams(id) {
+    const a = m3uAddonFor(id); if (!a) return [];
+    const c = (await m3uChannels(a.url)).find((x) => x.id === id); if (!c) return [];
+    const web = /youtube\.com|youtu\.be|dailymotion|twitch\.tv/i.test(c.url);
+    const rtsp = /^rtsp:/i.test(c.url);
+    return [{ addonName: a.manifest.name, name: c.name, title: web ? "S'ouvre dans l'appli de la chaîne" : rtsp ? "S'ouvre dans VLC" : "Direct", url: web || rtsp ? null : c.url,
+      externalUrl: web ? c.url : rtsp ? (isIOS ? "vlc-x-callback://x-callback-url/stream?url=" + enc(c.url) : "vlc://" + c.url) : null,
+      infoHash: null, headers: c.headers, needsHeaders: Object.keys(c.headers).length > 0, subtitles: [], bingeGroup: null, quality: 0 }];
   }
 
   function normalize(input) {
@@ -345,6 +427,7 @@
   }
   async function installAddon(input) {
     if (String(input).startsWith(FREETV.URL)) return FREETV.addon;
+    if (isM3u(input)) { const old = S.addons.find((a) => a.url === M3U.P + String(input).replace(/^m3u:/, "")); return installM3u(input, old && old.manifest.name); }
     const base = normalize(input);
     return { url: base, manifest: parseManifest(await getJson(base + "/manifest.json")) };
   }
@@ -375,13 +458,15 @@
   async function catalog(a, c, extra = {}) {
     if (a.url === TMDB.URL) return tmdbCatalog(c, extra);
     if (a.url === FREETV.URL) return freeCatalog(c.id, extra);
+    if (a.url.startsWith(M3U.P)) return m3uCatalog(a, c.id, extra);
     const keys = Object.keys(extra);
     const ex = keys.length ? "/" + keys.map((k) => `${k}=${enc(extra[k])}`).join("&") : "";
     const url = `${a.url}/catalog/${c.type}/${enc(c.id)}${ex}.json`;
     if (cache.has(url)) return cache.get(url);
     const d = await getJson(url);
     const seen = new Set();
-    const list = (d.metas || []).map((m) => preview(m, c.type)).filter((m) => m && !seen.has(m.id) && seen.add(m.id));
+    const list = (d.metas || []).map((m) => preview(m, c.type)).filter((m) => m && !seen.has(m.id) && seen.add(m.id))
+      .map((m) => (a.manifest.id === "com.linvo.cinemeta" ? { ...m, description: null } : m)); // pas de résumés anglais
     cache.set(url, list);
     return list;
   }
@@ -389,6 +474,7 @@
     const k = type + "/" + id;
     if (metaCache.has(k)) return metaCache.get(k);
     if (id.startsWith("freetv:")) return freeMeta(id);
+    if (id.startsWith(M3U.P)) return m3uMeta(id);
     const tmdbId = id.startsWith("tmdb:") ? id.split(":")[2] : null;
     const realId = tmdbId ? (await tmdbImdb(id)) || id : id;
     let m = metaCache.get(type + "/" + realId) || (realId.startsWith("tmdb:") ? null : await addonMeta(type, realId));
@@ -406,7 +492,8 @@
           id: v.id, title: v.title || v.name || "", season: v.season ?? null, episode: v.episode ?? v.number ?? null,
           released: v.released || null, thumbnail: v.thumbnail || null, overview: v.overview || v.description || null,
         }));
-        const m = { ...p, runtime: o.runtime || null, videos, cast: (o.cast || []).slice(0, 6), director: o.director || [],
+        if (a.manifest.id === "com.linvo.cinemeta") { p.description = null; videos.forEach((v) => (v.overview = null)); }
+        const m = { ...p, people: [], runtime: o.runtime || null, videos, cast: (o.cast || []).slice(0, 6), director: o.director || [],
           defaultVideoId: (o.behaviorHints && o.behaviorHints.defaultVideoId) || null };
         m.episodes = videos.filter((v) => v.season != null).sort((x, y) => ((x.season || 1e9) - (y.season || 1e9)) || ((x.episode || 0) - (y.episode || 0)));
         return m;
@@ -439,7 +526,7 @@
     const list = S.addons.filter((a) => supports(a, "stream", type, videoId));
     return { total: list.length, done: Promise.all(list.map(async (a) => {
       let items = [];
-      if (a.url === FREETV.URL) { try { items = await freeStreams(videoId); } catch { /* */ } onAddon && onAddon(items, a); return items; }
+      if (a.url === FREETV.URL || a.url.startsWith(M3U.P)) { try { items = a.url === FREETV.URL ? await freeStreams(videoId) : await m3uStreams(videoId); } catch { /* */ } onAddon && onAddon(items, a); return items; }
       try { items = ((await getJson(`${a.url}/stream/${type}/${enc(videoId)}.json`, 25000)).streams || []).map((s) => parseStream(s, a.manifest.name)).filter(Boolean); }
       catch { /* ignore */ }
       onAddon && onAddon(items, a);
@@ -456,6 +543,7 @@
   }
 
   async function refreshAddons() {
+    if (S.addons.some((a) => a.url === FREETV.URL)) { S.addons = S.addons.filter((a) => a.url !== FREETV.URL); saveAddons(); }
     const fresh = await Promise.all(S.addons.map(async (a) => { try { return await installAddon(a.url); } catch { return a; } }));
     S.addons = fresh; saveAddons(false);
   }
@@ -593,7 +681,7 @@
     if (!active) { tabs.hidden = true; document.body.classList.add("no-tabs"); return; }
     document.body.classList.remove("no-tabs");
     tabs.hidden = false;
-    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.movie], ["series", "Séries", ICON.series], ["search", "Recherche", ICON.search], ["list", "Ma liste", ICON.list]];
+    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart]];
     tabs.innerHTML = items.map(([k, l, i]) => `<button class="tab ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("");
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
       if (location.hash === "#/" + b.dataset.tab) window.scrollTo({ top: 0, behavior: "smooth" }); else go("#/" + b.dataset.tab);
@@ -607,6 +695,16 @@
     const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
     return rows.filter((r) => !h.hidden.includes(r.key)).sort((a, b) => idx(a.key) - idx(b.key));
   }
+  /** Même barre du haut sur Accueil, Films, Séries, Live TV et Ma liste. */
+  function topBar(title) {
+    const p = S.profile;
+    return `<header class="header topbar">${LOGO}<span class="spacer"></span>
+      <button class="icon-btn" data-go="#/search" aria-label="Rechercher">${ICON.search}</button>
+      <button class="icon-btn" data-go="#/settings" aria-label="Réglages">${ICON.settings}</button>
+      <button data-go="#/profiles" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>
+      ${title ? `<h1 class="page-title">${esc(title)}</h1>` : ""}`;
+  }
+  document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) go(g.dataset.go); });
   function navChips(active) {
     const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live]];
     return `<nav class="navchips">${items.map(([k, l, i]) => `<a class="nchip ${k === active ? "on" : ""}" href="#/${k}">${i}<span>${l}</span></a>`).join("")}</nav>`;
@@ -614,7 +712,7 @@
   function buildRows(type) {
     const rows = [];
     catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type)).forEach((c) => {
-      rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : ["tmdb", "tvo.freetv.fr"].includes(a.manifest.id) ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
+      rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : ["tmdb", "tvo.freetv.fr"].includes(a.manifest.id) || a.manifest.id.startsWith("tvo.m3u.") ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
     }));
     if (type) {
       const src = genreSource(type);
@@ -724,15 +822,7 @@
   function screenBrowse(type) {
     setTabs(type === "movie" ? "movies" : type === "series" ? "series" : "home");
     const p = S.profile;
-    app.innerHTML = `<header class="header topbar">${LOGO}<span class="spacer"></span>
-      <button class="icon-btn" id="pill" aria-label="Rechercher">${ICON.search}</button>
-      <button class="icon-btn" id="settings" aria-label="Réglages">${ICON.settings}</button>
-      <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>
-      ${navChips(type ? (type === "movie" ? "movies" : "series") : "home")}
-      <div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
-    $("#pill").addEventListener("click", () => go("#/search"));
-    $("#settings").addEventListener("click", () => go("#/settings"));
-    $("#who").addEventListener("click", () => go("#/profiles"));
+    app.innerHTML = topBar(type ? typeLabel(type) : "") + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
     showUpdateBanner($("#upd"));
     const rowsEl = $("#rows");
 
@@ -765,6 +855,10 @@
         `<button class="cat" style="--c:${c}" data-g="${g}"><span class="ci">${ic}</span><span>${genreLabel(g)}</span></button>`).join("")}</div>`;
       sec.querySelectorAll("[data-g]").forEach((b) => b.addEventListener("click", () => go(`#/genre/movie/${enc(b.dataset.g)}`)));
       rowsEl.appendChild(sec);
+      const ps = document.createElement("section"); ps.className = "section";
+      ps.innerHTML = `<h2 class="section-title"><span class="st">${ICON.series}Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
+        `<a class="prov" style="--c:${c}" href="#/provider/${id}">${esc(n)}</a>`).join("")}</div>`;
+      rowsEl.appendChild(ps);
     }
     const rows = type ? buildRows(type) : applyHome(buildRows(null));
     if (!rows.length) rowsEl.insertAdjacentHTML("beforeend", `<div class="empty"><h2>Aucun catalogue</h2>Ajoute un add-on de catalogue dans Réglages.</div>`);
@@ -806,20 +900,47 @@
     draw(); restart();
   }
 
+  async function screenPerson(id) {
+    setTabs(null);
+    app.innerHTML = header("", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `<div class="empty">Chargement…</div>`;
+    let p; try { p = await tmdbPerson(id); } catch { p = null; }
+    if (!p) { app.querySelector(".empty").textContent = "Acteur introuvable (clé TMDB nécessaire)."; return; }
+    app.innerHTML = header("", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `
+      <div class="person-head pad"><span class="ph big">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : ""}</span>
+        <div><h1>${esc(p.name)}</h1><div class="small" style="color:var(--cyan)">${p.works.length} films et séries</div></div></div>
+      ${p.bio ? `<p class="pad desc clamp" id="bio" style="margin-top:12px">${esc(p.bio)}</p>` : ""}
+      <h2 class="section-title section"><span class="st">${ICON.movie}Filmographie</span></h2>
+      <div class="grid">${p.works.map(portraitHTML).join("")}</div>`;
+    const bio = $("#bio"); if (bio) bio.addEventListener("click", () => bio.classList.toggle("clamp"));
+  }
+
+  const PROVIDERS = [["8", "Netflix", "#e50914"], ["119", "Prime Video", "#00a8e1"], ["337", "Disney+", "#113ccf"], ["381", "Canal+", "#111111"],
+    ["350", "Apple TV+", "#555555"], ["531", "Paramount+", "#0064ff"], ["1899", "Max", "#002be7"]];
+  async function screenProvider(pid) {
+    setTabs("home");
+    const pr = PROVIDERS.find((x) => x[0] === pid) || [pid, "Plateforme", "#2f5bff"];
+    app.innerHTML = header(pr[1], `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `<div id="rows"></div>`;
+    if (!tmdbKey()) { $("#rows").innerHTML = `<div class="empty"><h2>Clé TMDB nécessaire</h2>Ajoute ta clé TMDB dans Réglages pour voir les catalogues par plateforme.</div>`; return; }
+    const mk = (type, id, name, sort) => ({ key: `prov|${pid}|${type}|${id}`, title: name, a: TMDB.addon,
+      c: { type, id: `pv_${pid}_${sort}`, name, extra: [{ name: "skip", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }, extra: {} });
+    lazyRows($("#rows"), [mk("movie", "new", "Nouveaux films", "new"), mk("series", "new", "Nouvelles séries", "new"),
+      mk("movie", "pop", "Films populaires", "pop"), mk("series", "pop", "Séries populaires", "pop"), mk("movie", "top", "Films les mieux notés", "top"), mk("series", "top", "Séries les mieux notées", "top")]);
+  }
+
   // Live TV : toutes les catégories de chaînes
   function screenLive() {
-    setTabs("home");
+    setTabs("live");
     const p = S.profile;
-    app.innerHTML = `<header class="header topbar">${LOGO}<span class="spacer"></span>
-      <button class="icon-btn" id="pill" aria-label="Rechercher">${ICON.search}</button>
-      <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>${navChips("live")}<div id="rows"></div>`;
-    $("#pill").addEventListener("click", () => go("#/search"));
-    $("#who").addEventListener("click", () => go("#/profiles"));
+    app.innerHTML = topBar("Live TV") + `<div id="rows"></div>`;
     const rows = buildRows("tv").concat(buildRows("channel"));
     if (!rows.length) {
-      $("#rows").innerHTML = `<div class="empty"><h2>Aucune chaîne</h2>Ajoute « Chaînes TV gratuites (France) » dans Réglages › Add-ons › Suggestions.</div>
-        <div class="pad"><button class="btn blue block" id="addLive">${ICON.plus} Ajouter les chaînes gratuites</button></div>`;
-      $("#addLive").addEventListener("click", () => { S.addons.push(FREETV.addon); saveAddons(); cache.clear(); screenLive(); });
+      $("#rows").innerHTML = `<div class="empty"><h2>Freebox TV</h2>Abonné Free ? Connecte ton téléphone au Wi-Fi de ta Freebox puis ajoute tes chaînes. Tu peux aussi ajouter ta propre liste M3U dans Réglages › Add-ons.</div>
+        <div class="pad"><button class="btn blue block" id="addLive">${ICON.plus} Ajouter les chaînes Freebox</button></div>`;
+      $("#addLive").addEventListener("click", async () => {
+        toast("Recherche de la Freebox…");
+        try { const a = await installM3u("http://mafreebox.freebox.fr/freeboxtv/playlist.m3u"); S.addons.push(a); saveAddons(); cache.clear(); screenLive(); }
+        catch (e) { toast(e.message, 4000); }
+      });
       return;
     }
     lazyRows($("#rows"), rows);
@@ -848,7 +969,7 @@
 
   function screenList() {
     setTabs("list");
-    app.innerHTML = header("Ma liste") + (S.lib.length
+    app.innerHTML = topBar("Ma liste") + (S.lib.length
       ? `<div class="grid" style="margin-top:8px">${S.lib.map(posterHTML).join("")}</div>`
       : `<div class="empty"><h2>Ta liste est vide</h2>Ouvre un film ou une série et appuie sur « Ma liste ».</div>`);
   }
@@ -869,7 +990,7 @@
       const cats = [];
       catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => catSupports(c, "search") && catOnlyRequires(c, "search")).forEach((c) => cats.push({ a, c })));
       const out = await Promise.all(cats.map(async ({ a, c }) => {
-        try { return { title: a.manifest.id === "tvo.freetv.fr" ? c.name : ["com.linvo.cinemeta", "tmdb"].includes(a.manifest.id) ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
+        try { return { title: a.manifest.id === "tvo.freetv.fr" || a.manifest.id.startsWith("tvo.m3u.") ? c.name : ["com.linvo.cinemeta", "tmdb"].includes(a.manifest.id) ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
         catch { return { list: [] }; }
       }));
       if (my !== seq) return;
@@ -950,9 +1071,13 @@
           <button class="btn" id="share">Partager</button></div>
         </div>
         ${m.description ? `<div class="desc ${m.description.length > 180 ? "clamp" : ""}" id="desc">${esc(m.description)}</div>${m.description.length > 180 ? '<button class="more" id="moreDesc">Lire la suite</button>' : ""}` : ""}
-        ${m.cast.length ? `<div class="people">Avec : ${m.cast.map(esc).join(", ")}</div>` : ""}
+        ${!m.description && !tmdbKey() ? `<div class="small" style="color:var(--cyan);margin-top:8px">Ajoute ta clé TMDB (Réglages) pour les résumés en français.</div>` : ""}
+        ${m.people && m.people.length ? "" : m.cast.length ? `<div class="people">Avec : ${m.cast.map(esc).join(", ")}</div>` : ""}
         ${m.director.length ? `<div class="people">Réalisation : ${m.director.map(esc).join(", ")}</div>` : ""}
       </div>
+      ${m.people && m.people.length ? `<section class="section"><h2 class="section-title"><span class="st">${ICON.series}Distribution</span></h2>
+        <div class="row people-row">${m.people.map((pp) => `<a class="bubble" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
+          <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div></section>` : ""}
       ${seasons.length ? `<section class="section"><div class="chips" id="seasons"></div><div class="episodes" id="eps" style="margin-top:14px"></div></section>` : ""}`;
 
     $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
@@ -1133,7 +1258,7 @@
     setTabs(null);
     app.innerHTML = header("Ajouter un add-on", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `
       <div class="list" style="margin-top:8px">
-        <input class="field" id="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="https://…/manifest.json">
+        <input class="field" id="url" type="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Add-on (…/manifest.json) ou liste M3U (….m3u)">
         <button class="btn primary block" id="ok">${ICON.plus} Installer</button>
         <button class="btn block" id="paste">Coller depuis le presse-papiers</button>
         <div id="msg" class="small" style="color:var(--cyan)"></div>
@@ -1199,38 +1324,102 @@
     const { m, s, v } = ctx;
     const el = $("#player");
     el.hidden = false; document.body.style.overflow = "hidden";
-    el.innerHTML = `<div class="bar"><button class="icon-btn" id="pClose" aria-label="Fermer">${ICON.close}</button>
-        <div class="t"><b>${esc(m.name)}</b><span>${v && v.season != null ? `S${v.season} : É${v.episode} · ${esc(v.title)}` : esc(s.addonName)}</span></div></div>
-      <div class="pctl">
-        <button class="pbtn" id="pBack" aria-label="Reculer de 10 secondes">−10 s</button>
-        <button class="pbtn" id="pFwd" aria-label="Avancer de 10 secondes">+10 s</button>
-        <button class="pbtn" id="pSpeed" aria-label="Vitesse">x1</button>
-        <button class="pbtn" id="pFit" aria-label="Format de l'image">Ajuster</button>
-        ${document.pictureInPictureEnabled || isIOS ? '<button class="pbtn" id="pPip" aria-label="Image dans l\'image">PiP</button>' : ""}
+    const PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+    const R10 = (dir) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="${dir > 0 ? "transform:scaleX(-1)" : ""}"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 3v4h4"/></svg>`;
+    el.innerHTML = `
+      <video id="vid" playsinline autoplay preload="auto"></video>
+      <div class="ploading" id="pLoad"><span></span></div>
+      <div class="nf" id="nf">
+        <div class="nf-top"><button class="nf-ic" id="pClose" aria-label="Fermer">${ICON.back}</button>
+          <div class="t"><b>${esc(m.name)}</b><span>${v && v.season != null ? `S${v.season} : É${v.episode} · ${esc(v.title)}` : esc(s.addonName)}</span></div>
+          ${document.pictureInPictureEnabled || isIOS ? `<button class="nf-ic" id="pPip" aria-label="Image dans l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>` : ""}</div>
+        <div class="nf-mid">
+          <button class="nf-big" id="pBack" aria-label="Reculer de 10 secondes">${R10(-1)}<i>10</i></button>
+          <button class="nf-play" id="pPlay" aria-label="Lecture / pause">${PAUSE}</button>
+          <button class="nf-big" id="pFwd" aria-label="Avancer de 10 secondes">${R10(1)}<i>10</i></button>
+        </div>
+        <div class="nf-bot">
+          <div class="nf-seek"><input type="range" id="pSeek" min="0" max="1000" value="0" aria-label="Position"><span id="pTime">0:00</span></div>
+          <div class="nf-row">
+            <button class="nf-opt" id="pSpeed">${ICON.play}<span>Vitesse (x1)</span></button>
+            <button class="nf-opt" id="pSubs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 12h4M13 12h4M7 15h6"/></svg><span>Audio et sous-titres</span></button>
+            <button class="nf-opt" id="pFit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Ajuster</span></button>
+            ${m.type === "series" ? `<button class="nf-opt" id="pNext"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4v16l11-8zM17 4h2v16h-2z"/></svg><span>Épisode suivant</span></button>` : ""}
+          </div>
+        </div>
       </div>
-      <div class="pflash" id="pFlash" hidden></div>
-      <video id="vid" controls playsinline autoplay preload="auto"></video>`;
+      <div class="nf-sheet" id="pSheet" hidden></div>
+      <div class="pflash" id="pFlash" hidden></div>`;
     const video = $("#vid");
+    const fmt = (t) => { if (!isFinite(t)) return "En direct"; t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return (h ? h + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0"); };
     $("#pClose").addEventListener("click", closePlayer);
     const flash = (t) => { const f = $("#pFlash"); f.textContent = t; f.hidden = false; clearTimeout(flash._t); flash._t = setTimeout(() => (f.hidden = true), 800); };
     const seek = (d) => { if (!isFinite(video.duration)) return; video.currentTime = Math.max(0, Math.min(video.duration - 1, video.currentTime + d)); flash((d > 0 ? "+" : "−") + Math.abs(d) + " s"); };
-    $("#pBack").addEventListener("click", () => seek(-10));
-    $("#pFwd").addEventListener("click", () => seek(10));
+    $("#pBack").addEventListener("click", (e) => { e.stopPropagation(); seek(-10); wake(); });
+    $("#pFwd").addEventListener("click", (e) => { e.stopPropagation(); seek(10); wake(); });
+    const playBtn = $("#pPlay");
+    playBtn.addEventListener("click", (e) => { e.stopPropagation(); video.paused ? video.play() : video.pause(); });
+    video.addEventListener("play", () => (playBtn.innerHTML = PAUSE));
+    video.addEventListener("pause", () => (playBtn.innerHTML = ICON.play));
+    const seekEl = $("#pSeek"), timeEl = $("#pTime"); let dragging = false;
+    seekEl.addEventListener("input", () => { dragging = true; if (isFinite(video.duration)) timeEl.textContent = fmt(video.duration * seekEl.value / 1000) + " / " + fmt(video.duration); wake(); });
+    seekEl.addEventListener("change", () => { if (isFinite(video.duration)) video.currentTime = video.duration * seekEl.value / 1000; dragging = false; });
+    video.addEventListener("timeupdate", () => {
+      if (dragging) return;
+      if (isFinite(video.duration) && video.duration > 0) { seekEl.value = String(Math.round(video.currentTime / video.duration * 1000)); timeEl.textContent = fmt(video.currentTime) + " / " + fmt(video.duration); seekEl.style.setProperty("--p", (video.currentTime / video.duration * 100) + "%"); }
+      else { timeEl.textContent = "● En direct"; seekEl.disabled = true; }
+    });
     const speeds = [1, 1.25, 1.5, 2, 0.75];
-    $("#pSpeed").addEventListener("click", (e) => { const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.textContent = "x" + speeds[i]; flash("Vitesse x" + speeds[i]); });
-    $("#pFit").addEventListener("click", (e) => { const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.textContent = cover ? "Remplir" : "Ajuster"; });
+    $("#pSpeed").addEventListener("click", (e) => { e.stopPropagation(); const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.querySelector("span").textContent = `Vitesse (x${speeds[i]})`; flash("Vitesse x" + speeds[i]); wake(); });
+    $("#pFit").addEventListener("click", (e) => { e.stopPropagation(); const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.querySelector("span").textContent = cover ? "Remplir" : "Ajuster"; wake(); });
+    const nx = $("#pNext"); if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); playNext(ctx); });
+    // Feuille audio + sous-titres
+    $("#pSubs").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const sh = $("#pSheet");
+      const tt = [...video.textTracks];
+      const at = video.audioTracks ? [...video.audioTracks] : [];
+      const hlsAudio = hls ? hls.audioTracks : [];
+      const audioItems = hlsAudio.length > 1 ? hlsAudio.map((t, i) => [`ha${i}`, t.name || LANG[(t.lang || "").toLowerCase()] || "Piste " + (i + 1), hls.audioTrack === i])
+        : at.map((t, i) => [`a${i}`, t.label || LANG[(t.language || "").toLowerCase()] || "Piste " + (i + 1), t.enabled]);
+      sh.innerHTML = `<div class="nf-sheet-in"><div class="col"><h3>Audio</h3>${audioItems.length ? audioItems.map(([k, l, on]) => `<button data-k="${k}" class="${on ? "on" : ""}">${on ? "✓ " : ""}${esc(l)}</button>`).join("") : '<p class="muted">Piste unique</p>'}</div>
+        <div class="col"><h3>Sous-titres</h3><button data-k="off" class="${tt.every((t) => t.mode !== "showing") ? "on" : ""}">${tt.every((t) => t.mode !== "showing") ? "✓ " : ""}Désactivés</button>
+        ${tt.map((t, i) => `<button data-k="t${i}" class="${t.mode === "showing" ? "on" : ""}">${t.mode === "showing" ? "✓ " : ""}${esc(t.label || "Sous-titres " + (i + 1))}</button>`).join("")}</div>
+        <button class="btn blue block" id="shClose">Fermer</button></div>`;
+      sh.hidden = false;
+      sh.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => {
+        const k = b.dataset.k;
+        if (k === "off") tt.forEach((t) => (t.mode = "disabled"));
+        else if (k[0] === "t") tt.forEach((t, i) => (t.mode = "t" + i === k ? "showing" : "disabled"));
+        else if (k.startsWith("ha")) hls.audioTrack = Number(k.slice(2));
+        else if (k[0] === "a") at.forEach((t, i) => (t.enabled = "a" + i === k));
+        $("#pSubs").click();
+      }));
+      $("#shClose").addEventListener("click", (ev) => { ev.stopPropagation(); sh.hidden = true; });
+      sh.addEventListener("click", (ev) => ev.stopPropagation());
+    });
     const pip = $("#pPip");
-    if (pip) pip.addEventListener("click", async () => {
+    if (pip) pip.addEventListener("click", async (e) => {
+      e.stopPropagation();
       try { if (video.webkitSetPresentationMode) video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
         else if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await video.requestPictureInPicture(); } catch { toast("Image dans l'image indisponible"); }
     });
-    // Double-tap à gauche / à droite : −10 s / +10 s
-    let lastTap = 0;
-    video.addEventListener("touchend", (e) => {
-      const now = Date.now(); const t = e.changedTouches[0];
-      if (now - lastTap < 300) { seek(t.clientX < window.innerWidth / 2 ? -10 : 10); e.preventDefault(); }
+    // Chargement
+    const load = $("#pLoad");
+    ["waiting", "stalled", "loadstart"].forEach((ev) => video.addEventListener(ev, () => (load.hidden = false)));
+    ["playing", "canplay", "pause"].forEach((ev) => video.addEventListener(ev, () => (load.hidden = true)));
+    // Commandes qui apparaissent / disparaissent ; double appui à gauche / à droite = −10 s / +10 s
+    let idle;
+    const wake = () => { el.classList.remove("idle"); clearTimeout(idle); idle = setTimeout(() => !video.paused && $("#pSheet").hidden && el.classList.add("idle"), 3500); };
+    let lastTap = 0, tapTimer;
+    $("#nf").addEventListener("click", (e) => {
+      if (e.target.closest("button, input")) return;
+      const now = Date.now();
+      if (now - lastTap < 300) { clearTimeout(tapTimer); seek(e.clientX < window.innerWidth / 2 ? -10 : 10); wake(); }
+      else tapTimer = setTimeout(() => { if (el.classList.contains("idle")) wake(); else el.classList.add("idle"); }, 280);
       lastTap = now;
     });
+    video.addEventListener("pause", wake); wake();
 
     // Sous-titres (convertis en WebVTT)
     ctx.subs.slice(0, 20).forEach(async (sub, i) => {
@@ -1246,18 +1435,15 @@
     });
 
     const isHls = /\.m3u8(\?|$)/i.test(s.url);
-    if (isHls && !video.canPlayType("application/vnd.apple.mpegurl") && window.Hls && window.Hls.isSupported()) {
-      hls = new window.Hls(); hls.loadSource(s.url); hls.attachMedia(video);
+    if (isHls && !isIOS && window.Hls && window.Hls.isSupported()) {
+      hls = new window.Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 60 });
+      hls.loadSource(s.url); hls.attachMedia(video);
+      hls.on(window.Hls.Events.ERROR, (_, d) => { if (d.fatal) { if (d.type === "networkError") hls.startLoad(); else if (d.type === "mediaError") hls.recoverMediaError(); } });
     } else {
       video.src = s.url;
     }
     video.addEventListener("loadedmetadata", () => { if (ctx.start > 0 && ctx.start < video.duration - 5) video.currentTime = ctx.start; }, { once: true });
 
-    // Barre du haut qui se masque
-    let idle;
-    const wake = () => { el.classList.remove("idle"); clearTimeout(idle); idle = setTimeout(() => !video.paused && el.classList.add("idle"), 3500); };
-    ["pointerdown", "pointermove", "touchstart"].forEach((e) => el.addEventListener(e, wake, { passive: true }));
-    video.addEventListener("pause", wake); wake();
 
     let lastSave = 0;
     const save = (done = false) => {
@@ -1354,6 +1540,8 @@
       case "home": case "": case undefined: return screenBrowse(null);
       case "movies": return screenBrowse("movie");
       case "live": return screenLive();
+      case "person": return screenPerson(a);
+      case "provider": return screenProvider(a);
       case "catalog": return screenCatalog(a);
       case "series": return screenBrowse("series");
       case "list": return screenList();
@@ -1366,6 +1554,11 @@
       default: return screenBrowse(null);
     }
   }
+
+  // Pas de zoom (pincement ou double appui) sur iPhone
+  ["gesturestart", "gesturechange", "gestureend"].forEach((ev) => document.addEventListener(ev, (e) => e.preventDefault(), { passive: false }));
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", (e) => { const n = Date.now(); if (n - lastTouchEnd < 300 && !e.target.closest("video, input, textarea")) e.preventDefault(); lastTouchEnd = n; }, { passive: false });
 
   // ------------------------------------------------------------------ démarrage
   const cur = LS.get("current", null);
@@ -1381,6 +1574,12 @@
   syncNow().then((ch) => { if (ch && $("#player").hidden) route(); }).finally(() => refreshAddons());
   setInterval(() => document.hidden || syncNow(), 120000);
   // À l'ouverture : télécharge la nouvelle version et l'applique tout de suite (hors lecture vidéo).
-  autoUpdate().then((ok) => ok && applyUpdate());
+  (async () => {
+    const sp = $("#splash"), msg = $("#splashMsg");
+    const ok = await Promise.race([autoUpdate(), sleep(4000).then(() => false)]);
+    if (ok && $("#player").hidden) { if (msg) msg.textContent = `Installation de TVO ${updateInfo.name}…`; setTimeout(() => location.reload(), 500); return; }
+    if (msg) msg.textContent = "TVO est à jour";
+    setTimeout(() => { if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 400); } }, 300);
+  })();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) autoUpdate().then((ok) => ok && applyUpdate()); });
 })();

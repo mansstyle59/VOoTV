@@ -28,7 +28,7 @@ object FreeTv {
 
     /** Sorts a channel into a category from its name (the playlist has no useful groups). */
     fun categoryOf(name: String): String {
-        val n = name.lowercase()
+        val n = name.lowercase().replace(Regex("^\\d+\\s*[-.:]?\\s*"), "")
         return when {
             Regex("info|news|24|bfm|lci|cnews|lcp|sénat|senat|cgtn|euronews|africanews|inter").containsMatchIn(n) -> "info"
             Regex("sport|équipe|equipe").containsMatchIn(n) -> "sport"
@@ -89,7 +89,7 @@ object FreeTv {
 object Suggestions {
     data class Item(val url: String, val name: String, val desc: String, val category: String)
     val all = listOf(
-        Item(FreeTv.URL, "Chaînes TV gratuites (France)", "Arte, France 24, chaînes d'info… en direct", "Chaînes TV"),
+        Item("m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV (abonnés Free)", "Toutes les chaînes de ta Freebox. Uniquement connecté à la Freebox (Wi-Fi ou câble).", "Chaînes TV"),
         Item("https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube favorites", "Chaînes TV"),
         Item("https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "The Movie Database Addon", "Catalogues TMDB (configurable en français)", "Catalogues"),
         Item("https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Ce qui est sur Netflix, Prime, Disney+…", "Catalogues"),

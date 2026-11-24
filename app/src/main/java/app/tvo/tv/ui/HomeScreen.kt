@@ -43,6 +43,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -76,13 +78,15 @@ import app.tvo.tv.data.Profile
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 
-enum class Section(val label: String, val icon: ImageVector) {
+/** Menu identique sur TV et téléphone : Accueil, Films, Séries, Live TV, Ma liste (recherche et réglages en haut). */
+enum class Section(val label: String, val icon: ImageVector?, val res: Int = 0, val inRail: Boolean = true) {
     HOME("Accueil", Icons.Default.Home),
-    MOVIES("Films", Icons.Default.PlayArrow),
-    SERIES("Séries", Icons.AutoMirrored.Filled.List),
+    MOVIES("Films", null, R.drawable.ic_movie),
+    SERIES("Séries", null, R.drawable.ic_series),
+    LIVE("Live TV", null, R.drawable.ic_live),
     LIST("Ma liste", Icons.Default.Favorite),
-    SEARCH("Recherche", Icons.Default.Search),
-    SETTINGS("Réglages", Icons.Default.Settings),
+    SEARCH("Recherche", Icons.Default.Search, inRail = false),
+    SETTINGS("Réglages", Icons.Default.Settings, inRail = false),
 }
 
 class Nav(
@@ -93,6 +97,7 @@ class Nav(
     val addAddon: () -> Unit,
     val editProfile: (String) -> Unit,
     val tmdbKey: () -> Unit,
+    val openPerson: (String) -> Unit = {},
 )
 
 /** Item shown in the right-hand detail panel (follows the focused card). */
@@ -106,7 +111,7 @@ fun HomeScreen(nav: Nav) {
     var shown by remember { mutableStateOf<MetaPreview?>(null) }
     LaunchedEffect(selected) { delay(220); shown = selected }
     BackHandler(enabled = section != Section.HOME) { section = Section.HOME }
-    val browse = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES
+    val browse = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES || section == Section.LIVE
 
     Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(14.dp)) {
         IconRail(section, onSelect = { section = it; selected = null; shown = null })
@@ -119,6 +124,7 @@ fun HomeScreen(nav: Nav) {
                         Section.HOME -> BrowseSection(null, nav)
                         Section.MOVIES -> BrowseSection("movie", nav)
                         Section.SERIES -> BrowseSection("series", nav)
+                        Section.LIVE -> LiveSection(nav)
                         Section.LIST -> LibrarySection(nav)
                         Section.SEARCH -> SearchSection(nav)
                         Section.SETTINGS -> SettingsSection(nav)
@@ -145,7 +151,7 @@ private fun IconRail(current: Section, onSelect: (Section) -> Unit) {
         Image(painterResource(R.drawable.logo_mark), "TVO", Modifier.height(40.dp))
         Spacer(Modifier.weight(1f))
         Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Section.entries.forEach { s ->
+            Section.entries.filter { it.inRail }.forEach { s ->
                 val on = s == current
                 Surface(
                     onClick = { onSelect(s) },
@@ -159,7 +165,7 @@ private fun IconRail(current: Section, onSelect: (Section) -> Unit) {
                         focusedContentColor = if (on) Color.White else Color.Black,
                     ),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(14.dp))),
-                ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(s.icon, s.label, Modifier.size(22.dp)) } }
+                ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { if (s.icon != null) Icon(s.icon, s.label, Modifier.size(22.dp)) else Icon(painterResource(s.res), s.label, Modifier.size(22.dp)) } }
             }
         }
         Spacer(Modifier.weight(1f))
@@ -498,5 +504,34 @@ fun MetaLine(type: String, year: String?, rating: String?, genres: List<String>,
         }
         if (!runtime.isNullOrBlank()) Text(runtime, fontSize = 15.sp, color = TvoColors.Text)
         if (genres.isNotEmpty()) Text(genres.take(3).joinToString(" · ") { genreLabel(it) }, fontSize = 15.sp, color = TvoColors.Muted, maxLines = 1)
+    }
+}
+
+
+/** Live TV : rangées de chaînes (Freebox TV, listes M3U, add-ons de chaînes). */
+@Composable
+fun LiveSection(nav: Nav) {
+    val raw by Tvo.store.addons.collectAsState()
+    val rows = remember(raw) { buildRows(raw, "tv") + buildRows(raw, "channel") }
+    val scope = rememberCoroutineScope()
+    var msg by remember { mutableStateOf<String?>(null) }
+    if (rows.isEmpty()) {
+        Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text("Freebox TV", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            Text("Abonné Free ? Connecte la TV à ta Freebox (Wi-Fi ou câble) pour ajouter toutes tes chaînes. Tu peux aussi ajouter ta propre liste M3U dans Réglages › Add-ons.",
+                fontSize = 15.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp))
+            BlueButton("Ajouter les chaînes Freebox", {
+                msg = "Recherche de la Freebox…"
+                scope.launch {
+                    msg = runCatching { Tvo.client.install("m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u") }
+                        .fold({ Tvo.store.addAddon(it); null }, { it.message })
+                }
+            }, filled = true)
+            msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
+        }
+        return
+    }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
     }
 }

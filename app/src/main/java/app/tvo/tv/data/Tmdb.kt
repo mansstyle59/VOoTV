@@ -141,7 +141,9 @@ object Tmdb {
         val logos = d.obj("images")?.arr("logos")?.mapNotNull { it as? JsonObject } ?: emptyList()
         val logo = (logos.firstOrNull { it.s("iso_639_1") == "fr" } ?: logos.firstOrNull { it.s("iso_639_1") == "en" })?.s("file_path")
         val frGenres = d.arr("genres")?.mapNotNull { (it as? JsonObject)?.s("name") } ?: emptyList()
-        val cast = d.obj("credits")?.arr("cast")?.mapNotNull { (it as? JsonObject)?.s("name") }?.take(6) ?: emptyList()
+        val castObjs = d.obj("credits")?.arr("cast")?.mapNotNull { it as? JsonObject }?.take(15) ?: emptyList()
+        val cast = castObjs.mapNotNull { it.s("name") }.take(6)
+        val people = castObjs.mapNotNull { c -> c.i("id")?.let { Person(it.toString(), c.s("name") ?: "", img(c.s("profile_path"), "w185"), c.s("character")) } }
         val runtime = d.i("runtime") ?: (d.arr("episode_run_time")?.firstOrNull() as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
         val date = d.s("release_date") ?: d.s("first_air_date")
         val p0 = base?.preview
@@ -152,7 +154,7 @@ object Tmdb {
             poster = img(d.s("poster_path"), "w500") ?: p0?.poster,
             background = img(d.s("backdrop_path"), "w1280") ?: p0?.background,
             logo = img(logo, "w500") ?: p0?.logo,
-            description = d.s("overview") ?: p0?.description,
+            description = d.s("overview"), // français uniquement
             releaseInfo = p0?.releaseInfo ?: date?.take(4),
             imdbRating = p0?.imdbRating ?: d.s("vote_average")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { "%.1f".format(java.util.Locale.US, it) },
             genres = frGenres.ifEmpty { p0?.genres ?: emptyList() },
@@ -172,11 +174,26 @@ object Tmdb {
             videos = videos.map { v ->
                 val e = byKey["${v.season}:${v.episode}"] ?: return@map v
                 val name = e.s("name")?.takeUnless { Regex("^[ÉE]pisode \\d+$").matches(it) }
-                v.copy(title = name ?: v.title, overview = e.s("overview") ?: v.overview,
+                v.copy(title = name ?: "Épisode ${v.episode ?: ""}", overview = e.s("overview"),
                     thumbnail = img(e.s("still_path"), "w300") ?: v.thumbnail, released = v.released ?: e.s("air_date"))
             }
         }
         MetaDetail(preview, runtime?.let { "$it min" } ?: base?.runtime, videos, cast.ifEmpty { base?.cast ?: emptyList() },
-            base?.director ?: emptyList(), base?.defaultVideoId)
+            base?.director ?: emptyList(), base?.defaultVideoId, people)
     }.getOrElse { base }
+
+    data class PersonPage(val name: String, val photo: String?, val bio: String?, val known: String?, val works: List<MetaPreview>)
+
+    /** Filmographie d'un acteur (films et séries), en français. */
+    suspend fun person(id: String): PersonPage? = runCatching {
+        val d = get("/person/$id", mapOf("append_to_response" to "combined_credits"))
+        val cc = d.obj("combined_credits")
+        val all = ((cc?.arr("cast") ?: emptyList()) + (cc?.arr("crew") ?: emptyList())).mapNotNull { it as? JsonObject }
+        val works = all.mapNotNull { o ->
+            val t = when (o.s("media_type")) { "tv" -> "series"; "movie" -> "movie"; else -> null } ?: return@mapNotNull null
+            if (t == "series" && (o.s("character")?.contains("Self", true) == true || o.i("episode_count")?.let { it < 2 } == true)) return@mapNotNull null
+            preview(o, t)?.let { it to (o.s("popularity")?.toDoubleOrNull() ?: 0.0) }
+        }.distinctBy { it.first.id }.sortedByDescending { it.second }.map { it.first }.filter { it.poster != null }
+        PersonPage(d.s("name") ?: "", img(d.s("profile_path"), "w342"), d.s("biography"), d.s("known_for_department"), works)
+    }.getOrNull()
 }

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -107,7 +109,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
                     if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 14.dp), fontSize = 16.sp,
                         color = TvoColors.Text.copy(alpha = 0.88f), maxLines = 5, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp)
-                    if (meta.cast.isNotEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
+                    if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
+                    if (meta.cast.isNotEmpty() && meta.people.isEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1)
                     Spacer(Modifier.height(22.dp))
@@ -120,6 +123,14 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                         val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
                         Text("Il reste $left min", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Muted)
+                    }
+                }
+            }
+            if (meta.people.isNotEmpty()) item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                     }
                 }
             }
@@ -159,4 +170,54 @@ private fun EpisodeCard(v: Video, fallback: String?, pr: Progress?, onClick: () 
             badge = if (pr?.finished == true) "VU" else null,
         )
     }
+}
+
+
+@Composable
+fun PersonBubble(person: app.tvo.tv.data.Person, onClick: () -> Unit) {
+    Column(Modifier.width(96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.tv.material3.Surface(
+            onClick = onClick, modifier = Modifier.size(84.dp),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+            border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = androidx.tv.material3.Border(
+                androidx.compose.foundation.BorderStroke(3.dp, TvoColors.Blue), shape = androidx.compose.foundation.shape.CircleShape)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface2, focusedContainerColor = TvoColors.Surface2),
+        ) {
+            if (person.photo != null) AsyncImage(person.photo, person.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(person.name.take(1), fontSize = 28.sp, color = TvoColors.Text) }
+        }
+        Text(person.name, Modifier.padding(top = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        person.role?.let { Text(it, fontSize = 11.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    }
+}
+
+@Composable
+fun PersonScreen(id: String, nav: Nav) {
+    val page by produceState<app.tvo.tv.data.Tmdb.PersonPage?>(null, id) { value = app.tvo.tv.data.Tmdb.person(id) }
+    val p = page ?: return CenterMessage("Chargement…")
+    val first = remember { FocusRequester() }
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
+        modifier = Modifier.fillMaxSize().background(TvoColors.Bg),
+        contentPadding = PaddingValues(48.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+    ) {
+        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(p.photo, p.name, Modifier.size(140.dp).clip(androidx.compose.foundation.shape.CircleShape).background(TvoColors.Surface), contentScale = ContentScale.Crop)
+                Column(Modifier.width(720.dp)) {
+                    Text(p.name, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = TvoColors.Text)
+                    Text("${p.works.size} films et séries", fontSize = 15.sp, color = TvoColors.Cyan)
+                    if (!p.bio.isNullOrBlank()) Text(p.bio, Modifier.padding(top = 8.dp), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        items(p.works.size) { i ->
+            val m = p.works[i]
+            PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(first) else Modifier)
+        }
+    }
+    LaunchedEffect(p) { kotlinx.coroutines.delay(120); runCatching { first.requestFocus() } }
 }

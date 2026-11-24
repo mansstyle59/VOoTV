@@ -1,6 +1,12 @@
 package app.tvo.tv
 
 import android.net.Uri
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -75,7 +81,8 @@ private fun AppNav() {
     val nc = rememberNavController()
     val nav = remember(nc) { navFor(nc) }
     LaunchedEffect(Unit) { refreshAddons() }
-    NavHost(nc, startDestination = "profiles") {
+    NavHost(nc, startDestination = "splash") {
+        composable("splash") { SplashScreen { nc.navigate("profiles") { popUpTo("splash") { inclusive = true } } } }
         composable("profiles") {
             ProfilesScreen(
                 onSelected = { nc.navigate("home") { popUpTo("profiles") { inclusive = true } } },
@@ -94,6 +101,7 @@ private fun AppNav() {
             GenreScreen(b.arguments?.getString("type") ?: "movie", b.arguments?.getString("genre") ?: "", nav)
         }
         composable("addonAdd") { AddonAddScreen { nc.popBackStack() } }
+        composable("person/{id}") { b -> app.tvo.tv.ui.PersonScreen(b.arguments?.getString("id") ?: "", nav) }
         composable("tmdbKey") { app.tvo.tv.ui.TmdbKeyScreen { nc.popBackStack() } }
     }
 }
@@ -106,11 +114,14 @@ private fun navFor(nc: NavHostController) = Nav(
     addAddon = { nc.navigate("addonAdd") },
     editProfile = { nc.navigate("profileEdit/${e(it)}") },
     tmdbKey = { nc.navigate("tmdbKey") },
+    openPerson = { nc.navigate("person/${e(it)}") },
 )
 
 /** Re-reads every installed add-on manifest so catalogs stay current. */
 private suspend fun refreshAddons() {
     val store = Tvo.store
+    // Les chaînes Free-TV sont retirées (remplacées par Freebox TV).
+    if (store.addons.value.any { it.url == app.tvo.tv.data.FreeTv.URL }) store.setAddons(store.addons.value.filterNot { it.url == app.tvo.tv.data.FreeTv.URL })
     val fresh = store.addons.value.map { a -> runCatching { Tvo.client.install(a.url) }.getOrDefault(a) }
     store.setAddons(fresh, userChange = false)
 }
@@ -124,9 +135,9 @@ private fun UpdatePrompt() {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     fun install() { file?.let { f -> msg = Updater.install(ctx, f) ?: "Valide « Installer » sur l'écran suivant." } }
-    LaunchedEffect(Unit) {
-        delay(1500)
-        val r = Updater.check() ?: return@LaunchedEffect
+    val pending by PendingUpdate.release
+    LaunchedEffect(pending) {
+        val r = pending ?: return@LaunchedEffect
         release = r
         msg = "Téléchargement…"
         file = runCatching { Updater.download(ctx, r.apkUrl) { p -> msg = "Téléchargement ${(p * 100).toInt()} %" } }
@@ -150,4 +161,35 @@ private fun UpdatePrompt() {
     }
     LaunchedEffect(r) { delay(100); runCatching { fr.requestFocus() } }
     @Suppress("UNUSED_VARIABLE") val keep = scope
+}
+
+
+object PendingUpdate { val release = mutableStateOf<Updater.Release?>(null) }
+
+/** Écran d'accueil : logo + recherche de mise à jour (4 s maximum). */
+@Composable
+private fun SplashScreen(onDone: () -> Unit) {
+    var status by remember { mutableStateOf("Recherche de mise à jour…") }
+    LaunchedEffect(Unit) {
+        val r = kotlinx.coroutines.withTimeoutOrNull(4000) { Updater.check() }
+        if (r != null) { status = "Nouvelle version ${r.versionName} trouvée"; PendingUpdate.release.value = r; delay(600) }
+        else { status = "TVO est à jour"; delay(400) }
+        onDone()
+    }
+    androidx.compose.foundation.layout.Box(
+        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF13245F), TvoColors.Bg), radius = 1100f)),
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+    ) {
+        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(90.dp))
+            androidx.tv.material3.Text(status, fontSize = 16.sp, color = TvoColors.Muted)
+            androidx.compose.foundation.layout.Box(Modifier.width(180.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(TvoColors.Surface2)) {
+                val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "s")
+                val x: Float by t.animateFloat(
+                    initialValue = 0f, targetValue = 1f,
+                    animationSpec = androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween<Float>(1100)), label = "x")
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxHeight().width(60.dp).offset(x = (120f * x).dp).background(TvoColors.Blue))
+            }
+        }
+    }
 }

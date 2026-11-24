@@ -1,5 +1,7 @@
 package app.tvo.tv.data
 
+import app.tvo.tv.Tvo
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -62,6 +64,7 @@ class AddonClient(private val http: OkHttpClient) {
 
     suspend fun install(input: String): Addon {
         if (input.startsWith(FreeTv.URL)) return FreeTv.addon
+        if (M3u.isM3uInput(input)) return M3u.install(input, Tvo.store.addons.value.firstOrNull { it.url == M3u.PREFIX + input.removePrefix(M3u.PREFIX) }?.manifest?.name)
         val base = normalize(input)
         return Addon(base, parseManifest(getJson("$base/manifest.json")))
     }
@@ -79,11 +82,13 @@ class AddonClient(private val http: OkHttpClient) {
     suspend fun catalog(addon: Addon, cat: CatalogDef, extra: Map<String, String> = emptyMap()): List<MetaPreview> {
         if (addon.url == Tmdb.URL) return Tmdb.catalog(cat, extra)
         if (addon.url == FreeTv.URL) return FreeTv.catalog(cat.id, extra)
+        if (addon.url.startsWith(M3u.PREFIX)) return M3u.catalog(addon, cat.id, extra)
         val ex = if (extra.isEmpty()) "" else "/" + extra.entries.joinToString("&") { "${it.key}=${enc(it.value)}" }
         val url = "${addon.url}/catalog/${cat.type}/${enc(cat.id)}$ex.json"
         catalogCache[url]?.let { return it }
         val list = getJson(url).arr("metas")
             ?.mapNotNull { (it as? JsonObject)?.let { o -> parsePreview(o, cat.type) } }
+            ?.map { if (addon.manifest.id == "com.linvo.cinemeta") it.copy(description = null) else it } // résumés anglais masqués
             ?.distinctBy { it.id } ?: emptyList()
         catalogCache[url] = list
         return list
@@ -92,6 +97,7 @@ class AddonClient(private val http: OkHttpClient) {
     suspend fun meta(addons: List<Addon>, type: String, id: String): MetaDetail? {
         metaCache["$type/$id"]?.let { return it }
         if (id.startsWith("freetv:")) return FreeTv.meta(id)
+        if (id.startsWith(M3u.PREFIX)) return M3u.meta(id)
         // TMDB catalog item: switch to its IMDb id so stream add-ons can find it.
         val tmdbId = if (id.startsWith("tmdb:")) id.split(":").getOrNull(2) else null
         val realId = if (tmdbId != null) Tmdb.imdbId(id) ?: id else id
@@ -99,6 +105,7 @@ class AddonClient(private val http: OkHttpClient) {
         if (m == null && !realId.startsWith("tmdb:")) {
             for (a in addons.filter { supports(it, "meta", type, realId) }) {
                 m = runCatching { getJson("${a.url}/meta/$type/${enc(realId)}.json").obj("meta")?.let { parseMeta(it, type) } }.getOrNull()
+                    ?.let { if (a.manifest.id == "com.linvo.cinemeta") it.copy(preview = it.preview.copy(description = null), videos = it.videos.map { v -> v.copy(overview = null) }) else it }
                 if (m != null) break
             }
             if (m != null && Tmdb.enabled) m = Tmdb.enrich(type, realId, tmdbId, m)
@@ -115,6 +122,7 @@ class AddonClient(private val http: OkHttpClient) {
             launch {
                 val res = withTimeoutOrNull(25_000) {
                     if (a.url == FreeTv.URL) return@withTimeoutOrNull runCatching { FreeTv.streams(videoId) }.getOrNull()
+                    if (a.url.startsWith(M3u.PREFIX)) return@withTimeoutOrNull runCatching { M3u.streams(videoId) }.getOrNull()
                     runCatching {
                         getJson("${a.url}/stream/$type/${enc(videoId)}.json").arr("streams")
                             ?.mapNotNull { (it as? JsonObject)?.let { o -> parseStream(o, a.manifest.name) } } ?: emptyList()

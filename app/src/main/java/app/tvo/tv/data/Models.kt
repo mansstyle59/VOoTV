@@ -65,6 +65,8 @@ data class MetaPreview(
     val genres: List<String> = emptyList(),
 )
 
+data class Person(val id: String, val name: String, val photo: String?, val role: String?)
+
 data class Video(
     val id: String,
     val title: String,
@@ -82,6 +84,7 @@ data class MetaDetail(
     val cast: List<String>,
     val director: List<String>,
     val defaultVideoId: String?,
+    val people: List<Person> = emptyList(),
 ) {
     /** Episodes in watching order: regular seasons first, specials (season 0) last. */
     val episodes: List<Video>
