@@ -1089,3 +1089,46 @@ html.mac .upd-banner { top: 40px; }
 .aiprev { width: 64px; height: 64px; border-radius: 15px; display: grid; place-items: center; border: 2px solid transparent; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
 .aiprev svg { width: 78%; height: 78%; }
 .aicon.on .aiprev { border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(61,124,255,.35); }
+
+/* ---------- Gestion des comptes 1.5 ---------- */
+.acc-top { display: grid; gap: 12px; padding: 6px var(--pad) 14px; }
+.acc-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.acc-seg button { display: grid; gap: 2px; justify-items: start; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(160,190,255,.12);
+  background: var(--surface, #151e3b); color: var(--muted, #9ea9c6); text-align: left; font: inherit; cursor: pointer; min-width: 0; }
+.acc-seg button b { font-size: 24px; line-height: 1.1; color: var(--text, #f3f6ff); }
+.acc-seg button span { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.acc-seg button.pending b { color: #facc15; } .acc-seg button.off b { color: #f87171; }
+.acc-seg button.on { background: var(--blue-grad); border-color: transparent; color: #fff; }
+.acc-seg button.on b { color: #fff; }
+.acc-seg button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.acc-search { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 14px;
+  background: var(--surface, #151e3b); border: 1px solid rgba(160,190,255,.12); color: var(--muted, #9ea9c6); }
+.acc-search svg { width: 18px; height: 18px; flex: none; }
+.acc-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text, #f3f6ff); font: inherit; font-size: 16px; }
+.acc-list { display: grid; gap: 12px; padding: 0 var(--pad) calc(30px + env(safe-area-inset-bottom)); }
+.acc-card { display: grid; gap: 14px; padding: 16px; border-radius: 20px; background: var(--surface, #151e3b); border: 1px solid rgba(160,190,255,.1); min-width: 0; }
+.acc-card.trial { border-color: rgba(250,204,21,.35); }
+.acc-card header { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.acc-card .acc-av { flex: none; width: 46px; height: 46px; font-size: 19px; }
+.acc-id { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.acc-id b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.acc-id em { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.1); color: var(--muted, #9ea9c6); vertical-align: 2px; }
+.pstat.ok { background: rgba(34,197,94,.18); color: #4ade80; }
+.acc-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0; padding: 12px 14px; border-radius: 14px; background: rgba(0,0,0,.18); }
+.acc-info div { min-width: 0; } .acc-info div:nth-child(-n+2) { grid-column: 1 / -1; }
+.acc-info dt { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted, #9ea9c6); }
+.acc-info dd { margin: 2px 0 0; font-size: 14.5px; overflow-wrap: anywhere; }
+.acc-sub { font-size: 13px; font-weight: 700; color: var(--muted, #9ea9c6); margin-bottom: -6px; }
+.acc-dur { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.acc-dur button { height: 40px; padding: 0 4px; border-radius: 11px; border: 1px solid rgba(160,190,255,.16); background: rgba(255,255,255,.05);
+  color: var(--text, #f3f6ff); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.acc-dur button:active { background: var(--blue); }
+.acc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.acc-actions .btn { flex: 1 1 0; min-width: 90px; margin: 0; }
+.acc-wide { width: 100%; margin: 0; }
+@media (max-width: 360px) { .acc-dur { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) {
+  .acc-top { grid-template-columns: minmax(0, 1fr) 320px; align-items: center; max-width: 1200px; }
+  .acc-list { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); max-width: 1200px; align-items: start; }
+  .acc-dur button:hover, .acc-seg button:not(.on):hover { background: rgba(255,255,255,.1); }
+}

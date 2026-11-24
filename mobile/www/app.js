@@ -811,28 +811,47 @@
     setTabs(null);
     const back = `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`;
     if (!isAccountAdmin()) { app.innerHTML = header("Gestion des comptes", back) + `<div class="empty">Réservé à l'administrateur.</div>`; return; }
-    app.innerHTML = header("Gestion des comptes", back) + `<div class="chips pad" id="acF"></div><div class="list" id="acL"><div class="empty small">Chargement…</div></div>`;
-    let list = [], f = "pending";
-    const load = async () => { try { list = await rpc("tvo_admin_users", { p_token: acct().token }) || []; } catch (e) { $("#acL").innerHTML = `<div class="empty small">${esc(e.message)}</div>`; return; } draw(); };
+    app.innerHTML = header("Gestion des comptes", back) + `<div class="acc-top"><div class="acc-seg" id="acF"></div>
+      <label class="acc-search">${ICON.search || ""}<input id="acQ" type="search" placeholder="Rechercher un compte" autocomplete="off" autocapitalize="none"></label></div>
+      <div class="acc-list" id="acL"><div class="empty small">Chargement…</div></div>`;
+    let list = [], f = null, q = "";
+    const load = async () => { try { list = await rpc("tvo_admin_users", { p_token: acct().token }) || []; } catch (e) { $("#acL").innerHTML = `<div class="empty small">${esc(e.message)}</div>`; return; }
+      if (!f) f = list.some((u) => u.eff === "pending") ? "pending" : "active"; draw(); };
     const when = (t) => (t ? new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—");
-    const lab = { active: ["Actif", "std"], pending: ["En attente", "trial"], disabled: ["Désactivé", "off"], expired: ["Expiré", "off"] };
+    const ago = (t) => { if (!t) return "jamais"; const d = Math.floor((Date.now() - new Date(t)) / 864e5); return d <= 0 ? "aujourd'hui" : d === 1 ? "hier" : `il y a ${d} j`; };
+    const lab = { active: ["Actif", "ok"], pending: ["En attente", "trial"], disabled: ["Désactivé", "off"], expired: ["Expiré", "off"] };
+    const me = (acct() || {}).user;
     const draw = () => {
-      const groups = [["pending", "En attente"], ["active", "Actifs"], ["off", "Désactivés / expirés"], ["all", "Tous"]];
-      const inG = (u, g) => g === "all" || (g === "off" ? u.eff === "disabled" || u.eff === "expired" : u.eff === g);
-      $("#acF").innerHTML = groups.map(([g, l]) => `<button class="chip ${f === g ? "on" : ""}" data-f="${g}">${l} (${list.filter((u) => inG(u, g)).length})</button>`).join("");
-      const l = list.filter((u) => inG(u, f));
-      $("#acL").innerHTML = l.map((u) => { const [st, cls] = u.role === "admin" ? ["Administrateur", "admin"] : lab[u.eff] || [u.eff, "std"];
+      const groups = [["pending", "En attente"], ["active", "Actifs"], ["off", "Bloqués"]];
+      const inG = (u, g) => (g === "off" ? u.eff === "disabled" || u.eff === "expired" : u.eff === g);
+      $("#acF").innerHTML = groups.map(([g, l]) => { const n = list.filter((u) => inG(u, g)).length;
+        return `<button class="${f === g ? "on" : ""} ${g}" data-f="${g}"><b>${n}</b><span>${l}</span></button>`; }).join("");
+      const l = list.filter((u) => inG(u, f) && (!q || u.user.includes(q) || (u.email || "").toLowerCase().includes(q)));
+      const durations = [[3, "Essai 3 j"], [7, "7 j"], [30, "1 mois"], [365, "1 an"], [0, "Illimité"]];
+      $("#acL").innerHTML = l.map((u) => {
+        const admin = u.role === "admin", self = u.user === me;
+        const [st, cls] = admin ? ["Administrateur", "admin"] : lab[u.eff] || [u.eff, "std"];
         const left = u.expires_at ? Math.ceil((new Date(u.expires_at) - Date.now()) / 864e5) : null;
-        return `<div class="card acc"><div class="pm-top"><span class="acc-av">${esc(u.user.slice(0, 1).toUpperCase())}</span><span class="ht"><b>${esc(u.user)}</b>
-          <span><span class="pstat ${cls}">${esc(st)}</span>${left !== null && u.role !== "admin" ? ` <span class="small muted">${left > 0 ? `${left} j restant${left > 1 ? "s" : ""}` : "terminé"}</span>` : ""}</span></span></div>
-          ${u.email ? `<div class="small" style="color:var(--cyan)">${esc(u.email)}</div>` : `<div class="small muted">Pas d'e-mail renseigné</div>`}
-          <div class="small muted">Inscrit le ${when(u.created_at)} · Dernière activité ${when(u.last_seen)}${u.expires_at ? ` · Fin d'accès ${when(u.expires_at)}` : u.role !== "admin" && u.status === "active" ? " · Accès illimité" : ""}</div>
-          ${u.role === "admin" ? "" : `<div class="pm-l">${u.status === "active" ? "Durée d'accès" : "Autoriser l'accès"}</div>
-          <div class="chips">${[[3, "Essai 3 jours"], [7, "7 jours"], [30, "30 jours"], [365, "1 an"], [0, "Illimité"]].map(([d, t]) => `<button class="chip" data-act="${esc(u.user)}|active|${d}">${t}</button>`).join("")}</div>
-          <div class="two-btn">${u.status === "disabled" ? `<button class="btn" data-act="${esc(u.user)}|active|">Réactiver</button>` : `<button class="btn" data-act="${esc(u.user)}|disabled|">Désactiver</button>`}
-            <button class="btn danger" data-del="${esc(u.user)}">Supprimer</button></div>
-          ${u.email ? `<div class="two-btn"><button class="btn" data-mail="${esc(u.user)}">✉ Envoyer un mail</button><button class="btn" data-mcopy="${esc(u.user)}">Copier le message</button></div>` : ""}`}</div>`; }).join("") || `<div class="empty small">Aucun compte ici.</div>`;
+        const access = admin || (u.status === "active" && !u.expires_at) ? "Accès illimité" : left !== null ? (left > 0 ? `Encore ${left} jour${left > 1 ? "s" : ""} · jusqu'au ${when(u.expires_at)}` : `Accès terminé le ${when(u.expires_at)}`) : "Pas encore autorisé";
+        return `<article class="acc-card ${cls}">
+          <header><span class="acc-av">${esc(u.user.slice(0, 1).toUpperCase())}</span>
+            <div class="acc-id"><b>${esc(u.user)}${self ? ` <em>Toi</em>` : ""}</b><span class="pstat ${cls}">${esc(st)}</span></div></header>
+          <dl class="acc-info">
+            <div><dt>E-mail</dt><dd>${u.email ? esc(u.email) : `<span class="muted">Non renseigné</span>`}</dd></div>
+            <div><dt>Accès</dt><dd>${esc(access)}</dd></div>
+            <div><dt>Inscrit</dt><dd>${when(u.created_at)}</dd></div>
+            <div><dt>Vu</dt><dd>${ago(u.last_seen)}</dd></div>
+          </dl>
+          ${self && !u.email ? `<button class="btn acc-wide" data-myemail="1">Ajouter mon e-mail</button>` : ""}
+          ${admin ? "" : `<div class="acc-sub">${u.eff === "pending" ? "Autoriser l'accès pour" : u.eff === "active" ? "Changer la durée d'accès" : "Redonner l'accès pour"}</div>
+          <div class="acc-dur">${durations.map(([d, t]) => `<button data-act="${esc(u.user)}|active|${d}">${t}</button>`).join("")}</div>
+          <div class="acc-actions">
+            ${u.email ? `<button class="btn" data-mail="${esc(u.user)}">✉ Mail</button><button class="btn" data-mcopy="${esc(u.user)}">Copier</button>` : ""}
+            ${u.status === "disabled" ? `<button class="btn" data-act="${esc(u.user)}|active|">Réactiver</button>` : u.eff !== "pending" ? `<button class="btn" data-act="${esc(u.user)}|disabled|">Désactiver</button>` : ""}
+            <button class="btn danger" data-del="${esc(u.user)}">Supprimer</button></div>`}
+        </article>`; }).join("") || `<div class="empty small">${q ? "Aucun compte ne correspond." : f === "pending" ? "Aucune demande en attente." : "Aucun compte ici."}</div>`;
     };
+    $("#acQ").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); draw(); });
     $("#acF").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { f = b.dataset.f; draw(); } });
     // Message prêt à envoyer : s'ouvre dans Gmail (ou l'appli Mail), l'administrateur n'a plus qu'à appuyer sur Envoyer
     const mailFor = (u) => {
@@ -843,6 +862,8 @@
       return { to: u.email, subject, body };
     };
     $("#acL").addEventListener("click", async (e) => {
+      if (e.target.closest("[data-myemail]")) { const v = prompt("Ton adresse e-mail"); if (!v) return;
+        try { await rpc("tvo_set_email", { p_token: acct().token, p_email: v.trim() }); toast("E-mail enregistré ✓"); load(); } catch (err) { toast(err.message, 4000); } return; }
       const mb = e.target.closest("[data-mail]"), mc = e.target.closest("[data-mcopy]");
       if (mb || mc) { const u = list.find((x) => x.user === (mb || mc).dataset[mb ? "mail" : "mcopy"]); if (!u) return; const ml = mailFor(u);
         if (mc) { try { await navigator.clipboard.writeText(`À : ${ml.to}\nObjet : ${ml.subject}\n\n${ml.body}`); toast("Message copié ✓"); } catch { toast("Copie impossible"); } return; }
