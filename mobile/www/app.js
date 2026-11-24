@@ -4475,7 +4475,7 @@ var qrcode = function() {
   // « Voir tout » d'une rangée
   async function screenCatalog(key) {
     setTabs("home");
-    const row = [...buildRows(null), ...buildRows("movie"), ...buildRows("series")].find((r) => r.key === key);
+    const row = [...buildRows(null, true), ...buildRows("movie"), ...buildRows("series")].find((r) => r.key === key);
     app.innerHTML = header(row ? row.title : "Catalogue", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`)
       + `<div class="grid" id="g" style="margin-top:8px"></div><div id="more" class="empty small">Chargement…</div>`;
     if (!row) { $("#more").textContent = "Catalogue introuvable."; return; }
