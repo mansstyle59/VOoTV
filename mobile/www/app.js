@@ -5387,7 +5387,7 @@ var qrcode = function() {
           <div class="nf-title"><b>${esc(m.name)}</b><span>${v && v.season != null ? `S${v.season} E${v.episode} • ${esc(v.title)}` : esc(s.addonName)}</span></div>
           <div class="nf-seek"><input type="range" id="pSeek" min="0" max="1000" value="0" aria-label="Position"></div>
           <div class="nf-row">
-            ${m.type === "series" ? `<button class="nf-opt" id="pNext" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4v16l11-8zM17 4h2v16h-2z"/></svg><span>Épisode suivant</span></button>` : ""}
+            ${m.type === "series" ? `<button class="nf-opt" id="pPrev" aria-label="Épisode précédent"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4v16L8 12zM5 4h2v16H5z"/></svg><span>Précédent</span></button><button class="nf-opt" id="pEps" aria-label="Liste des épisodes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Épisodes</span></button><button class="nf-opt" id="pNext" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4v16l11-8zM17 4h2v16h-2z"/></svg><span>Épisode suivant</span></button>` : ""}
             <button class="nf-opt" id="pSubs" aria-label="Sous-titres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17.5 10.2a2.2 2.2 0 1 0 0 3.6" stroke-linecap="round"/></svg><span>Audio et sous-titres</span></button>
             <button class="nf-opt" id="pSpeed" aria-label="Vitesse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 14l4-5"/><path d="M3.5 17a9 9 0 1 1 17 0"/></svg><span>Vitesse (x1)</span></button>
             <button class="nf-opt" id="pFit" aria-label="Ajuster l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Ajuster</span></button>
@@ -5431,6 +5431,8 @@ var qrcode = function() {
     $("#pSpeed").addEventListener("click", (e) => { e.stopPropagation(); const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.querySelector("span").textContent = `Vitesse (x${speeds[i]})`; flash("Vitesse x" + speeds[i]); wake(); });
     $("#pFit").addEventListener("click", (e) => { e.stopPropagation(); const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.querySelector("span").textContent = cover ? "Remplir" : "Ajuster"; wake(); });
     $("#pLock").addEventListener("click", (e) => { e.stopPropagation(); const on = el.classList.toggle("locked"); flash(on ? "Commandes verrouillées" : "Commandes déverrouillées"); wake(); });
+    const pv = $("#pPrev"); if (pv) pv.addEventListener("click", (e) => { e.stopPropagation(); const i = m.episodes.findIndex((x) => x.id === ctx.videoId); if (i > 0) playEpisode(ctx, m.episodes[i - 1]); else toast("C'est le premier épisode"); });
+    const pe = $("#pEps"); if (pe) pe.addEventListener("click", (e) => { e.stopPropagation(); episodesSheet(ctx); });
     const nx = $("#pNext"); if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); playNext(ctx); });
     // Feuille audio + sous-titres : langues claires (français d'abord), taille, fond, décalage précis
     const subPref = LS.get("subpref", { size: 1, box: false });
@@ -5602,21 +5604,39 @@ var qrcode = function() {
   }
 
   async function playNext(ctx) {
-    const { m } = ctx;
-    const i = m.episodes.findIndex((e) => e.id === ctx.videoId);
-    const next = m.episodes[i + 1];
+    const i = ctx.m.episodes.findIndex((e) => e.id === ctx.videoId);
+    const next = ctx.m.episodes[i + 1];
     if (!next) return closePlayer();
-    toast("Recherche de l'épisode suivant…");
+    return playEpisode(ctx, next);
+  }
+  /** Lance n'importe quel épisode de la série (suivant, précédent ou choisi dans la liste), en gardant la même source si possible. */
+  async function playEpisode(ctx, next) {
+    const { m } = ctx;
+    toast("Recherche de l'épisode…");
     const all = await streams(m.type, next.id).done;
     const ok = all.filter((x) => x.url && !x.needsHeaders).sort((a, b) => iosBad(a) - iosBad(b));
     const pick = ok.find((x) => ctx.s.bingeGroup && x.bingeGroup === ctx.s.bingeGroup)
       || ok.filter((x) => x.addonName === ctx.s.addonName && !iosBad(x)).sort((a, b) => b.quality - a.quality)[0]
       || ok.filter((x) => !iosBad(x)).sort((a, b) => b.quality - a.quality)[0]
       || ok[0];
+    if (!pick) return toast("Aucune source pour cet épisode");
     closePlayer();
-    if (!pick) return toast("Aucune source pour l'épisode suivant");
     const subs = [...pick.subtitles, ...(await subtitles(m.type, next.id).catch(() => []))];
     openPlayer({ m, s: pick, v: next, videoId: next.id, start: 0, subs });
+  }
+  /** Liste des épisodes dans le lecteur : changer d'épisode sans quitter la lecture. */
+  function episodesSheet(ctx) {
+    const sh = $("#pSheet"); if (!sh) return;
+    const eps = ctx.m.episodes.filter((e) => e.season === (ctx.v && ctx.v.season));
+    const seasons = [...new Set(ctx.m.episodes.map((e) => e.season).filter((x) => x != null))];
+    sh.hidden = false;
+    sh.innerHTML = `<div class="sh-head"><b>Épisodes</b><button class="nf-ic" id="epClose" aria-label="Fermer">✕</button></div>
+      <div class="sh-chips">${seasons.map((n) => `<button class="chip${n === (ctx.v && ctx.v.season) ? " on" : ""}" data-ss="${n}">Saison ${n}</button>`).join("")}</div>
+      <div class="sh-list">${eps.map((e) => `<button class="ep-row${e.id === ctx.videoId ? " cur" : ""}" data-ep="${esc(e.id)}"><i>${e.episode}</i><span>${esc(e.title || "Épisode " + e.episode)}</span></button>`).join("")}</div>`;
+    sh.onclick = (ev) => ev.stopPropagation();
+    $("#epClose").onclick = (ev) => { ev.stopPropagation(); sh.hidden = true; };
+    sh.querySelectorAll("[data-ss]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const n = Number(b.dataset.ss); const first = ctx.m.episodes.find((e) => e.season === n); if (first) { episodesSheet({ ...ctx, v: first, videoId: ctx.videoId }); } }));
+    sh.querySelectorAll("[data-ep]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const e = ctx.m.episodes.find((x) => x.id === b.dataset.ep); if (e && e.id !== ctx.videoId) playEpisode(ctx, e); else sh.hidden = true; }));
   }
 
   // ------------------------------------------------------------------ mises à jour (automatiques, sans réinstaller)
