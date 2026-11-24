@@ -33,6 +33,15 @@ object Tvo {
 class TvoApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        // Rapport de plantage : l'erreur est gardée et affichée au prochain lancement (voir MainActivity)
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            runCatching {
+                val sw = java.io.StringWriter(); e.printStackTrace(java.io.PrintWriter(sw))
+                java.io.File(filesDir, "crash.txt").writeText("Fil : ${t.name}\n$sw".take(6000))
+            }
+            previous?.uncaughtException(t, e)
+        }
         Tvo.init(this)
         app.tvo.tv.data.Sync.start()
     }

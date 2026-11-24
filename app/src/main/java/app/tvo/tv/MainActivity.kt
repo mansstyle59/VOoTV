@@ -73,7 +73,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Tvo.init(application)
+        val crashFile = java.io.File(filesDir, "crash.txt")
+        val lastCrash = runCatching { crashFile.takeIf { it.exists() }?.readText() }.getOrNull()
+        if (lastCrash != null) runCatching { crashFile.delete() }
         setContent {
+            var crash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(lastCrash) }
+            if (crash != null) {
+                // Écran de diagnostic : la photo de cet écran suffit pour corriger le plantage
+                TvoTheme {
+                    androidx.compose.foundation.layout.Column(
+                        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black).padding(40.dp),
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp),
+                    ) {
+                        androidx.tv.material3.Text("L'application s'est fermée toute seule", fontSize = 28.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = androidx.compose.ui.graphics.Color.White)
+                        androidx.tv.material3.Text("Voici l'erreur (montre cet écran en photo) :", fontSize = 16.sp, color = androidx.compose.ui.graphics.Color(0xFF8FC2FF))
+                        androidx.tv.material3.Text(crash!!.lines().take(14).joinToString("\n"), fontSize = 12.sp, color = androidx.compose.ui.graphics.Color(0xFFFFB4B4), maxLines = 16, modifier = Modifier.weight(1f))
+                        app.tvo.tv.ui.TvoButton("Continuer", { crash = null }, primary = true)
+                    }
+                }
+                return@setContent
+            }
             TvoTheme {
                 Surface(Modifier.fillMaxSize(), colors = SurfaceDefaults.colors(containerColor = TvoColors.Bg, contentColor = TvoColors.Text)) {
                     AppNav()
