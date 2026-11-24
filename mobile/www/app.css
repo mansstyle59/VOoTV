@@ -1000,3 +1000,29 @@ input.selectable, .field { -webkit-user-select: text; user-select: text; }
 .card.acc { display: grid; gap: 8px; margin: 0 var(--pad) 10px; }
 .acc-av { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; background: var(--blue-grad); }
 .card.acc .chips { padding: 0; flex-wrap: wrap; gap: 6px; } .card.acc .chip { background: rgba(255,255,255,.07); border: 1px solid rgba(160,190,255,.12); }
+
+/* =====================  Ordinateur (Mac, grands écrans) : mise en page dédiée  ===================== */
+html.mac body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 700; -webkit-app-region: drag; }
+html.mac .header, html.mac .topbar, html.mac .homebar { padding-top: 34px; }
+@media (min-width: 1024px) {
+  :root { --pad: 36px; }
+  /* La barre du bas devient une barre latérale fixe à gauche */
+  .tabs { left: 16px; right: auto; top: 50%; bottom: auto; transform: translateY(-50%); width: 92px; padding: 10px 8px;
+    grid-template-columns: 1fr; grid-auto-rows: auto; gap: 6px; border-radius: 26px; }
+  .tab { min-height: 66px; font-size: 11.5px; }
+  body:not(.no-tabs) #app { padding-left: 124px; padding-bottom: 40px; }
+  #app { max-width: 1680px; margin: 0 auto; }
+  .tab:hover, .btn:hover, .chip:hover, .card.source:hover, .as-btn:hover { filter: brightness(1.12); }
+  .gtile:hover, .ptile:hover, .colcard:hover, .ccard:hover, .ltile:hover .llogo, .pcard:hover .pimg { box-shadow: 0 0 0 2px var(--blue-2), 0 12px 30px rgba(0,0,0,.45); }
+  button, a, .card { cursor: pointer; }
+  .cslide { flex-basis: 300px; }
+  .car-info b { font-size: 28px; }
+  .ccard { width: 380px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .sect-group, .settings-wrap { max-width: 860px; margin-left: auto; margin-right: auto; }
+  .auth-card { width: 440px; }
+  .as-sheet, .wn-sheet { place-items: center; }
+  .pin-card { width: 380px; }
+  .lsugg { grid-auto-columns: 320px; }
+}
+@media (min-width: 1600px) { .cslide { flex-basis: 340px; } .ccard { width: 440px; } }

@@ -1,0 +1,34 @@
+{
+  "name": "tvo-desktop",
+  "productName": "TVO",
+  "version": "1.0.0",
+  "description": "TVO pour Mac : films, séries et TV en direct",
+  "main": "main.js",
+  "private": true,
+  "author": "TVO",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac --universal --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.tvo.desktop",
+    "productName": "TVO",
+    "copyright": "TVO",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "www/**/*"],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "icon": "build/icon.png",
+      "target": [{ "target": "dmg" }],
+      "hardenedRuntime": false,
+      "identity": null,
+      "darkModeSupport": true,
+      "protocols": [{ "name": "TVO", "schemes": ["tvo"] }]
+    },
+    "dmg": { "title": "TVO", "artifactName": "TVO-macOS-${version}.dmg" }
+  }
+}

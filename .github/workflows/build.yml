@@ -1,4 +1,4 @@
-name: Build TVO (TV, Android, iPhone)
+name: Build TVO (TV, Android, iPhone, Mac)
 
 on:
   push:
@@ -110,3 +110,33 @@ jobs:
             - TVO-iOS : iPhone (à installer avec ESign ou KSign)
           files: dist/*
           make_latest: true
+
+  macos:
+    name: App macOS
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Préparer le code de l'appli (identique au téléphone)
+        working-directory: mobile
+        run: |
+          npm ci
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
+          rm -rf ../desktop/www && cp -R www ../desktop/www
+      - name: Compiler l'app Mac (Apple Silicon + Intel)
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: |
+          npm install --no-audit --no-fund
+          npm pkg set version="1.0.${BUILD_NUMBER}"
+          npx electron-builder --mac dmg --universal --publish never
+          ls -la dist
+      - name: Ajouter l'app Mac à la version
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          files: desktop/dist/*.dmg

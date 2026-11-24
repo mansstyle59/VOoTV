@@ -1003,6 +1003,7 @@
       if (confirm("Connecter ce téléviseur à ton compte TVO ?\n\nNe confirme que si ce QR code s'affiche sur TA télévision.")) approveTv(q.get("code"), k);
     }
   }
+  if (window.TVO_DESKTOP) { document.documentElement.classList.add("desktop", "mac"); window.TVO_DESKTOP.onDeepLink((u) => handleUrl(u)); }
   try {
     const App = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App;
     if (App) { App.addListener("appUrlOpen", (e) => handleUrl(e.url)); App.getLaunchUrl().then((r) => r && handleUrl(r.url)).catch(() => {}); }
