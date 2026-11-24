@@ -1,5 +1,6 @@
 package app.tvo.tv.ui
 
+import androidx.compose.runtime.mutableStateMapOf
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -80,7 +81,32 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             done++
         }
     }
-    val playable = streams.filter { it.playable }.sortedByDescending { it.quality }
+    // Test rapide de chaque lien : temps de réponse, sans télécharger la vidéo
+    val tests = remember(videoId) { mutableStateMapOf<String, Pair<Boolean, Long>>() }
+    val sem = remember { kotlinx.coroutines.sync.Semaphore(6) }
+    val testHttp = remember { Tvo.http.newBuilder().connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS).readTimeout(5, java.util.concurrent.TimeUnit.SECONDS).build() }
+    LaunchedEffect(streams.size) {
+        streams.filter { it.url?.startsWith("http") == true && it.url !in tests }.forEach { st ->
+            val u = st.url!!; tests[u] = false to -1L
+            launch(kotlinx.coroutines.Dispatchers.IO) {
+                sem.acquire()
+                try {
+                    val t0 = System.currentTimeMillis()
+                    val req = okhttp3.Request.Builder().url(u).head().apply { st.headers.forEach { (k, v) -> header(k, v) } }.build()
+                    val ok = runCatching { testHttp.newCall(req).execute().use { it.isSuccessful || it.code == 405 || it.code == 206 } }.getOrDefault(false)
+                    tests[u] = ok to (System.currentTimeMillis() - t0)
+                } finally { sem.release() }
+            }
+        }
+    }
+    fun langOf(s: StreamItem): String { val t = (s.name + " " + s.title).lowercase()
+        return when { Regex("\\bmulti\\b").containsMatchIn(t) -> "MULTI"; Regex("\\b(vff|vfq|vf2?|french|truefrench)\\b").containsMatchIn(t) -> "VF"; "vostfr" in t -> "VOSTFR"; else -> "" } }
+    fun score(s: StreamItem): Long { val r = s.url?.let { tests[it] }
+        val alive = when { r == null -> 1; r.second < 0 -> 1; r.first -> 2; else -> 0 }
+        return alive * 10_000_000L + (if (langOf(s).isNotEmpty()) 1_000_000L else 0L) + s.quality * 100_000L - (if (r != null && r.first) r.second.coerceAtMost(99_999) else 50_000) }
+    var qFilter by remember(videoId) { mutableStateOf<Int?>(null) }
+    val all = streams.filter { it.playable }.sortedByDescending { score(it) }
+    val playable = all.filter { qFilter == null || it.quality == qFilter }
     val torrents = streams.count { !it.playable }
 
     Row(Modifier.fillMaxSize().background(TvoColors.Bg)) {
@@ -101,6 +127,16 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             }
             Text(status, Modifier.padding(top = 4.dp, bottom = 16.dp), fontSize = 14.sp, color = TvoColors.Muted)
             if (starting) Text("Préparation de la lecture…", fontSize = 16.sp, color = TvoColors.Cyan)
+            if (all.isNotEmpty()) {
+                val pending = tests.values.count { it.second < 0 }
+                Text(if (pending > 0) "Test des liens… ($pending en cours) · classés par langue, qualité et vitesse" else "Liens testés · classés par langue, qualité et vitesse",
+                    fontSize = 13.sp, color = TvoColors.Cyan, modifier = Modifier.padding(bottom = 8.dp))
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
+                    item { Chip("Tout (${all.size})", qFilter == null, { qFilter = null }) }
+                    listOf(4, 3, 2, 1, 0).forEach { q -> val n = all.count { it.quality == q }
+                        if (n > 0) item { Chip("${if (q == 0) "Autres" else AddonClient.qualityLabel(q)} ($n)", qFilter == q, { qFilter = q }) } }
+                }
+            }
             if (playable.isEmpty() && (done >= total)) {
                 Text(
                     if (total == 0) "Ajoute un add-on qui fournit des vidéos dans Réglages > Add-ons (comme dans Nuvio ou Stremio)."
@@ -110,7 +146,10 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(playable, key = { i, s -> "${s.addonName}|${s.url ?: s.externalUrl}|$i" }) { i, s ->
-                    StreamRow(s, if (i == 0) Modifier.focusRequester(firstFr) else Modifier) {
+                    val r = s.url?.let { tests[it] }
+                    val badge = when { s.url == null -> "Lien externe"; r == null || r.second < 0 -> "Test…"; !r.first -> "Hors ligne"
+                        r.second < 1000 -> "⚡ ${r.second} ms"; else -> "⚡ ${"%.1f".format(r.second / 1000.0)} s" }
+                    StreamRow(s, badge, langOf(s), i == 0 && qFilter == null, if (i == 0) Modifier.focusRequester(firstFr) else Modifier) {
                         if (starting) return@StreamRow
                         val m = meta ?: return@StreamRow
                         starting = true
@@ -177,7 +216,7 @@ fun openExternal(ctx: Context, uri: Uri, title: String?) {
 }
 
 @Composable
-private fun StreamRow(s: StreamItem, modifier: Modifier, onClick: () -> Unit) {
+private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -195,6 +234,12 @@ private fun StreamRow(s: StreamItem, modifier: Modifier, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (best) Text("MEILLEURE SOURCE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TvoColors.Blue)
+                    val bc = when { badge.startsWith("Hors") -> Color(0xFFF87171); badge.startsWith("⚡") -> Color(0xFF4ADE80); else -> TvoColors.Muted }
+                    Text(badge, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = bc)
+                    if (lang.isNotEmpty()) Text(lang, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
+                }
                 Text(s.name.replace("\n", " "), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (s.title.isNotBlank()) Text(s.title, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp,
                     color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.75f))

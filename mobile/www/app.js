@@ -399,9 +399,11 @@
         const attr = (n) => ((info.match(new RegExp(n + '="([^"]*)"')) || [])[1] || "").trim() || null;
         const raw = (info.slice(info.lastIndexOf(",") + 1).replace(/[ⒼⓎⒹⓉⓈ]/g, "").trim()) || attr("tvg-name") || "Chaîne";
         const num = parseInt(attr("tvg-chno"), 10) || parseInt((raw.match(/^(\d+)\s*[-.:]/) || [])[1], 10) || 9999;
-        const name = raw.replace(/^\d+\s*[-.:]\s*/, "");
+        const name = raw.replace(/^\d+\s*[-.:]\s*/, "").replace(/\s*\((\d{3,4}p|\d+p)\)|\s*\[(geo-blocked|not 24\/7)\]/gi, "").trim() || raw;
         const id = `${M3U.P}${h}:${slugify(name)}`;
-        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo"), chno: num, url: l, group: attr("group-title") || "", headers: { ...hdr } }); }
+        if (attr("http-user-agent") && !hdr["User-Agent"]) hdr["User-Agent"] = attr("http-user-agent");
+        if (attr("http-referrer") && !hdr.Referer) hdr.Referer = attr("http-referrer");
+        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo"), tvgId: (attr("tvg-id") || "").replace(/@.*$/, ""), chno: num, url: l, group: attr("group-title") || "", headers: { ...hdr } }); }
         info = null;
       }
     });
@@ -450,6 +452,77 @@
     LS.set("logos", LOGO_CACHE);
   }
   const bestLogo = (c) => LOGO_CACHE[chanKey(c.name)] || c.logo || null;
+
+  // ------------------------------------------------------------------ programmes TV en direct (guide XMLTV, comme Molotov / Freebox)
+  const EPG_URL = "https://xmltvfr.fr/xmltv/xmltv_tnt.xml";
+  const EPG = { ids: {}, names: {}, t: 0, loading: null };
+  (() => { const c = LS.get("epg", null); if (c && Date.now() - c.t < 6 * 3600e3) Object.assign(EPG, c); })();
+  const normChan = (n) => String(n || "").normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase()
+    .replace(/\((\d+p)\)|\b(hd|fhd|uhd|sd|4k|tv|tnt|channel|chaine)\b/g, "").replace(/\+/g, "plus").replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+  const xmlTime = (v) => { const m = String(v).match(/^(\d{4})(\d\d)(\d\d)(\d\d)(\d\d)(\d\d)\s*([+-]\d{4})?/); if (!m) return 0;
+    const tz = m[7] ? (m[7][0] === "-" ? -1 : 1) * (Number(m[7].slice(1, 3)) * 60 + Number(m[7].slice(3))) : 0;
+    return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) - tz * 60000; };
+  const unxml = (t) => String(t || "").replace(/<!\[CDATA\[|\]\]>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;|&#39;/g, "'").trim();
+  function loadEpg(force) {
+    if (!force && EPG.t && Date.now() - EPG.t < 3 * 3600e3) return Promise.resolve(EPG);
+    if (EPG.loading) return EPG.loading;
+    EPG.loading = (async () => {
+      try {
+        const txt = await (await fetch(EPG_URL)).text();
+        const ids = {}, names = {}; const now = Date.now(), from = now - 2 * 3600e3, to = now + 18 * 3600e3;
+        for (const m of txt.matchAll(/<channel id="([^"]+)">([\s\S]*?)<\/channel>/g)) {
+          const id = m[1]; ids[id] = [];
+          for (const d of m[2].matchAll(/<display-name[^>]*>([\s\S]*?)<\/display-name>/g)) names[normChan(unxml(d[1]))] = id;
+          names[normChan(id.replace(/\.[a-z]{2}$/i, ""))] = id;
+        }
+        for (const m of txt.matchAll(/<programme start="([^"]+)" stop="([^"]+)" channel="([^"]+)"[^>]*>([\s\S]*?)<\/programme>/g)) {
+          const a = xmlTime(m[1]), b = xmlTime(m[2]); if (b < from || a > to || !ids[m[3]]) continue;
+          const body = m[4], g = (re) => unxml((body.match(re) || [])[1]);
+          ids[m[3]].push({ a, b, t: g(/<title[^>]*>([\s\S]*?)<\/title>/), s: g(/<sub-title[^>]*>([\s\S]*?)<\/sub-title>/).slice(0, 80),
+            c: g(/<category[^>]*>([\s\S]*?)<\/category>/), i: (body.match(/<icon src="([^"]+)"/) || [])[1] || "", d: g(/<desc[^>]*>([\s\S]*?)<\/desc>/).slice(0, 260) });
+        }
+        Object.values(ids).forEach((l) => l.sort((x, y) => x.a - y.a));
+        Object.assign(EPG, { ids, names, t: Date.now() });
+        LS.set("epg", { ids, names, t: EPG.t });
+      } catch { /* pas de guide : les chaînes restent lisibles */ }
+      EPG.loading = null; return EPG;
+    })();
+    return EPG.loading;
+  }
+  function epgFor(ch) {
+    const tid = ch.tvgId && Object.keys(EPG.ids).find((k) => k.toLowerCase() === String(ch.tvgId).toLowerCase());
+    const id = tid || EPG.names[normChan(ch.name)];
+    return id ? EPG.ids[id] || [] : [];
+  }
+  function nowNext(ch) {
+    const l = epgFor(ch), n = Date.now(); const i = l.findIndex((p) => p.a <= n && p.b > n);
+    if (i < 0) return null;
+    return { now: l[i], next: l[i + 1] || null, pct: Math.round(((n - l[i].a) / (l[i].b - l[i].a)) * 100), list: l.slice(i, i + 8) };
+  }
+  const hm = (t) => new Date(t).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+  // Suggestions de chaînes gratuites et légales (listes publiques sur GitHub : iptv-org, Free-TV)
+  const LIVE_SUGG = [
+    ["https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_france.m3u8", "TNT gratuite", "Les chaînes françaises en accès libre : France TV, Arte, LCP, franceinfo…", "🇫🇷", "#2f5bff", "#e11d48"],
+    ["https://iptv-org.github.io/iptv/countries/fr.m3u", "France · toutes les chaînes libres", "Chaînes nationales, régionales et thématiques diffusées gratuitement", "📺", "#1d4ed8", "#0ea5e9"],
+    ["https://iptv-org.github.io/iptv/categories/news.m3u", "Info du monde", "Chaînes d'information en continu du monde entier", "🌍", "#0f766e", "#22c55e"],
+    ["https://iptv-org.github.io/iptv/categories/kids.m3u", "Enfants", "Dessins animés et programmes jeunesse en direct", "🧸", "#f59e0b", "#ec4899"],
+    ["https://iptv-org.github.io/iptv/categories/music.m3u", "Musique", "Clips et concerts en continu", "🎵", "#7c3aed", "#db2777"],
+    ["https://iptv-org.github.io/iptv/countries/be.m3u", "Belgique", "RTBF, chaînes belges en accès libre", "🇧🇪", "#111827", "#eab308"],
+    ["https://iptv-org.github.io/iptv/countries/ch.m3u", "Suisse", "RTS et chaînes suisses en accès libre", "🇨🇭", "#dc2626", "#7f1d1d"],
+    ["http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV", "Abonnés Free : toutes tes chaînes, depuis le Wi-Fi de ta Freebox", "📡", "#991b1b", "#111827"],
+  ];
+  const liveInstalled = (u) => S.addons.some((a) => a.url === M3U.P + u);
+  function liveSuggHTML() {
+    return `<div class="lsugg">${LIVE_SUGG.map(([u, n, d, ic, c1, c2]) => `<div class="lscard" style="--c1:${c1};--c2:${c2}">
+      <span class="lsic">${ic}</span><b>${esc(n)}</b><span class="small">${esc(d)}</span>
+      <button class="btn sm ${liveInstalled(u) ? "" : "primary"}" data-live="${esc(u)}" data-name="${esc(n)}" ${liveInstalled(u) ? "disabled" : ""}>${liveInstalled(u) ? "✓ Ajoutée" : "+ Ajouter"}</button></div>`).join("")}</div>`;
+  }
+  async function addLive(u, n) {
+    toast("Ajout de « " + n + " »…");
+    try { const a = await installM3u(u, n); const i = S.addons.findIndex((x) => x.url === a.url); if (i >= 0) S.addons[i] = a; else S.addons.push(a); saveAddons(); cache.clear(); toast("Chaînes ajoutées ✓"); screenLive(); }
+    catch (e) { toast(e.message || "Liste injoignable", 4000); }
+  }
   const m3uUsesGroups = (list) => new Set(list.map((c) => c.group).filter(Boolean)).size > 1;
   const m3uCat = (c, g) => (g ? c.group || "Autres" : chanCategory(c.name));
   async function installM3u(input, name) {
@@ -466,7 +539,7 @@
       catalogs: [...cats.map(([id, n]) => ({ type: "tv", id, name: n, extra: [], extraRequired: [], extraSupported: [] })),
         { type: "tv", id: "search", name: "Chaînes M3U", extra: [{ name: "search", isRequired: true, options: [] }], extraRequired: [], extraSupported: [] }] } };
   }
-  const m3uPreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: bestLogo(c), background: null, logo: bestLogo(c),
+  const m3uPreview = (c) => ({ id: c.id, type: "tv", name: c.name, tvgId: c.tvgId || "", poster: bestLogo(c), background: null, logo: bestLogo(c),
     description: "Chaîne en direct" + (c.group ? " · " + c.group : ""), releaseInfo: c.chno < 9999 ? "Canal " + c.chno : null, imdbRating: null, genres: ["En direct"] });
   async function m3uCatalog(a, catId, extra) {
     if (Number(extra.skip) > 0) return [];
@@ -1127,6 +1200,90 @@
       if (heroDone) return; heroDone = true;
       if (list.length) (type ? renderHero : renderCarousel)($("#hero"), list);
     });
+    if (!type && tmdbOn() && !hidden.includes("collections")) {
+      const cs = document.createElement("section"); cs.className = "section";
+      cs.innerHTML = `<h2 class="section-title"><span class="st">${ICON.movie}Sagas et collections</span><a href="#/collections">Tout voir →</a></h2><div class="row colrow" id="colrow"><div class="empty small">Chargement des sagas…</div></div>`;
+      rowsEl.insertBefore(cs, rowsEl.children[2] || null);
+      loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, S.profile && S.profile.kids);
+    }
+  }
+
+  // ------------------------------------------------------------------ sagas et collections (TMDB)
+  const COLLECTIONS = ["Toy Story", "Fast & Furious", "American Pie", "Harry Potter", "Star Wars", "Le Seigneur des anneaux", "Le Hobbit", "Indiana Jones",
+    "Retour vers le futur", "Jurassic Park", "Pirates des Caraïbes", "Shrek", "L'Âge de glace", "Moi, moche et méchant", "Madagascar", "Kung Fu Panda", "Cars",
+    "Le Monde de Nemo", "Les Indestructibles", "Dragons", "Hôtel Transylvanie", "Mission Impossible", "James Bond", "John Wick", "Matrix", "Terminator", "Alien",
+    "Rocky", "Creed", "Rambo", "Die Hard", "L'Arme fatale", "Bad Boys", "Men in Black", "Taxi", "Les Visiteurs", "Astérix", "OSS 117", "Les Tuche",
+    "Qu'est-ce qu'on a fait au Bon Dieu", "Les Bronzés", "La Grande Vadrouille", "Scary Movie", "Very Bad Trip", "Austin Powers", "Destination finale", "Saw",
+    "Scream", "Conjuring", "Insidious", "Annabelle", "Hunger Games", "Twilight", "Divergente", "Le Labyrinthe", "Transformers", "X-Men", "Avengers", "Spider-Man",
+    "Iron Man", "Captain America", "Thor", "Les Gardiens de la Galaxie", "Black Panther", "The Dark Knight", "Batman", "Jumanji", "La Planète des singes",
+    "Kingsman", "Ocean's", "Mad Max", "Expendables", "Le Parrain", "Retour vers", "Shaun", "Paddington", "Le Livre de la jungle", "Toy", "Pitch Perfect",
+    "Jason Bourne", "Taken", "Underworld", "Resident Evil", "Ghostbusters", "SOS Fantômes", "Sherlock Holmes", "Charlie et ses drôles de dames", "Rush Hour",
+    "Equalizer", "Sonic", "Les Minions", "Les Schtroumpfs", "Garfield", "Cinquante nuances", "Bridget Jones", "Mamma Mia", "Night at the Museum", "La Nuit au musée",
+    "Le Monde de Narnia", "Percy Jackson", "Les Animaux fantastiques", "Dune", "Avatar", "Godzilla", "King Kong", "Predator", "Tremors", "Paranormal Activity"];
+  const KIDS_COLS = new Set(["Toy Story", "Shrek", "L'Âge de glace", "Moi, moche et méchant", "Madagascar", "Kung Fu Panda", "Cars", "Le Monde de Nemo", "Les Indestructibles",
+    "Dragons", "Hôtel Transylvanie", "Paddington", "Le Livre de la jungle", "Sonic", "Les Minions", "Les Schtroumpfs", "Garfield", "La Nuit au musée", "Le Monde de Narnia", "Harry Potter", "Jumanji"]);
+  let COLS = LS.get("collections", { t: 0, list: [], q: {} });
+  function colCard(c) {
+    return `<a class="colcard" href="#/collection/${c.id}"><span class="cimg">${c.b ? `<img src="${esc(c.b)}" alt="" loading="lazy">` : ""}</span>
+      <span class="cshade"></span><b>${esc(c.n.replace(/\s*[-–]\s*(Saga|Collection)$/i, "").replace(/^(Saga|Collection)\s+/i, ""))}</b></a>`;
+  }
+  async function loadCollections(onUpdate, kidsOnly) {
+    if (Date.now() - COLS.t > 7 * 864e5) COLS = { t: Date.now(), list: [], q: {} };
+    const pick = () => COLS.list.filter((c) => !kidsOnly || KIDS_COLS.has(c.q));
+    if (COLS.list.length) onUpdate(pick());
+    const todo = COLLECTIONS.filter((q) => !(q in COLS.q) && (!kidsOnly || KIDS_COLS.has(q)));
+    let i = 0, changed = false;
+    const worker = async () => {
+      while (i < todo.length) {
+        const q = todo[i++];
+        try {
+          const d = await tget("/search/collection", { query: q });
+          const words = q.toLowerCase().split(/\s+/)[0];
+          const res = (d.results || []).filter((r, k) => k === 0 || (r.name || "").toLowerCase().includes(words)).slice(0, 3);
+          COLS.q[q] = res.map((r) => r.id);
+          res.forEach((r) => { if (r.backdrop_path && !COLS.list.some((c) => c.id === r.id)) { COLS.list.push({ id: r.id, n: r.name, b: timg(r.backdrop_path, "w780"), q }); changed = true; } });
+        } catch { COLS.q[q] = []; }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (changed || todo.length) { LS.set("collections", COLS); onUpdate(pick()); }
+  }
+  function screenCollections() {
+    setTabs("discover");
+    app.innerHTML = header("Sagas et collections", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`)
+      + `<div class="pad"><input class="field" id="cq" type="search" placeholder="Chercher une saga (Toy Story, Fast & Furious…)" autocomplete="off"></div><div class="colgrid pad" id="cg"><div class="empty small">Chargement…</div></div>`;
+    let all = [];
+    const draw = () => { const q = $("#cq").value.trim().toLowerCase();
+      $("#cg").innerHTML = all.filter((c) => !q || c.n.toLowerCase().includes(q)).map(colCard).join("") || `<div class="empty small">Aucune saga trouvée. Essaie la recherche TMDB ci-dessous.</div>`; };
+    $("#cq").addEventListener("input", () => {
+      draw(); clearTimeout(screenCollections.t);
+      const q = $("#cq").value.trim(); if (q.length < 3) return;
+      screenCollections.t = setTimeout(async () => {
+        try { const d = await tget("/search/collection", { query: q });
+          (d.results || []).forEach((r) => { if (r.backdrop_path && !all.some((c) => c.id === r.id)) all.push({ id: r.id, n: r.name, b: timg(r.backdrop_path, "w780") }); });
+          draw(); } catch {}
+      }, 400);
+    });
+    loadCollections((l) => { all = [...l].sort((a, b) => a.n.localeCompare(b.n, "fr")); draw(); }, S.profile && S.profile.kids);
+  }
+  async function screenCollection(id) {
+    setTabs("discover");
+    const back = `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`;
+    app.innerHTML = header("", back) + `<div class="empty">Chargement…</div>`;
+    let d; try { d = await tget(`/collection/${id}`); } catch { d = null; }
+    if (!d || !d.parts) { app.querySelector(".empty").textContent = "Saga introuvable."; return; }
+    const parts = d.parts.filter((p) => p.poster_path).sort((a, b) => (a.release_date || "9999").localeCompare(b.release_date || "9999"));
+    const list = parts.map((o) => tpreview(o, "movie"));
+    const years = parts.map((p) => (p.release_date || "").slice(0, 4)).filter(Boolean);
+    app.innerHTML = header("", back) + `<div class="pv-hero" style="--c:#2a1f7a">${d.backdrop_path ? `<img src="${esc(timg(d.backdrop_path, "w1280"))}" alt="">` : ""}<div class="shade"></div>
+        <div class="pv-brand"><h1>${esc(d.name.replace(/\s*[-–]\s*(Saga|Collection)$/i, ""))}</h1></div></div>
+      <div class="pad small" style="color:var(--cyan);margin-top:10px">${list.length} film${list.length > 1 ? "s" : ""}${years.length ? ` · ${years[0]} – ${years[years.length - 1]}` : ""}</div>
+      ${d.overview ? `<p class="pad desc" style="margin-top:6px">${esc(d.overview)}</p>` : ""}
+      <div class="chips pad" id="cs" style="margin-top:6px"><button class="chip on" data-s="asc">Ordre de sortie</button><button class="chip" data-s="desc">Plus récents</button></div>
+      <div class="grid" id="cgr"></div>`;
+    const drawC = (o) => { $("#cgr").innerHTML = (o === "desc" ? [...list].reverse() : list).map(portraitHTML).join(""); };
+    $("#cs").addEventListener("click", (e) => { const b = e.target.closest("[data-s]"); if (!b) return; document.querySelectorAll("#cs .chip").forEach((c) => c.classList.toggle("on", c === b)); drawC(b.dataset.s); });
+    drawC("asc");
   }
 
   function renderHero(el, list) {
@@ -1327,7 +1484,8 @@
     app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur, chaîne…</span></button></div>
       <div class="disc-grid pad">
         <a class="disc" href="#/movies">${ICON.clap}<b>Films</b></a><a class="disc" href="#/series">${ICON.series}<b>Séries</b></a>
-        <a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a><a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a></div>
+        <a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a><a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a>
+        <a class="disc wide" href="#/collections">${ICON.movie}<b>Sagas et collections</b></a></div>
       <div id="rows"></div>`;
     const rowsEl = $("#rows");
     rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories</span>
@@ -1348,13 +1506,10 @@
     app.innerHTML = topBar("Live TV") + `<div id="rows"></div>`;
     const rows = buildRows("tv").concat(buildRows("channel"));
     if (!rows.length) {
-      $("#rows").innerHTML = `<div class="empty"><h2>Freebox TV</h2>Abonné Free ? Connecte ton téléphone au Wi-Fi de ta Freebox puis ajoute tes chaînes. Tu peux aussi ajouter ta propre liste M3U dans Réglages › Add-ons.</div>
-        <div class="pad"><button class="btn blue block" id="addLive">${ICON.plus} Ajouter les chaînes Freebox</button></div>`;
-      $("#addLive").addEventListener("click", async () => {
-        toast("Recherche de la Freebox…");
-        try { const a = await installM3u("http://mafreebox.freebox.fr/freeboxtv/playlist.m3u"); S.addons.push(a); saveAddons(); cache.clear(); screenLive(); }
-        catch (e) { toast(e.message, 4000); }
-      });
+      $("#rows").innerHTML = `<div class="pad"><h2 class="lhead">Ajoute des chaînes</h2><p class="small muted" style="margin:4px 0 12px">Des listes gratuites et légales, avec le programme TV en direct. Un appui et c'est prêt.</p></div>
+        ${liveSuggHTML()}<div class="pad" style="margin-top:14px"><button class="btn block" id="lAdd2">${ICON.plus} Ajouter ma propre liste M3U</button></div>`;
+      $("#rows").querySelectorAll("[data-live]").forEach((b) => b.addEventListener("click", () => addLive(b.dataset.live, b.dataset.name)));
+      $("#lAdd2").addEventListener("click", () => go("#/addon-add"));
       return;
     }
     $("#rows").innerHTML = `<div class="pad live-tools"><input class="field" id="lq" type="search" placeholder="Rechercher une chaîne" autocomplete="off">
@@ -1367,7 +1522,8 @@
     const initials = (n) => esc(String(n).replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "TV");
     const tile = (m) => `<button class="ltile" data-open="${esc(m.type)}|${esc(m.id)}" data-cn="${esc(chanKey(m.name))}" aria-label="${esc(m.name)}">
         <span class="llogo">${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'${initials(m.name)}'}))">` : `<i>${initials(m.name)}</i>`}</span>
-        <b>${esc(m.name)}</b><span class="llive">● Direct</span></button>`;
+        <b>${esc(m.name)}</b>${(() => { const e = nowNext(m); return e ? `<span class="lnow">${esc(e.now.t)}</span><span class="lbar"><i style="width:${e.pct}%"></i></span><span class="lnext">${hm(e.now.b)} · ${esc(e.next ? e.next.t : "")}</span>` : ""; })()}
+        <span class="llive">● Direct</span></button>`;
     const draw = () => {
       const q = st.q.toLowerCase();
       const l = all.filter((x) => (st.c === "*" || x.cat === st.c) && (!q || x.m.name.toLowerCase().includes(q)));
@@ -1379,8 +1535,13 @@
     await Promise.all(rows.map(async (r, i) => {
       try { (await catalog(r.a, r.c, r.extra)).forEach((m) => { if (!seen.has(m.id)) { seen.add(m.id); all.push({ m, cat: String(i) }); } }); } catch {}
     }));
-    if (!document.body.contains($("#lgrid") || document.body)) return;
+    if (!$("#lgrid")) return;
     draw();
+    $("#lgrid").insertAdjacentHTML("afterend", `<div class="pad" style="margin-top:18px"><h2 class="lhead">Suggestions de chaînes</h2></div>${liveSuggHTML()}<div style="height:20px"></div>`);
+    $("#rows").querySelectorAll("[data-live]").forEach((b) => b.addEventListener("click", () => addLive(b.dataset.live, b.dataset.name)));
+    // Programme TV : chargé une fois, puis mis à jour chaque minute tant que la page est ouverte
+    loadEpg().then(() => { if ($("#lgrid")) draw(); });
+    const tick = setInterval(() => { if (!$("#lgrid")) return clearInterval(tick); if (!document.hidden) draw(); }, 60000);
     // Logos officiels : recherche en arrière-plan, mise à jour des tuiles au fur et à mesure
     resolveLogos(all.map((x) => ({ name: x.m.name, logo: x.m.poster })), (c, url) => {
       all.forEach((x) => { if (chanKey(x.m.name) === chanKey(c.name)) x.m.poster = url; });
@@ -1582,24 +1743,58 @@
     $("#info").innerHTML = m ? `<div style="display:flex;gap:14px;align-items:center">
         ${m.poster ? `<img src="${esc(m.poster)}" alt="" style="width:64px;border-radius:8px">` : ""}
         <div><b style="font-size:18px">${esc(m.name)}</b>${v && v.season != null ? `<div class="small" style="color:var(--cyan)">Saison ${v.season} · Épisode ${v.episode}</div><div class="small muted">${esc(v.title)}</div>` : ""}</div></div>` : "";
-    const found = [];
-    let done = 0;
-    const draw = (total) => {
-      const playable = found.filter((s) => s.url || s.externalUrl).sort((a, b) => b.quality - a.quality);
-      const torrents = found.length - playable.length;
-      $("#status").textContent = total === 0 ? "Aucun add-on de sources installé."
-        : done < total ? `Recherche en cours… (${done}/${total} add-ons)`
-        : `${playable.length} source(s)` + (torrents ? ` · ${torrents} torrent(s) masqué(s), non pris en charge` : "");
-      $("#list").innerHTML = playable.length ? playable.map((s, i) => `
-        <button class="card source" data-i="${i}">
-          <span class="q ${s.quality >= 3 ? "hd" : ""}">${qLabel(s.quality)}</span>
-          <span style="min-width:0"><span class="name" style="display:block">${esc(s.name.replace(/\n/g, " "))}</span>
-            ${s.title ? `<span class="desc2">${esc(s.title)}</span>` : ""}<span class="from" style="display:block">${esc(s.addonName)}</span></span>
-        </button>`).join("")
-        : (done >= total ? `<div class="empty">${total === 0 ? "Ajoute un add-on qui fournit des vidéos dans Réglages › Add-ons (comme dans Nuvio ou Stremio)." : "Aucune source lisible pour ce titre."}</div>` : "");
-      $("#list").querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", () => playStream(m, playable[Number(b.dataset.i)], videoId)));
+    const found = []; let done = 0;
+    const test = new Map(); // url -> { ms, ok }
+    const openQ = new Set();
+    const lang = (s) => { const t = (s.name + " " + s.title).toLowerCase();
+      return /\bmulti\b/.test(t) ? "MULTI" : /\b(vff|vfq|vf2?|french|truefrench|fr)\b|🇫🇷/.test(t) ? "VF" : /\bvostfr\b/.test(t) ? "VOSTFR" : ""; };
+    const size = (s) => { const m = (s.name + " " + s.title).match(/(\d+(?:[.,]\d+)?)\s?(GB|Go|MB|Mo)\b/i); return m ? m[1].replace(",", ".") + " " + (/g/i.test(m[2]) ? "Go" : "Mo") : ""; };
+    const score = (s) => { const r = test.get(s.url); const alive = !r ? 1 : r.ok ? 2 : 0;
+      return alive * 1e7 + (lang(s) ? 1e6 : 0) + s.quality * 1e5 - (r && r.ok ? Math.min(r.ms, 99999) : 50000); };
+    // Test rapide : on mesure le temps de réponse de chaque lien (sans télécharger la vidéo)
+    const queue = []; let running = 0;
+    const pump = () => {
+      while (running < 6 && queue.length) {
+        const s = queue.shift(); running++;
+        const t0 = performance.now(); const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 6000);
+        fetch(s.url, { method: "HEAD", signal: ctl.signal, headers: s.headers || {} })
+          .then((r) => test.set(s.url, { ok: r.ok || r.status === 405 || r.status === 206, ms: Math.round(performance.now() - t0) }))
+          .catch(() => test.set(s.url, { ok: false, ms: 99999 }))
+          .finally(() => { clearTimeout(to); running--; schedule(); pump(); });
+      }
     };
-    const st = streams(type, videoId, (items) => { found.push(...items); done++; draw(st.total); });
+    let raf = 0; const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => draw(st.total)); };
+    const badge = (s) => { if (!s.url) return `<span class="sp ext">Lien externe</span>`;
+      const r = test.get(s.url); if (!r) return `<span class="sp wait">Test…</span>`;
+      if (!r.ok) return `<span class="sp bad">Hors ligne</span>`;
+      return `<span class="sp ${r.ms < 400 ? "fast" : r.ms < 1200 ? "mid" : "slow"}">⚡ ${r.ms < 1000 ? r.ms + " ms" : (r.ms / 1000).toFixed(1) + " s"}</span>`; };
+    const row = (s) => `<button class="card source" data-k="${esc(s._k)}">
+        <span style="min-width:0;flex:1"><span class="name">${esc(s.name.replace(/\n/g, " ").slice(0, 80))}</span>
+        <span class="tags">${badge(s)}${lang(s) ? `<span class="tag">${lang(s)}</span>` : ""}${size(s) ? `<span class="tag">${size(s)}</span>` : ""}<span class="from">${esc(s.addonName)}</span></span></span>
+        <span class="playic">${ICON.play}</span></button>`;
+    const draw = (total) => {
+      const playable = found.filter((s) => s.url || s.externalUrl).sort((a, b) => score(b) - score(a));
+      const torrents = found.length - playable.length;
+      const tested = playable.filter((s) => s.url && test.has(s.url)).length, toTest = playable.filter((s) => s.url).length;
+      $("#status").textContent = total === 0 ? "Aucun add-on de sources installé."
+        : done < total ? `Recherche des sources… (${done}/${total} add-ons)`
+        : tested < toTest ? `${playable.length} sources · test des liens ${tested}/${toTest}…`
+        : `${playable.length} sources testées et classées` + (torrents ? ` · ${torrents} torrent(s) non pris en charge` : "");
+      if (!playable.length) { $("#list").innerHTML = done >= total ? `<div class="empty">${total === 0 ? "Ajoute un add-on qui fournit des vidéos dans Réglages › Add-ons." : "Aucune source lisible pour ce titre."}</div>` : ""; return; }
+      const best = playable.find((s) => !s.url || (test.get(s.url) || {}).ok !== false) || playable[0];
+      const groups = [4, 3, 2, 1, 0].map((q) => [q, playable.filter((s) => s.quality === q)]).filter(([, l]) => l.length);
+      $("#list").innerHTML = `<div class="best-src"><div class="small muted">Meilleure source</div>${row(best)}</div>` +
+        groups.map(([q, l]) => { const ok = l.filter((s) => !s.url || (test.get(s.url) || {}).ok !== false).length;
+          return `<details class="qgroup" data-q="${q}" ${openQ.has(q) ? "open" : ""}><summary><b>${qLabel(q) === "Auto" ? "Autres" : qLabel(q)}</b><span class="small muted">${l.length} lien${l.length > 1 ? "s" : ""}${ok < l.length ? ` · ${ok} en ligne` : ""}</span><i class="chev"></i></summary>
+            <div class="list">${l.map(row).join("")}</div></details>`; }).join("");
+      $("#list").querySelectorAll("details.qgroup").forEach((d) => d.addEventListener("toggle", () => { const q = +d.dataset.q; d.open ? openQ.add(q) : openQ.delete(q); }));
+      $("#list").querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { const s = playable.find((x) => x._k === b.dataset.k); if (s) playStream(m, s, videoId); }));
+    };
+    let k = 0;
+    const st = streams(type, videoId, (items) => {
+      items.forEach((s) => { s._k = String(k++); found.push(s); if (s.url && /^https?:/.test(s.url) && !test.has(s.url)) queue.push(s); });
+      done++; schedule(); pump();
+    });
     draw(st.total);
   }
 
@@ -1698,23 +1893,32 @@
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
       const drawHome = () => {
         const h = homeLayout();
-        const special = [["continue", "Continuer à regarder"], ["library", "Ma liste"], ["genres", "Explorer par catégorie"]];
+        const special = [["continue", "Continuer à regarder", "Reprends là où tu t'es arrêté"], ["library", "Ma liste", "Tes films et séries enregistrés"], ["collections", "Sagas et collections", "Toy Story, Fast & Furious, Harry Potter…"]];
         const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
-        const rows = buildRows(null).sort((a, b) => idx(a.key) - idx(b.key)).map((r) => [r.key, r.title]);
-        $("#homeEd").innerHTML = [...special, ...rows].map(([k, t], n) => `<div class="card" style="display:flex;align-items:center;gap:8px;padding:10px 12px">
-          <span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${h.hidden.includes(k) ? "color:var(--muted)" : ""}">${esc(t)}</span>
-          <button class="chip ${h.hidden.includes(k) ? "" : "on"}" data-hv="${esc(k)}">${h.hidden.includes(k) ? "Masquée" : "Affichée"}</button>
-          ${n >= special.length ? `<button class="icon-btn" style="width:36px;height:36px;background:var(--surface-2)" data-mv="${esc(k)}|-1" aria-label="Monter">${ICON.up}</button>
-          <button class="icon-btn" style="width:36px;height:36px;background:var(--surface-2);transform:rotate(180deg)" data-mv="${esc(k)}|1" aria-label="Descendre">${ICON.up}</button>` : ""}</div>`).join("");
-        $("#homeEd").querySelectorAll("[data-hv]").forEach((b) => b.addEventListener("click", () => {
+        const all = buildRows(null).sort((a, b) => idx(a.key) - idx(b.key)).map((r) => [r.key, r.title]);
+        const shown = all.filter(([k]) => !h.hidden.includes(k)), off = all.filter(([k]) => h.hidden.includes(k));
+        const sw = (k, on) => `<label class="sw mini"><input type="checkbox" data-hv="${esc(k)}" ${on ? "checked" : ""}><i></i></label>`;
+        $("#homeEd").innerHTML = `
+          <div class="hsub">Rangées spéciales</div>
+          ${special.map(([k, t, d]) => `<div class="card hrow"><span class="ht"><b>${esc(t)}</b><small>${esc(d)}</small></span>${sw(k, !h.hidden.includes(k))}</div>`).join("")}
+          <div class="hsub">Catalogues affichés <span>${shown.length}</span></div>
+          ${shown.map(([k, t], i) => `<div class="card hrow"><span class="ht"><b>${esc(t)}</b></span>
+            <button class="icon-btn hmv" data-mv="${esc(k)}|-1" ${i === 0 ? "disabled" : ""} aria-label="Monter">${ICON.up}</button>
+            <button class="icon-btn hmv down" data-mv="${esc(k)}|1" ${i === shown.length - 1 ? "disabled" : ""} aria-label="Descendre">${ICON.up}</button>${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogue affiché.</div>`}
+          ${off.length ? `<details class="card hoff"><summary><b>Catalogues masqués</b> <span class="small muted">${off.length}</span><i class="chev"></i></summary>
+            ${off.map(([k, t]) => `<div class="hrow"><span class="ht"><b style="color:var(--muted)">${esc(t)}</b></span>${sw(k, false)}</div>`).join("")}</details>` : ""}
+          <div class="two-btn"><button class="btn" id="hAll">Tout afficher</button><button class="btn" id="hReset">Ordre par défaut</button></div>`;
+        $("#homeEd").querySelectorAll("[data-hv]").forEach((b) => b.addEventListener("change", () => {
           const k = b.dataset.hv; const hh = homeLayout();
-          setHome({ ...hh, hidden: hh.hidden.includes(k) ? hh.hidden.filter((x) => x !== k) : [...hh.hidden, k] }); drawHome();
+          setHome({ ...hh, hidden: b.checked ? hh.hidden.filter((x) => x !== k) : [...new Set([...hh.hidden, k])] }); drawHome();
         }));
         $("#homeEd").querySelectorAll("[data-mv]").forEach((b) => b.addEventListener("click", () => {
-          const [k, d] = b.dataset.mv.split("|"); const keys = rows.map((r) => r[0]);
+          const [k, d] = b.dataset.mv.split("|"); const keys = shown.map((r) => r[0]);
           const i = keys.indexOf(k), j = i + Number(d); if (j < 0 || j >= keys.length) return;
-          keys.splice(j, 0, keys.splice(i, 1)[0]); setHome({ ...homeLayout(), order: keys }); drawHome();
+          keys.splice(j, 0, keys.splice(i, 1)[0]); setHome({ ...homeLayout(), order: [...keys, ...off.map((r) => r[0])] }); drawHome();
         }));
+        $("#hAll").addEventListener("click", () => { setHome({ ...homeLayout(), hidden: [] }); drawHome(); toast("Toutes les rangées sont affichées"); });
+        $("#hReset").addEventListener("click", () => { setHome({ ...homeLayout(), order: [] }); drawHome(); toast("Ordre par défaut rétabli"); });
       };
       drawHome();
       $("#tmdbSave").addEventListener("click", async () => {
@@ -2130,6 +2334,8 @@
       case "discover": return screenDiscover();
       case "person": return screenPerson(a);
       case "provider": return screenProvider(a);
+      case "collections": return screenCollections();
+      case "collection": return screenCollection(a);
       case "catalog": return screenCatalog(a);
       case "series": return screenBrowse("series");
       case "list": return screenList();

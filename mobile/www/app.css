@@ -777,3 +777,68 @@ details.sect[open] .chev { transform: rotate(-135deg); }
 .pmeter[data-s="4"] i::after { width: 100%; background: #16a34a; }
 .pmeter span { font-size: 12px; color: var(--muted); min-height: 14px; }
 .showpw { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- Sources classées ---------- */
+.best-src { display: grid; gap: 6px; margin-bottom: 6px; }
+.best-src .card.source { border: 1px solid var(--blue); background: rgba(91,75,255,.14); }
+.card.source { display: flex; align-items: center; gap: 12px; text-align: left; }
+.card.source .name { display: block; font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card.source .tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }
+.card.source .from { font-size: 12px; color: var(--muted); }
+.playic { flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--blue); display: grid; place-items: center; }
+.playic svg { width: 18px; height: 18px; fill: #fff; }
+.sp { font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.sp.fast { background: rgba(34,197,94,.2); color: #4ade80; } .sp.mid { background: rgba(234,179,8,.2); color: #facc15; }
+.sp.slow { background: rgba(249,115,22,.2); color: #fb923c; } .sp.bad { background: rgba(239,68,68,.2); color: #f87171; }
+.sp.ext { background: rgba(91,75,255,.2); color: #c4bcff; }
+details.qgroup { background: var(--surface); border-radius: 16px; overflow: hidden; }
+details.qgroup summary { display: flex; align-items: center; gap: 10px; padding: 14px 16px; list-style: none; cursor: pointer; }
+details.qgroup summary::-webkit-details-marker { display: none; }
+details.qgroup summary b { font-size: 16px; } details.qgroup summary span { flex: 1; }
+details.qgroup[open] .chev { transform: rotate(-135deg); }
+details.qgroup .list { padding: 0 10px 10px; }
+
+/* Fluidité : les rangées hors écran ne sont pas dessinées tant qu'on n'y arrive pas */
+#rows > .section { content-visibility: auto; contain-intrinsic-size: auto 300px; }
+.row, .gtiles, .ptiles, .carousel { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+
+/* ---------- Live TV : programme en direct et suggestions ---------- */
+.lnow { font-size: 12.5px; color: #e9e6ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -2px; }
+.lbar { height: 3px; border-radius: 2px; background: rgba(255,255,255,.15); overflow: hidden; }
+.lbar i { display: block; height: 100%; background: var(--blue); }
+.lnext { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lhead { margin: 0; font-size: 20px; font-weight: 800; }
+.lsugg { display: grid; grid-auto-flow: column; grid-auto-columns: 78%; gap: 12px; overflow-x: auto; padding: 2px var(--pad) 8px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.lsugg::-webkit-scrollbar { display: none; }
+.lscard { scroll-snap-align: start; position: relative; min-height: 168px; border-radius: 20px; padding: 16px; display: grid; align-content: end; gap: 6px; overflow: hidden;
+  background: linear-gradient(140deg, var(--c1), var(--c2)); box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+.lscard::after { content: ""; position: absolute; inset: 0; background: radial-gradient(120% 80% at 100% 0%, rgba(255,255,255,.18), transparent 55%); pointer-events: none; }
+.lscard .lsic { position: absolute; top: 12px; right: 14px; font-size: 44px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.35)); }
+.lscard b { font-size: 18px; font-weight: 800; position: relative; z-index: 1; padding-right: 50px; }
+.lscard .small { color: rgba(255,255,255,.85); position: relative; z-index: 1; line-height: 1.35; }
+.lscard .btn { justify-self: start; position: relative; z-index: 1; margin-top: 6px; }
+.lscard .btn.primary { background: #fff; color: #111; }
+@media (min-width: 900px) { .lsugg { grid-auto-columns: 300px; } }
+
+/* ---------- Sagas et collections ---------- */
+.colrow { gap: 12px; }
+.colcard { position: relative; flex: none; width: 240px; aspect-ratio: 16/9; border-radius: 16px; overflow: hidden; color: #fff; text-decoration: none; display: flex; align-items: flex-end; padding: 12px; background: var(--surface-2); box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+.colcard .cimg, .colcard .cimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.colcard .cshade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(10,8,25,.92), rgba(10,8,25,.1) 65%); }
+.colcard b { position: relative; font-size: 16px; font-weight: 800; line-height: 1.2; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+.colgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; padding-bottom: 24px; margin-top: 12px; }
+.colgrid .colcard { width: auto; }
+.colgrid > .empty { grid-column: 1 / -1; }
+.disc.wide { grid-column: 1 / -1; }
+@media (min-width: 900px) { .colcard { width: 320px; } .colgrid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); } }
+
+/* ---------- Gestion de la page d'accueil ---------- */
+.hsub { margin: 14px 2px 4px; font-size: 13px; font-weight: 800; color: var(--cyan); text-transform: uppercase; letter-spacing: .04em; display: flex; gap: 6px; align-items: center; }
+.hsub span { color: var(--muted); font-weight: 700; }
+.hrow { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.hoff .hrow { padding: 8px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.ht { flex: 1; min-width: 0; display: grid; } .ht b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .ht small { color: var(--muted); font-size: 12px; }
+.hmv { width: 34px !important; height: 34px !important; background: var(--surface-2) !important; } .hmv.down { transform: rotate(180deg); } .hmv:disabled { opacity: .3; }
+.sw.mini { padding: 0; } .sw.mini i { width: 42px; height: 26px; } .sw.mini i::after { width: 20px; height: 20px; } .sw.mini input:checked + i::after { transform: translateX(16px); }
+details.hoff summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 2px 0 6px; } details.hoff summary::-webkit-details-marker { display: none; }
+details.hoff summary .small { flex: 1; } details.hoff[open] .chev { transform: rotate(-135deg); }
