@@ -24,6 +24,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import app.tvo.tv.data.MetaPreview
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -105,33 +108,35 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val seasons = remember(meta) { meta.episodes.mapNotNull { it.season }.distinct() }
     var season by remember(meta) { mutableStateOf(targetVideo?.season ?: seasons.firstOrNull()) }
     val playFr = remember { FocusRequester() }
-    // Bande-annonce : uniquement en VF, lancée automatiquement après 2,5 s. Aucune si pas de VF.
+    // Bande-annonce VF : 1er appui = elle démarre en fond d'écran, 2e appui = fenêtre centrée. Retour = on revient au fond.
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
-    var trailerOn by remember(p.id) { mutableStateOf(false) }
-    LaunchedEffect(trailer) { if (trailer != null) { delay(2500); trailerOn = true } }
-
-    var trailerWin by remember(p.id) { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = trailerWin) { trailerWin = false }
+    var trailerMode by remember(p.id) { mutableStateOf(0) }
+    val trailerOn = trailerMode == 1
+    val trailerWin = trailerMode == 2
+    androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = if (trailerMode == 2) 1 else 0 }
+    val similar by produceState(emptyList<MetaPreview>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.similar(p.type, p.id) else emptyList() }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     Box(Modifier.fillMaxSize()) {
-    Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        // Grand visuel à droite (comme Netflix) : image, puis la bande-annonce VF à la même place, rognée proprement.
-        Box(Modifier.fillMaxWidth(0.72f).fillMaxHeight(0.74f).align(Alignment.TopEnd)) {
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        // Visuel plein écran (image puis bande-annonce au même endroit), voilé à gauche et en bas pour garder le texte lisible
+        Box(Modifier.fillMaxSize()) {
             AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            if (trailerOn && !trailerWin && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize(), cover = true)
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.0f to TvoColors.Bg, 0.3f to Color(0x990A0F1E), 0.6f to Color.Transparent)))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to TvoColors.Bg)))
+            if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize(), cover = true)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
+                0.0f to Color.Black.copy(alpha = if (trailerOn) 0.7f else 0.88f), 0.42f to Color.Black.copy(alpha = if (trailerOn) 0.35f else 0.55f), 0.75f to Color.Transparent)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
+                0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 48.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             item {
-                Column(Modifier.padding(start = 56.dp).width(620.dp)) {
+                Column(Modifier.padding(start = 56.dp).width(640.dp).heightIn(min = 400.dp), verticalArrangement = Arrangement.Bottom) {
                     if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(100.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
                     else Text(p.name, fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     Spacer(Modifier.height(14.dp))
                     MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
                     if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 14.dp), fontSize = 16.sp,
-                        color = TvoColors.Text.copy(alpha = 0.88f), maxLines = 5, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp)
+                        color = Color.White.copy(alpha = 0.9f), maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp)
                     if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
                     if (meta.cast.isNotEmpty() && meta.people.isEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -145,7 +150,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
                             store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                         }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
-                        if (trailer != null) TvoButton("Bande-annonce", { trailerWin = true })
+                        if (trailer != null) TvoButton(when (trailerMode) { 0 -> "Bande-annonce"; else -> "Agrandir" },
+                            { trailerMode = if (trailerMode == 0) 1 else 2 }, icon = if (trailerMode == 0) Icons.Default.PlayArrow else null)
                     }
                     if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                         val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
@@ -155,7 +161,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             }
             if (meta.people.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+                    Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                         items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                     }
@@ -179,15 +185,24 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
+            if (similar.isNotEmpty()) item {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
+                    }
+                }
+            }
         }
     }
     // Fenêtre de bande-annonce : vidéo entière au centre, fond assombri. Retour pour fermer.
-    if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color(0xD9000000)), contentAlignment = Alignment.Center) {
+    if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color(0xB3000000)), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth(0.74f).aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp)).background(Color.Black)) {
+            Box(Modifier.fillMaxWidth(0.6f).aspectRatio(16f / 9f).clip(RoundedCornerShape(18.dp)).background(Color.Black)
+                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))) {
                 TrailerView(trailer!!, Modifier.fillMaxSize(), cover = false)
             }
-            Text("Bande-annonce VF · ${p.name}  —  Retour pour fermer", Modifier.padding(top = 14.dp), fontSize = 15.sp, color = TvoColors.Muted)
+            Text("Bande-annonce VF · ${p.name}  —  Retour pour réduire", Modifier.padding(top = 14.dp), fontSize = 15.sp, color = TvoColors.Muted)
         }
     }
     }
@@ -218,13 +233,14 @@ fun PersonBubble(person: app.tvo.tv.data.Person, onClick: () -> Unit) {
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
             scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = androidx.tv.material3.Border(
-                androidx.compose.foundation.BorderStroke(3.dp, TvoColors.Blue), shape = androidx.compose.foundation.shape.CircleShape)),
+                androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = androidx.compose.foundation.shape.CircleShape),
+                border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)), shape = androidx.compose.foundation.shape.CircleShape)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface2, focusedContainerColor = TvoColors.Surface2),
         ) {
             if (person.photo != null) AsyncImage(person.photo, person.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(person.name.take(1), fontSize = 28.sp, color = TvoColors.Text) }
         }
-        Text(person.name, Modifier.padding(top = 6.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(person.name, Modifier.padding(top = 8.dp), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
         person.role?.let { Text(it, fontSize = 11.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
     }
 }

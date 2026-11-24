@@ -209,6 +209,20 @@ object Tmdb {
                 Person(id.toString(), o.s("name") ?: "", img(o.s("profile_path"), "w185"), kf) } } ?: emptyList()
     }.getOrDefault(emptyList())
 
+    /** Titres similaires (recommandations TMDB, puis « similaires » si vide). */
+    suspend fun similar(type: String, id: String): List<MetaPreview> = runCatching {
+        val k = kind(type)
+        val tid = when {
+            id.startsWith("tmdb:") -> id.split(":").getOrNull(2)
+            id.startsWith("tt") -> (get("/find/${id.substringBefore(":")}", mapOf("external_source" to "imdb_id"))
+                .arr(if (k == "tv") "tv_results" else "movie_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
+            else -> null
+        } ?: return@runCatching emptyList()
+        val rec = get("/$k/$tid/recommendations").arr("results")?.mapNotNull { (it as? JsonObject)?.let { o -> preview(o, type) } } ?: emptyList()
+        (if (rec.size >= 6) rec else rec + (get("/$k/$tid/similar").arr("results")?.mapNotNull { (it as? JsonObject)?.let { o -> preview(o, type) } } ?: emptyList()))
+            .filter { it.poster != null }.distinctBy { it.id }.take(20)
+    }.getOrDefault(emptyList())
+
     /** Clé YouTube de la bande-annonce en français (VF uniquement), ou null s'il n'y en a pas. */
     suspend fun trailerVF(type: String, id: String): String? = runCatching {
         val k = kind(type)
