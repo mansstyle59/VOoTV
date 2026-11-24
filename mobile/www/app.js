@@ -2523,6 +2523,9 @@ var qrcode = function() {
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
   /** Administrateur : le profil marqué admin, sinon le premier profil. Il choisit les add-ons de chaque profil. */
   const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
+  /** Live TV n'apparaît que si un add-on de chaînes TV est installé (liste M3U, chaînes gratuites, add-on « tv »). */
+  const hasLive = () => myAddons().some((a) => (a.manifest.types || []).some((t) => t === "tv" || t === "channel")
+    || (a.manifest.catalogs || []).some((c) => c.type === "tv" || c.type === "channel"));
   const myAddons = () => { const off = (S.profile && S.profile.off) || []; return S.addons.filter((a) => !off.includes(a.manifest.id)); };
   function catalogAddons() {
     if (S.profile && S.profile.kids) {
@@ -3657,7 +3660,7 @@ var qrcode = function() {
     if (!active) { tabs.hidden = true; document.body.classList.add("no-tabs"); return; }
     document.body.classList.remove("no-tabs");
     tabs.hidden = false;
-    const items = [["home", "Accueil", ICON.home], ["series", "Séries", ICON.series, 1], ["movies", "Films", ICON.movie, 1], ["discover", "Découvrir", ICON.search], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings]];
+    const items = [["home", "Accueil", ICON.home], ["series", "Séries", ICON.series, 1], ["movies", "Films", ICON.movie, 1], ["discover", "Découvrir", ICON.search], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings]].filter(([k]) => k !== "live" || hasLive());
     tabs.innerHTML = `<span class="tlogo" data-tab="home">${LOGO_SVG}</span>` + items.map(([k, l, i, desk]) => `<button class="tab ${desk ? "desk-only" : ""} ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("")
       + (S.profile ? `<span class="tright"><button class="icon-btn" data-tab="search" aria-label="Rechercher">${ICON.search}</button><button class="tav" data-tab="profiles" aria-label="Changer de profil">${avatar(S.profile, "sm")}</button></span>` : "");
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
@@ -3683,7 +3686,7 @@ var qrcode = function() {
   }
   document.addEventListener("click", (e) => { const g = e.target.closest("[data-go]"); if (g) go(g.dataset.go); });
   function navChips(active) {
-    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live]];
+    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live]].filter(([k]) => k !== "live" || hasLive());
     return `<nav class="navchips">${items.map(([k, l, i]) => `<a class="nchip ${k === active ? "on" : ""}" href="#/${k}">${i}<span>${l}</span></a>`).join("")}</nav>`;
   }
   function buildRows(type) {
@@ -4258,7 +4261,7 @@ var qrcode = function() {
     app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur, chaîne…</span></button></div>
       <div class="disc-grid pad">
         <a class="disc" href="#/movies">${ICON.clap}<b>Films</b></a><a class="disc" href="#/series">${ICON.series}<b>Séries</b></a>
-        <a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a><a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a>
+        ${hasLive() ? `<a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a>` : ""}<a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a>
         <a class="disc wide" href="#/collections">${ICON.movie}<b>Sagas et collections</b></a></div>
       <div id="rows"></div>`;
     const rowsEl = $("#rows");
@@ -4275,6 +4278,7 @@ var qrcode = function() {
 
   // Live TV : toutes les catégories de chaînes
   async function screenLive() {
+    if (!hasLive()) { location.replace("#/home"); return; }
     setTabs("live");
     const p = S.profile;
     app.innerHTML = topBar("Live TV") + `<div id="rows"></div>`;
@@ -4981,7 +4985,11 @@ var qrcode = function() {
           const inst = S.addons.some((a) => a.url === u || a.url === normalize(u));
           return `<div class="card sug"><div style="flex:1;min-width:0"><b>${esc(n)}</b>${tag ? ` <span class="tag">${esc(tag)}</span>` : ""}<div class="small muted">${esc(d)}</div></div>
             <button class="btn ${inst ? "" : "primary"}" data-s="${esc(u)}" ${inst ? "disabled" : ""}>${inst ? "✓ Installé" : "Installer"}</button></div>`;
-        }).join("")).join("")}</div>`;
+        }).join("")).join("")}</div>
+      <h2 class="section-title section"><span>Chaînes TV</span></h2>
+      <p class="pad small muted" style="margin-top:-4px">Ajoute une liste de chaînes : l'onglet Live TV apparaît automatiquement.</p>
+      ${liveSuggHTML()}`;
+    app.querySelectorAll("[data-live]").forEach((b) => b.addEventListener("click", async () => { await addLive(b.dataset.live, b.dataset.name); screenAddonAdd(); }));
     const install = async (u) => {
       if (!u.trim()) return;
       $("#msg").textContent = "Installation…";
