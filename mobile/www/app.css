@@ -1268,3 +1268,4 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 
 .tv-hint { display: grid; gap: 8px; margin-bottom: 14px; border-color: rgba(143,194,255,.45) !important; }
 .tv-hint b.big { font-size: 22px; letter-spacing: .1em; color: #8fc2ff; }
+.tv-code { text-align: center; font-size: 26px !important; letter-spacing: .3em; }

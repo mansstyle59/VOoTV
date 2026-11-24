@@ -773,8 +773,11 @@
     // Sur une télé, la version téléphone n'est pas adaptée : on indique la bonne appli (connexion par QR code ou code).
     const onTv = /Android/i.test(navigator.userAgent) && (/\b(TV|AFT\w*|BRAVIA|SmartTV|GoogleTV|Chromecast)\b/i.test(navigator.userAgent) || (navigator.maxTouchPoints === 0 && innerWidth >= 900));
     app.innerHTML = `<div class="auth"><span class="auth-logo">${LOGO_SVG}</span><p class="auth-tag">Films, séries et TV en direct</p>
-      ${onTv ? `<div class="auth-card tv-hint"><b>Tu es sur une télé ?</b><span>Ceci est la version téléphone. Installe la version télé de TVO : elle se connecte avec un QR code ou un code à 6 chiffres, sans rien taper.</span>
-        <span>Dans <b>Downloader</b>, tape le code <b class="big">7971420</b></span></div>` : ""}
+      ${onTv ? `<div class="auth-card tv-hint"><b>Connexion rapide de la télé</b>
+        <span>Sur ton téléphone : Réglages › Télévision › Connecter une TV › <b>Afficher un code pour la télé</b>. Puis tape ce code ici.</span>
+        <input class="field tv-code" id="tvCode" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="Code à 6 chiffres">
+        <button class="btn primary block" id="tvCodeGo">Connecter la télé</button>
+        <span class="small muted">Pas encore de compte ? Crée-le sur ton téléphone, c'est plus simple.</span></div>` : ""}
       <div class="auth-card">
         <div class="seg wide" id="auSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
         <input class="field" id="auUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
@@ -792,6 +795,21 @@
     const setMode = (m) => { mode = m; $("#auSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.m === m));
       ["auPass2", "auM", "auCgu", "auMail"].forEach((k) => ($("#" + k).hidden = m !== "up")); $("#auGo").textContent = m === "up" ? "Créer mon compte" : "Se connecter"; $("#auMsg").textContent = ""; };
     $("#auSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-m]"); if (b) setMode(b.dataset.m); });
+    const tg = $("#tvCodeGo"); if (tg) {
+      const go = async () => {
+        const code = ($("#tvCode").value || "").replace(/\D/g, "");
+        if (code.length !== 6) return toast("Tape les 6 chiffres affichés sur ton téléphone");
+        tg.disabled = true; tg.textContent = "Connexion…";
+        try {
+          if (!(await pairClaim(code))) throw new Error("Code incorrect ou expiré. Affiche un nouveau code sur ton téléphone.");
+          const r = await rpc("tvo_device_status", { p_id: syncId() });
+          LS.set("acct", { user: "Télé", device: true, role: "user", status: (r && r.status) || "active", checked: Date.now() });
+          toast("Télé connectée ✓"); route();
+        } catch (e) { toast(e.message, 4000); tg.disabled = false; tg.textContent = "Connecter la télé"; }
+      };
+      tg.addEventListener("click", go); $("#tvCode").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+      setTimeout(() => $("#tvCode").focus(), 200);
+    }
     $("#auShow").addEventListener("change", (e) => ["auPass", "auPass2"].forEach((k) => ($("#" + k).type = e.target.checked ? "text" : "password")));
     $("#auPass").addEventListener("input", () => { const v = $("#auPass").value, pb = passProblem($("#auUser").value, v), sc = passScore(v);
       $("#auM").dataset.s = v ? (pb ? 0 : sc) : ""; $("#auM span").textContent = !v ? "" : pb || ["", "Faible", "Moyen", "Bon", "Excellent"][Math.max(1, sc)]; });
@@ -998,7 +1016,13 @@
   }
   /** Vérifie le statut du compte auprès du serveur (à l'ouverture, puis régulièrement). */
   async function acctRefresh() {
-    const a = acct(); if (!a || !a.token) return a;
+    const a = acct(); if (!a) return a;
+    if (a.device) { // télé reliée par code : statut du compte relié à cette synchronisation
+      try { const r = await rpc("tvo_device_status", { p_id: syncId() }); const st = r && r.status;
+        if (!st || st === "signed_out") { LS.set("acct", null); return null; }
+        const n = { ...a, status: st, checked: Date.now() }; LS.set("acct", n); return n; } catch { return a; }
+    }
+    if (!a.token) return a;
     try {
       const r = await rpc("tvo_me", { p_token: a.token });
       if (!r || r.status === "signed_out") { LS.set("acct", null); return null; }
@@ -1006,7 +1030,7 @@
       const n = { ...a, role: r.role, status: r.status, expires_at: r.expires_at, checked: Date.now() }; LS.set("acct", n); return n;
     } catch { return a; } // hors connexion : on garde le dernier statut connu
   }
-  const acctOk = () => { const a = acct(); return !!(a && a.token && a.status === "active" && Date.now() - (a.checked || 0) < 14 * 864e5); };
+  const acctOk = () => { const a = acct(); return !!(a && (a.token || a.device) && a.status === "active" && Date.now() - (a.checked || 0) < 14 * 864e5); };
   const isAccountAdmin = () => { const a = acct(); return !!(a && a.role === "admin" && a.status === "active"); };
   function acctLogout() {
     const a = acct(); if (a && a.token) rpc("tvo_logout", { p_token: a.token }).catch(() => {});
@@ -2876,6 +2900,19 @@
     });
   }, { passive: true });
 
+  // Bouton Retour (télécommande / Android) : revient en arrière, ou quitte l'appli depuis l'accueil.
+  try {
+    const CapApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+    if (CapApp && CapApp.addListener) CapApp.addListener("backButton", () => {
+      const open = document.querySelector(".tr-sheet, .as-sheet, .pin-sheet");
+      if (open) return open.remove();
+      if (!$("#player").hidden) return closePlayer();
+      const h = location.hash || "#/home";
+      if (h === "#/home" || h === "#/" || h === "" || !acctOk()) return CapApp.exitApp();
+      history.length > 1 ? history.back() : (location.hash = "#/home");
+    });
+  } catch { /* navigateur */ }
+
   let introDone = false;
   function route() {
     if (!$("#player").hidden) closePlayer();
@@ -2886,7 +2923,7 @@
     const [page, a, b, c] = parts;
     window.scrollTo(0, 0);
     if (page === "legal") return screenLegal(a);
-    if (!acct() || !acct().token) return screenAuth();
+    if (!acct() || !(acct().token || acct().device)) return screenAuth();
     if (!acctOk()) return screenBlocked();
     if (page === "accounts") return screenAccounts();
     if (page === "profile") return screenProfileEdit(a);
