@@ -224,11 +224,13 @@ fun SettingsSection(nav: Nav) {
         item { Heading("Lecture") }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("Lecteur TVO", !external, { store.setExternalPlayer(false) })
-                Chip("Lecteur externe (VLC, Just Player…)", external, { store.setExternalPlayer(true) })
+                val vlc by store.vlcPlayer.collectAsState()
+                Chip("Automatique (recommandé)", !external && !vlc, { store.setExternalPlayer(false); store.setVlcPlayer(false) })
+                Chip("VLC intégré", !external && vlc, { store.setExternalPlayer(false); store.setVlcPlayer(true) })
+                Chip("Appli externe", external, { store.setExternalPlayer(true) })
             }
         }
-        item { Text("Le lecteur externe aide si un film n'a pas de son (formats DTS, TrueHD…).", fontSize = 14.sp, color = TvoColors.Muted) }
+        item { Text("Automatique : lecteur rapide, et bascule toute seule sur VLC intégré si le format (MKV, DTS, TrueHD, RTSP Freebox…) l'exige. Aucune autre appli nécessaire.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
 
         item { Heading("Mise à jour") }
         item {

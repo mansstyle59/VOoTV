@@ -53,6 +53,8 @@ class Store(ctx: Context) {
     val library = MutableStateFlow<List<LibraryItem>>(emptyList())
     val progress = MutableStateFlow<List<Progress>>(emptyList())
     val externalPlayer = MutableStateFlow(prefs.getBoolean("externalPlayer", false))
+    val vlcPlayer = MutableStateFlow(prefs.getBoolean("vlcPlayer", false))
+    fun setVlcPlayer(v: Boolean) { vlcPlayer.value = v; prefs.edit().putBoolean("vlcPlayer", v).apply() }
     val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
 
     /** Home page layout: hidden rows and custom order (row keys). */

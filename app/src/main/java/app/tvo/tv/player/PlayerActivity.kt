@@ -88,6 +88,10 @@ class PlayerActivity : ComponentActivity() {
     companion object {
         private const val EXTRA = "req"
         fun start(ctx: Context, req: PlayRequest) {
+            // RTSP (Freebox), AVI, WMV, TS… : directement le lecteur VLC intégré
+            if (Regex("^rtsp:|\\.(avi|wmv|flv|ts)(\\?|$)", RegexOption.IGNORE_CASE).containsMatchIn(req.url) || app.tvo.tv.Tvo.store.vlcPlayer.value) {
+                VlcPlayerActivity.start(ctx, req); return
+            }
             ctx.startActivity(Intent(ctx, PlayerActivity::class.java).putExtra(EXTRA, Json.encodeToString(req)))
         }
     }
@@ -131,8 +135,23 @@ class PlayerActivity : ComponentActivity() {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) onEnded()
             }
-            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) { tracksVersion++ }
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                tracksVersion++
+                val audio = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+                if (audio.isNotEmpty() && audio.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
+                    // Son illisible (DTS, TrueHD…) : VLC intégré le décode.
+                    VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition))
+                    finish()
+                }
+            }
             override fun onPlayerError(e: PlaybackException) {
+                // Format non pris en charge par ExoPlayer : bascule automatique sur VLC intégré, au même endroit.
+                if (e.errorCode in listOf(PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED, PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+                        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED, PlaybackException.ERROR_CODE_DECODING_FAILED,
+                        PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED, PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED)) {
+                    VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition.coerceAtLeast(req.startPosition)))
+                    finish(); return
+                }
                 error = when (e.errorCode) {
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "La source ne répond pas. Essaie une autre source."
