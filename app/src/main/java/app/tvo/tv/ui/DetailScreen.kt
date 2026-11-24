@@ -125,6 +125,12 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val mainState = androidx.compose.foundation.lazy.rememberLazyListState()
+    // Tant que le focus est sur les boutons du haut, la page reste calée tout en haut (titre jamais coupé)
+    var heroHasFocus by remember { mutableStateOf(true) }
+    LaunchedEffect(heroHasFocus) {
+        if (heroHasFocus) androidx.compose.runtime.snapshotFlow { mainState.firstVisibleItemIndex to mainState.firstVisibleItemScrollOffset }
+            .collect { (i, o) -> if (i > 0 || o > 0) mainState.scrollToItem(0) }
+    }
     val heroFocused by remember { derivedStateOf { mainState.firstVisibleItemIndex == 0 && mainState.firstVisibleItemScrollOffset < 120 } }
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
@@ -145,7 +151,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { if (it.hasFocus) scope.launch { mainState.animateScrollToItem(0) } }) {
+        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
                         if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
                         else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
