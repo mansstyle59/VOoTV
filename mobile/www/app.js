@@ -116,14 +116,14 @@
   /** Raison pour laquelle un profil ne peut pas regarder maintenant (ou null). L'administrateur n'est jamais bloqué. */
   function profileBlock(p) {
     if (!p || isAdmin(p)) return null;
-    if (p.disabled) return "Ce profil est désactivé par l'administrateur.";
+    if (p.disabled) return "Ce profil est désactivé par le profil principal.";
     if (p.trialUntil && Date.now() > p.trialUntil) return "La période d'essai de ce profil est terminée.";
     if (p.limit && usedToday(p.id) >= p.limit) return `Temps d'écran atteint pour aujourd'hui (${fmtMin(p.limit)}).`;
     return null;
   }
   const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? " " + String(Math.round(m % 60)).padStart(2, "0") : ""}` : `${Math.round(m)} min`);
   function profileStatus(p) {
-    if (isAdmin(p)) return ["Administrateur", "admin"];
+    if (isAdmin(p)) return ["Profil principal", "admin"];
     if (p.disabled) return ["Désactivé", "off"];
     if (p.trialUntil) { const d = Math.ceil((p.trialUntil - Date.now()) / 864e5); return d > 0 ? [`Essai · ${d} j restant${d > 1 ? "s" : ""}`, "trial"] : ["Essai terminé", "off"]; }
     if (p.kids) return ["Enfant", "kid"];
@@ -1383,7 +1383,7 @@
         <div class="icons">${AVATAR_ICONS.map((ic) => `<button class="iconpick ${ic === icon ? "on" : ""}" data-ic="${ic}" aria-label="Avatar">${ic || esc((existing ? existing.name : "A").slice(0, 1).toUpperCase())}</button>`).join("")}</div>
         <div class="card popt"><label class="sw"><span><b>Profil enfant</b><small>Uniquement films et dessins animés pour enfants</small></span><input type="checkbox" id="kids" ${kids ? "checked" : ""}><i></i></label>
           <label class="sw"><span><b>Code PIN</b><small>${pin ? "Code actif. Décoche pour le retirer." : "Protège ce profil par un code à 4 chiffres"}</small></span><input type="checkbox" id="pinOn" ${pin ? "checked" : ""}><i></i></label>
-          ${canAdmin ? `<label class="sw"><span><b>Administrateur</b><small>Gère les add-ons et les accès de chaque profil</small></span><input type="checkbox" id="adm" ${admin ? "checked" : ""}><i></i></label>` : ""}</div>
+          ${canAdmin ? `<label class="sw"><span><b>Profil principal</b><small>Gère les add-ons et les accès des autres profils de ce compte</small></span><input type="checkbox" id="adm" ${admin ? "checked" : ""}><i></i></label>` : ""}</div>
         <button class="btn primary block" id="save">${ICON.check} Enregistrer</button>
         ${existing ? `<button class="btn danger block" id="del">${ICON.trash} Supprimer ce profil</button>` : ""}
         ${S.profiles.length ? `<button class="btn block" id="cancel">Annuler</button>` : ""}
@@ -2186,33 +2186,57 @@
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
   const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Apparence": "Thème Liquid Glass ou classique", "Application": "Version et mises à jour" };
+  const SECT_GROUPS = [
+    ["Mon compte", ["Compte", "Connecter une TV"]],
+    ["Lecture et contenus", ["Lecteur", "Add-ons", "Page d'accueil", "Titres et résumés (TMDB)"]],
+    ["Apparence", ["Apparence", "Icône de l'appli"]],
+    ["Administration", ["@accounts", "Gestion des profils", "Clés API"]],
+    ["Application", ["Application"]],
+  ];
+  const SECT_ICON = { "Compte": ["check", "#3d7cff"], "Connecter une TV": ["live", "#0ea5e9"], "Lecteur": ["play", "#22c55e"], "Add-ons": ["plus", "#8b5cf6"],
+    "Page d'accueil": ["home", "#f59e0b"], "Titres et résumés (TMDB)": ["doc", "#14b8a6"], "Apparence": ["bolt", "#ec4899"], "Icône de l'appli": ["grid", "#6366f1"],
+    "Gestion des profils": ["smile", "#f97316"], "Clés API": ["more", "#64748b"], "Application": ["settings", "#475569"] };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
     root.querySelectorAll("h2.section-title.section").forEach((h) => {
       const title = h.textContent.trim();
       const d = document.createElement("details"); d.className = "sect";
       d.open = title in st ? st[title] : openByDefault.includes(title);
-      d.innerHTML = `<summary class="sect-head"><span class="sect-t"><b>${esc(title)}</b>${SECT_INFO[title] ? `<small>${esc(SECT_INFO[title])}</small>` : ""}</span><i class="chev"></i></summary><div class="sect-body"></div>`;
+      d.dataset.title = title; const ic = SECT_ICON[title] || ["settings", "#64748b"];
+      d.innerHTML = `<summary class="sect-head"><span class="sect-ic" style="--ic:${ic[1]}">${ICON[ic[0]] || ""}</span><span class="sect-t"><b>${esc(title)}</b>${SECT_INFO[title] ? `<small>${esc(SECT_INFO[title])}</small>` : ""}</span><i class="chev"></i></summary><div class="sect-body"></div>`;
       const body = d.lastElementChild; let n = h.nextElementSibling;
       h.replaceWith(d);
       while (n && !n.matches("h2.section-title.section")) { const nx = n.nextElementSibling; body.appendChild(n); n = nx; }
       d.addEventListener("toggle", () => { st[title] = d.open; LS.set("setopen", st); });
     });
-    // Un seul bloc groupé (style réglages iPhone) au lieu d'une pile de cartes
+    // Blocs groupés par thème (style réglages iPhone), dans un ordre logique
     const all = [...root.querySelectorAll("details.sect")];
-    if (all.length) { const g = document.createElement("div"); g.className = "sect-group"; all[0].before(g); all.forEach((d) => g.appendChild(d)); }
+    if (!all.length) return;
+    const anchor = document.createElement("div"); all[0].before(anchor);
+    const groups = SECT_GROUPS.map(([label, titles]) => {
+      const items = titles.map((t) => all.find((d) => d.dataset.title === t) || (t === "@accounts" && root.querySelector("#goAcc"))).filter(Boolean);
+      if (!items.length) return null;
+      const wrap = document.createElement("section"); wrap.className = "sect-block";
+      wrap.innerHTML = `<h3 class="sect-label">${esc(label)}</h3><div class="sect-group"></div>`;
+      items.forEach((d) => wrap.lastElementChild.appendChild(d)); return wrap;
+    }).filter(Boolean);
+    const left = all.filter((d) => !d.closest(".sect-block"));
+    if (left.length) { const w = document.createElement("section"); w.className = "sect-block"; w.innerHTML = `<div class="sect-group"></div>`; left.forEach((d) => w.firstElementChild.appendChild(d)); groups.push(w); }
+    anchor.replaceWith(...groups);
   }
   function screenSettings() {
     setTabs(null);
     const p = S.profile;
     const draw = () => {
       app.innerHTML = header("Réglages", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `
-      <div class="list" style="margin-top:8px">
-        <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(p, "sm")}<span style="flex:1;min-width:0;display:grid;gap:3px"><b>${esc(p.name)}</b><span><span class="pstat ${profileStatus(p)[1]}">${esc(profileStatus(p)[0])}</span>${p.limit ? ` <span class="small muted">· ${fmtMin(usedToday(p.id))} / ${fmtMin(p.limit)} aujourd'hui</span>` : ""}</span></span>
-          <button class="btn" id="editP">${ICON.edit} Modifier</button></div>
-        <button class="btn block" id="switchP">Changer de profil</button>
+      <div class="set-hero">
+        ${avatar(p)}
+        <div class="set-who"><b>${esc(p.name)}</b>
+          <span><span class="pstat ${profileStatus(p)[1]}">${esc(profileStatus(p)[0])}</span>${p.limit ? ` <span class="small muted">${fmtMin(usedToday(p.id))} / ${fmtMin(p.limit)} aujourd'hui</span>` : ""}</span>
+          ${acct() ? `<small>Compte ${esc(acct().user)}${isAccountAdmin() ? " · Administrateur" : ""}</small>` : ""}</div>
+        <div class="set-acts"><button class="btn" id="editP">${ICON.edit} Modifier</button><button class="btn" id="switchP">${ICON.series} Changer</button></div>
       </div>
-      ${isAccountAdmin() ? `<button class="card admin-link" id="goAcc"><span class="ht"><b>Gestion des comptes</b><small>Autoriser les inscriptions, essais, durées d'accès</small></span><span class="chev r"></span></button>` : ""}
+      ${isAccountAdmin() ? `<button class="sect-head sect-link" id="goAcc"><span class="sect-ic" style="--ic:#3d7cff">${ICON.doc}</span><span class="sect-t"><b>Gestion des comptes</b><small>Inscriptions, essais et durées d'accès</small></span><i class="chev r"></i></button>` : ""}
       ${isAdmin(p) ? `<h2 class="section-title section"><span>Gestion des profils</span></h2>
       <div class="list" id="pman"></div>
       ` : ""}${isAccountAdmin() ? `<h2 class="section-title section"><span>Clés API</span></h2>
@@ -2271,12 +2295,13 @@
       <h2 class="section-title section"><span>Lecteur</span></h2>
       <div class="chips">${[["tvo", "Lecteur TVO (recommandé)"], ["vlc", "Appli VLC"], ...(isIOS ? [["infuse", "Infuse"]] : [])].map(([k, l]) => `<button class="chip ${S.player === k ? "on" : ""}" data-pl="${k}">${l}</button>`).join("")}</div>
       <p class="pad small muted">Le lecteur TVO lit MP4, HLS et la plupart des MKV. Pour un fichier au son illisible (DTS, TrueHD), choisis VLC ou Infuse s'ils sont installés.</p>
-      <h2 class="section-title section"><span>Titres et résumés (TMDB)</span></h2>
+      ${isAccountAdmin() ? "" : `      <h2 class="section-title section"><span>Titres et résumés (TMDB)</span></h2>
       <div class="list">
         <div class="card small muted">${tmdbKey() ? `Clé TMDB active (…${esc(tmdbKey().slice(-4))}). Catalogues, fiches et épisodes en français.` : "Ajoute ta clé API TMDB (gratuite sur themoviedb.org › Paramètres › API) : catalogues, titres, résumés et affiches en français. Elle passe aussi sur la TV par la synchro."}</div>
         <input class="field" id="tmdb" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Clé d'API ou jeton d'accès en lecture">
         <div class="two-btn"><button class="btn primary" id="tmdbSave">Enregistrer</button>${tmdbKey() ? '<button class="btn danger" id="tmdbDel">Retirer</button>' : '<a class="btn" href="https://www.themoviedb.org/settings/api" target="_blank" rel="noopener">Obtenir une clé</a>'}</div>
       </div>
+`}
       <h2 class="section-title section"><span>Add-ons</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Le premier est prioritaire. Les sources torrent seules ne sont pas lisibles.</p>
       <div class="list">${CATEGORIES.map((cat) => [cat, S.addons.map((a, i) => [a, i]).filter(([a]) => addonCategory(a) === cat)]).filter(([, g]) => g.length).map(([cat, g]) => `<div class="small" style="color:var(--cyan);font-weight:700;margin-top:6px">${cat}</div>` + g.map(([a, i]) => {
@@ -2288,7 +2313,7 @@
           ${isAdmin(p) && S.profiles.length > 1 ? `<div class="ptog"><span class="small muted">Activé pour</span>${S.profiles.map((pp) => `<button class="chip ${((pp.off || []).includes(a.manifest.id)) ? "" : "on"}" data-pa="${i}|${esc(pp.id)}">${esc(pp.name)}</button>`).join("")}</div>` : ""}
           ${!isAdmin(p) ? "" : `<div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}${a.manifest.configurable && /^https?:/.test(a.url) ? `<a class="btn" href="${esc(a.url)}/configure" target="_blank" rel="noopener">Configurer</a>` : ""}${/^https?:/.test(a.url) ? `<button class="btn" data-rf="${i}">Actualiser</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div>`}</div>`;
       }).join("")).join("")}
-        ${isAdmin(p) ? `<button class="btn accent block" id="addA">${ICON.plus} Ajouter un add-on</button>` : `<div class="card small muted">Seul l'administrateur peut ajouter, retirer ou activer des add-ons pour chaque profil.</div>`}</div>
+        ${isAdmin(p) ? `<button class="btn accent block" id="addA">${ICON.plus} Ajouter un add-on</button>` : `<div class="card small muted">Seul le profil principal peut ajouter, retirer ou activer des add-ons pour chaque profil.</div>`}</div>
       <h2 class="section-title section"><span>Page d'accueil</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
       <div class="list" id="homeEd"></div>
@@ -2336,7 +2361,7 @@
         $("#hReset").addEventListener("click", () => { setHome({ ...homeLayout(), order: [] }); drawHome(); toast("Ordre par défaut rétabli"); });
       };
       drawHome();
-      $("#tmdbSave").addEventListener("click", async () => {
+      if ($("#tmdbSave")) $("#tmdbSave").addEventListener("click", async () => {
         const k = $("#tmdb").value.trim(); if (!k) return toast("Colle ta clé TMDB");
         toast("Vérification…");
         try { await tget("/configuration", {}, k); } catch (e) { return toast("Clé refusée par TMDB (" + e.message + ")", 4000); }
@@ -2439,7 +2464,7 @@
             return `<div class="card pm">
               <div class="pm-top">${avatar(pp, "sm")}<span class="ht"><b>${esc(pp.name)}</b><span><span class="pstat ${cls}">${esc(st)}</span>${pp.limit ? ` <span class="small muted">${fmtMin(usedToday(pp.id))} / ${fmtMin(pp.limit)} aujourd'hui</span>` : ` <span class="small muted">${fmtMin(usedToday(pp.id))} aujourd'hui</span>`}</span></span>
                 ${adm ? "" : `<label class="sw mini"><input type="checkbox" data-pon="${esc(pp.id)}" ${pp.disabled ? "" : "checked"}><i></i></label>`}</div>
-              ${adm ? `<div class="small muted">L'administrateur a toujours accès à tout.</div>` : `
+              ${adm ? `<div class="small muted">Le profil principal a toujours accès à tout.</div>` : `
               <div class="pm-l">Période d'essai</div>
               <div class="chips">${[[0, "Aucune"], [3, "3 jours"], [7, "7 jours"], [30, "30 jours"]].map(([d, l]) => `<button class="chip ${(d === 0 ? !pp.trialUntil : pp.trialUntil && pp.trialDays === d) ? "on" : ""}" data-ptr="${esc(pp.id)}|${d}">${l}</button>`).join("")}</div>
               ${pp.trialUntil ? `<div class="small muted">${days > 0 ? `Se termine le ${new Date(pp.trialUntil).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} à ${hm(pp.trialUntil)}` : "Terminée : le profil ne peut plus regarder."}</div>` : ""}

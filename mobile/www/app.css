@@ -1235,3 +1235,27 @@ html.glass .poster, html.glass .pcard .img, html.glass .ncard, html.glass .gtile
 /* Rien ne passe jamais sous l'heure et la batterie (iPhone) */
 body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: var(--bg); z-index: 900; pointer-events: none; }
 .ppl-row .bubble { flex: 0 0 92px; width: 92px; }
+
+/* ---------- Réglages 2.0 : profil en tête, blocs par thème avec icônes ---------- */
+.set-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px 14px; align-items: center; margin: 8px var(--pad) 4px; padding: 16px;
+  border-radius: 20px; background: var(--surface); border: 1px solid rgba(255,255,255,.08); }
+.set-hero > .avatar { width: 60px; height: 60px; font-size: 24px; border-radius: 18px; }
+.set-who { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.set-who b { font-size: 19px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-who small { font-size: 12.5px; color: var(--muted); }
+.set-acts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.set-acts .btn { margin: 0; min-height: 42px; font-size: 14.5px; }
+.sect-block { margin-top: 18px; }
+.sect-label { margin: 0 calc(var(--pad) + 6px) 7px; font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.sect-block .sect-group { margin-top: 0; }
+.sect-ic { flex: none; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--ic) 100%, #fff 18%), var(--ic)); box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+.sect-ic svg { width: 18px; height: 18px; }
+.sect-link { width: 100%; border: 0; background: none; color: var(--text); font: inherit; text-align: left; }
+.sect-group > * + * { border-top: 1px solid rgba(255,255,255,.08) !important; }
+.chev.r { width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); opacity: .7; display: inline-block; }
+@media (min-width: 1024px) {
+  .set-hero { grid-template-columns: auto minmax(0, 1fr) auto; max-width: 860px; }
+  .set-acts { grid-column: auto; display: flex; }
+  .sect-block { max-width: 860px; }
+}
