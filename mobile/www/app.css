@@ -1391,8 +1391,6 @@ body:has(#app .pv2)::after { background: transparent; }
 .nf-sheet-in { margin: auto; }
 @media (orientation: portrait) {
   .nf-mid { gap: clamp(28px, 10vw, 64px); }
-  .nf-top .t b { font-size: 15px; }
-  .nf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; justify-items: start; }
   .nf-sheet-in { grid-template-columns: 1fr; }
   .pl-clock span { display: none; }
 }
@@ -1404,4 +1402,33 @@ body:has(#app .pv2)::after { background: transparent; }
   .nf-bot { gap: 4px; padding-bottom: calc(var(--safe-bottom) + 6px); }
   .nf-row { flex-wrap: nowrap; }
   .nf-opt { min-height: 34px; }
+}
+
+/* ---------- Lecteur : mise en page façon Nuvio ---------- */
+.nf { background: linear-gradient(180deg, rgba(0,0,0,.6), transparent 22%, transparent 55%, rgba(0,0,0,.88)); }
+.nf-top { justify-content: flex-end; gap: 6px; }
+.nf-top .pl-clock { margin-right: auto; align-self: flex-start; padding-top: 6px; }
+.nf-top .nf-ic { width: 46px; height: 46px; }
+.nf-top .nf-ic svg { width: 28px; height: 28px; }
+.nf-bot { gap: 8px; padding-bottom: calc(var(--safe-bottom) + 14px); }
+.nf-title { display: grid; gap: 2px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+.nf-title b { font-size: clamp(22px, 5.2vw, 36px); font-weight: 800; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nf-title span { font-size: clamp(14px, 3.4vw, 20px); color: #e8e9ee; }
+.nf-seek input { height: 6px; border-radius: 3px; }
+.nf-seek input::-webkit-slider-thumb { width: 14px; height: 14px; border-width: 0; background: #fff; }
+.nf-row { justify-content: flex-start; flex-wrap: nowrap; align-items: center; gap: clamp(8px, 3vw, 22px); }
+.nf-opt { width: 44px; min-height: 44px; padding: 0; justify-content: center; flex: none; }
+.nf-opt span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.nf-opt svg { width: 28px; height: 28px; }
+.nf-time { margin-left: auto; font-size: clamp(15px, 3.6vw, 20px); font-weight: 500; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px rgba(0,0,0,.7); }
+.nf-mid { gap: clamp(48px, 18vw, 150px); }
+.nf-play { width: 84px; height: 84px; }
+.nf-play svg { width: 64px; height: 64px; }
+.nf-big { width: 64px; height: 64px; }
+.nf-big svg { width: 58px; height: 58px; }
+.player.locked .nf-mid, .player.locked .nf-bot, .player.locked #pPip, .player.locked #pClose, .player.locked .nf-top .pl-clock { visibility: hidden; pointer-events: none; }
+.player.locked .nf { background: none; }
+.player.locked #pLock { background: rgba(255,255,255,.18); }
+@media (orientation: portrait) {
+  .nf-opt { width: 40px; } .nf-row { gap: 6px; }
 }
