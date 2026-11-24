@@ -11,6 +11,12 @@
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const VERSION = window.TVO_VERSION || { code: 0, name: "dev", repo: "mansstyle59/VOoTV" };
+  // Écran de démarrage : créé ici s'il manque (anciennes installations dont la page d'origine ne l'avait pas)
+  (() => {
+    let sp = document.getElementById("splash");
+    if (!sp) { sp = document.createElement("div"); sp.id = "splash"; sp.className = "splash"; document.body.prepend(sp); }
+    sp.innerHTML = `<img src="logo-tv.png" alt="TVO"><span class="stag">Films, séries et TV en direct</span><span class="sbar"><i></i></span><p id="splashMsg">Recherche de mise à jour…</p><small id="splashVer"></small>`;
+  })();
 
   const ICON = {
     home: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z"/></svg>',
@@ -749,6 +755,127 @@
     const t = await r.text();
     return t ? JSON.parse(t) : null;
   }
+
+  // ------------------------------------------------------------------ accès à l'appli : compte obligatoire et validé par l'administrateur
+  const STATUS_TXT = { pending: ["Compte en attente de validation", "L'administrateur doit autoriser ton compte. Tu pourras utiliser TVO dès qu'il l'aura validé."],
+    disabled: ["Compte désactivé", "L'accès de ce compte a été suspendu par l'administrateur."],
+    expired: ["Accès terminé", "La période d'accès de ce compte est terminée. Contacte l'administrateur pour la prolonger."] };
+  function screenAuth() {
+    setTabs(null);
+    let mode = "in";
+    app.innerHTML = `<div class="auth"><img class="auth-logo" src="logo-tv.png" alt="TVO"><p class="auth-tag">Films, séries et TV en direct</p>
+      <div class="auth-card">
+        <div class="seg wide" id="auSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
+        <input class="field" id="auUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
+        <input class="field" id="auPass" type="password" autocomplete="current-password" placeholder="Mot de passe">
+        <div class="pmeter" id="auM" hidden><i></i><span></span></div>
+        <input class="field" id="auPass2" type="password" autocomplete="new-password" placeholder="Confirme le mot de passe" hidden>
+        <label class="small muted showpw"><input type="checkbox" id="auShow"> Afficher le mot de passe</label>
+        <label class="small muted showpw" id="auCgu" hidden><input type="checkbox" id="auAccept"> J'accepte les <a href="#/legal/terms">conditions d'utilisation</a> et la <a href="#/legal/privacy">politique de confidentialité</a></label>
+        <button class="btn primary block" id="auGo">Se connecter</button>
+        <div id="auMsg" class="small" style="color:#ff8a8a;min-height:16px"></div>
+      </div>
+      <p class="small muted auth-note">Un nouveau compte doit être validé par l'administrateur avant de pouvoir regarder.</p>
+      <div class="legal-links"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div></div>`;
+    const setMode = (m) => { mode = m; $("#auSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.m === m));
+      ["auPass2", "auM", "auCgu"].forEach((k) => ($("#" + k).hidden = m !== "up")); $("#auGo").textContent = m === "up" ? "Créer mon compte" : "Se connecter"; $("#auMsg").textContent = ""; };
+    $("#auSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-m]"); if (b) setMode(b.dataset.m); });
+    $("#auShow").addEventListener("change", (e) => ["auPass", "auPass2"].forEach((k) => ($("#" + k).type = e.target.checked ? "text" : "password")));
+    $("#auPass").addEventListener("input", () => { const v = $("#auPass").value, pb = passProblem($("#auUser").value, v), sc = passScore(v);
+      $("#auM").dataset.s = v ? (pb ? 0 : sc) : ""; $("#auM span").textContent = !v ? "" : pb || ["", "Faible", "Moyen", "Bon", "Excellent"][Math.max(1, sc)]; });
+    $("#auGo").addEventListener("click", async () => {
+      const u = $("#auUser").value, pw = $("#auPass").value, b = $("#auGo"); $("#auMsg").textContent = "";
+      if (mode === "up") { if (pw !== $("#auPass2").value) return ($("#auMsg").textContent = "Les mots de passe ne correspondent pas");
+        if (!$("#auAccept").checked) return ($("#auMsg").textContent = "Accepte les conditions pour créer ton compte"); }
+      b.disabled = true; b.textContent = "Patiente…";
+      try { if (mode === "up") await acctRegister(u, pw); else await acctLogin(u, pw); LS.set("cgu", Date.now()); location.hash = "#/profiles"; route(); }
+      catch (e) { $("#auMsg").textContent = String(e.message || "").replace(/^HTTP \d+$/, "Pas de connexion internet"); b.disabled = false; b.textContent = mode === "up" ? "Créer mon compte" : "Se connecter"; }
+    });
+  }
+  function screenBlocked() {
+    setTabs(null);
+    const a = acct() || {}; const [t, d] = STATUS_TXT[a.status] || ["Accès impossible", "Vérifie ta connexion internet."];
+    app.innerHTML = `<div class="auth"><img class="auth-logo" src="logo-tv.png" alt="TVO"><div class="auth-card" style="text-align:center">
+      <b style="font-size:20px">${esc(t)}</b><p class="small muted" style="margin:0">${esc(d)}</p><p class="small" style="margin:0;color:var(--cyan)">Compte « ${esc(a.user || "")} »</p>
+      <button class="btn primary block" id="blkRetry">Vérifier à nouveau</button><button class="btn block" id="blkOut">Changer de compte</button></div>
+      <div class="legal-links"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions</a><a href="#/legal/privacy">Confidentialité</a></div></div>`;
+    $("#blkRetry").addEventListener("click", async () => { await acctRefresh(); if (acctOk()) { toast("Compte validé ✓"); location.hash = "#/profiles"; } route(); });
+    $("#blkOut").addEventListener("click", () => { acctLogout(); route(); });
+  }
+
+  // ------------------------------------------------------------------ gestion des comptes (administrateur)
+  async function screenAccounts() {
+    setTabs(null);
+    const back = `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`;
+    if (!isAccountAdmin()) { app.innerHTML = header("Gestion des comptes", back) + `<div class="empty">Réservé à l'administrateur.</div>`; return; }
+    app.innerHTML = header("Gestion des comptes", back) + `<div class="chips pad" id="acF"></div><div class="list" id="acL"><div class="empty small">Chargement…</div></div>`;
+    let list = [], f = "pending";
+    const load = async () => { try { list = await rpc("tvo_admin_users", { p_token: acct().token }) || []; } catch (e) { $("#acL").innerHTML = `<div class="empty small">${esc(e.message)}</div>`; return; } draw(); };
+    const when = (t) => (t ? new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—");
+    const lab = { active: ["Actif", "std"], pending: ["En attente", "trial"], disabled: ["Désactivé", "off"], expired: ["Expiré", "off"] };
+    const draw = () => {
+      const groups = [["pending", "En attente"], ["active", "Actifs"], ["off", "Désactivés / expirés"], ["all", "Tous"]];
+      const inG = (u, g) => g === "all" || (g === "off" ? u.eff === "disabled" || u.eff === "expired" : u.eff === g);
+      $("#acF").innerHTML = groups.map(([g, l]) => `<button class="chip ${f === g ? "on" : ""}" data-f="${g}">${l} (${list.filter((u) => inG(u, g)).length})</button>`).join("");
+      const l = list.filter((u) => inG(u, f));
+      $("#acL").innerHTML = l.map((u) => { const [st, cls] = u.role === "admin" ? ["Administrateur", "admin"] : lab[u.eff] || [u.eff, "std"];
+        const left = u.expires_at ? Math.ceil((new Date(u.expires_at) - Date.now()) / 864e5) : null;
+        return `<div class="card acc"><div class="pm-top"><span class="acc-av">${esc(u.user.slice(0, 1).toUpperCase())}</span><span class="ht"><b>${esc(u.user)}</b>
+          <span><span class="pstat ${cls}">${esc(st)}</span>${left !== null && u.role !== "admin" ? ` <span class="small muted">${left > 0 ? `${left} j restant${left > 1 ? "s" : ""}` : "terminé"}</span>` : ""}</span></span></div>
+          <div class="small muted">Inscrit le ${when(u.created_at)} · Dernière activité ${when(u.last_seen)}${u.expires_at ? ` · Fin d'accès ${when(u.expires_at)}` : u.role !== "admin" && u.status === "active" ? " · Accès illimité" : ""}</div>
+          ${u.role === "admin" ? "" : `<div class="pm-l">${u.status === "active" ? "Durée d'accès" : "Autoriser l'accès"}</div>
+          <div class="chips">${[[3, "Essai 3 jours"], [7, "7 jours"], [30, "30 jours"], [365, "1 an"], [0, "Illimité"]].map(([d, t]) => `<button class="chip" data-act="${esc(u.user)}|active|${d}">${t}</button>`).join("")}</div>
+          <div class="two-btn">${u.status === "disabled" ? `<button class="btn" data-act="${esc(u.user)}|active|">Réactiver</button>` : `<button class="btn" data-act="${esc(u.user)}|disabled|">Désactiver</button>`}
+            <button class="btn danger" data-del="${esc(u.user)}">Supprimer</button></div>`}</div>`; }).join("") || `<div class="empty small">Aucun compte ici.</div>`;
+    };
+    $("#acF").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { f = b.dataset.f; draw(); } });
+    $("#acL").addEventListener("click", async (e) => {
+      const a = e.target.closest("[data-act]"), d = e.target.closest("[data-del]");
+      try {
+        if (a) { const [u, st, days] = a.dataset.act.split("|");
+          await rpc("tvo_admin_set", { p_token: acct().token, p_user: u, p_status: st, p_days: days === "" ? null : +days, p_note: null });
+          toast(st === "disabled" ? "Compte désactivé" : +days ? `Accès autorisé pour ${days} jours ✓` : "Accès autorisé ✓"); load(); }
+        if (d && confirm(`Supprimer définitivement le compte « ${d.dataset.del} » et toutes ses données ?`)) { await rpc("tvo_admin_delete", { p_token: acct().token, p_user: d.dataset.del }); toast("Compte supprimé"); load(); }
+      } catch (err) { toast(err.message, 4000); }
+    });
+    load();
+  }
+
+  // ------------------------------------------------------------------ pages légales et aide
+  const LEGAL = {
+    help: ["Aide · Comment ça marche", `
+      <h3>Ton compte</h3><p>Crée un compte avec un identifiant et un mot de passe. Un nouveau compte doit être validé par l'administrateur avant de pouvoir regarder ; il peut te donner un accès d'essai ou un accès sans limite.</p>
+      <h3>Les profils</h3><p>Chaque compte peut avoir jusqu'à 6 profils (avatar, profil enfant, code à 4 chiffres, Face ID). Le profil principal gère les autres : accès, période d'essai et temps d'écran par jour.</p>
+      <h3>Regarder</h3><p>TVO affiche les catalogues et les fiches (en français grâce à TMDB). Les vidéos viennent des add-ons que tu ajoutes dans Réglages › Add-ons : TVO les teste et les classe par langue, qualité et vitesse.</p>
+      <h3>Live TV</h3><p>Ajoute une liste de chaînes (Freebox, chaînes gratuites…) : le programme en cours s'affiche sur chaque chaîne.</p>
+      <h3>La télé</h3><p>Sur la TV : Réglages › Connexion rapide, puis scanne le QR code avec ton téléphone connecté. Ta liste, ta progression et tes profils sont synchronisés.</p>
+      <h3>Appui long</h3><p>Appuie longuement sur une carte pour ses options : reprendre, Ma liste, marquer comme vu, retirer…</p>`],
+    terms: ["Conditions d'utilisation", `
+      <p class="small muted">Dernière mise à jour : novembre 2026</p>
+      <h3>1. Objet</h3><p>TVO est une application de lecture et d'organisation de contenus vidéo. Elle n'héberge, ne fournit et ne vend aucun film, série ou chaîne : elle affiche des informations publiques (TMDB) et lit les vidéos fournies par des services ou des add-ons que l'utilisateur choisit d'ajouter.</p>
+      <h3>2. Accès</h3><p>L'utilisation nécessite un compte personnel. L'administrateur de l'application décide d'autoriser, de limiter dans le temps (essai), de suspendre ou de supprimer un compte, sans obligation de motif. Un compte est strictement personnel : son partage est interdit.</p>
+      <h3>3. Responsabilité de l'utilisateur</h3><p>L'utilisateur est seul responsable des add-ons, listes et sources qu'il ajoute, et s'engage à n'accéder qu'à des contenus qu'il a le droit de regarder, dans le respect du droit d'auteur et des lois en vigueur. Tout usage illicite est interdit et peut entraîner la suppression du compte.</p>
+      <h3>4. Sécurité</h3><p>Le mot de passe doit rester secret. Les tentatives d'accès frauduleuses sont bloquées automatiquement. En cas de doute, utilise « Déconnecter tous mes appareils ».</p>
+      <h3>5. Disponibilité</h3><p>L'application est fournie en l'état, sans garantie de disponibilité continue. Les fonctionnalités peuvent évoluer par mises à jour automatiques.</p>
+      <h3>6. Fin d'utilisation</h3><p>Tu peux supprimer ton compte à tout moment dans Réglages › Compte. Ces conditions sont régies par le droit français.</p>`],
+    privacy: ["Politique de confidentialité", `
+      <p class="small muted">Dernière mise à jour : novembre 2026</p>
+      <h3>Données enregistrées</h3><p>Ton identifiant ; ton mot de passe sous forme chiffrée (bcrypt, jamais en clair) ; tes profils, ta liste, ta progression de lecture, tes add-ons et réglages, pour les synchroniser entre tes appareils ; la date d'inscription et de dernière activité ; le statut et la durée d'accès de ton compte.</p>
+      <h3>Données non collectées</h3><p>Pas d'adresse e-mail obligatoire, pas de nom, pas de géolocalisation, pas de publicité, pas de revente ni de partage de données à des tiers.</p>
+      <h3>Hébergement</h3><p>Les données sont hébergées chez Supabase (serveurs en Europe) et ne sont accessibles qu'à travers des fonctions contrôlées. Les échanges sont chiffrés (HTTPS).</p>
+      <h3>Services tiers</h3><p>Les informations des films viennent de TMDB, les bandes-annonces de YouTube, les mises à jour de GitHub. Ces services reçoivent les requêtes techniques nécessaires (adresse IP), selon leurs propres politiques. La vérification des mots de passe ayant fuité n'envoie qu'un fragment anonyme de son empreinte.</p>
+      <h3>Durée</h3><p>Les données sont conservées tant que le compte existe et effacées à sa suppression.</p>
+      <h3>Tes droits (RGPD)</h3><p>Tu peux consulter, corriger ou supprimer tes données à tout moment : Réglages › Compte › Supprimer mon compte efface définitivement ton compte et tes données. Pour toute demande, contacte l'administrateur de l'application.</p>`],
+    about: ["À propos", `<p><b>TVO</b> — films, séries et TV en direct sur téléphone, iPhone et télévision.</p><p>Version ${esc(VERSION.name)}</p>
+      <p>Données des films et séries : <b>TMDB</b>. Ce produit utilise l'API TMDB mais n'est ni approuvé ni certifié par TMDB.</p>
+      <p>Guide des programmes TV : XML TV Fr. Logos de chaînes : tv-logos. Listes de chaînes gratuites : iptv-org, Free-TV.</p>
+      <p>TVO n'héberge aucun contenu vidéo.</p>`],
+  };
+  function screenLegal(k) {
+    setTabs(null);
+    const [t, html] = LEGAL[k] || LEGAL.about;
+    app.innerHTML = header(t, `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `<article class="legal pad">${html}</article>`;
+  }
   // ------------------------------------------------------------------ compte Google / Apple (Supabase Auth)
   const AUTH_BASE = "https://vfxblubjsxwseacmslnu.supabase.co/auth/v1";
   const REDIRECT = "tvo://auth";
@@ -805,16 +932,30 @@
     await syncNow();
     const id = await rpc("tvo_register", { p_user: user, p_pass: pass, p_id: syncId() });
     if (id && id !== syncId()) LS.set("sync_id", id);
-    LS.set("acct", { user }); await syncNow();
+    await acctLogin(user, pass);
   }
   async function acctLogin(user, pass) {
     user = cleanUser(user);
-    const id = await rpc("tvo_login", { p_user: user, p_pass: pass });
-    if (!id) throw new Error("Identifiant ou mot de passe incorrect");
-    LS.set("sync_id", id); LS.set("acct", { user });
+    const r = await rpc("tvo_auth", { p_user: user, p_pass: pass });
+    if (!r) throw new Error("Identifiant ou mot de passe incorrect");
+    LS.set("sync_id", r.sync_id);
+    LS.set("acct", { user: r.user, token: r.token, role: r.role, status: r.status, expires_at: r.expires_at, checked: Date.now() });
     await syncNow();
   }
+  /** Vérifie le statut du compte auprès du serveur (à l'ouverture, puis régulièrement). */
+  async function acctRefresh() {
+    const a = acct(); if (!a || !a.token) return a;
+    try {
+      const r = await rpc("tvo_me", { p_token: a.token });
+      if (!r || r.status === "signed_out") { LS.set("acct", null); return null; }
+      if (r.sync_id && r.sync_id !== syncId()) LS.set("sync_id", r.sync_id);
+      const n = { ...a, role: r.role, status: r.status, expires_at: r.expires_at, checked: Date.now() }; LS.set("acct", n); return n;
+    } catch { return a; } // hors connexion : on garde le dernier statut connu
+  }
+  const acctOk = () => { const a = acct(); return !!(a && a.token && a.status === "active" && Date.now() - (a.checked || 0) < 14 * 864e5); };
+  const isAccountAdmin = () => { const a = acct(); return !!(a && a.role === "admin" && a.status === "active"); };
   function acctLogout() {
+    const a = acct(); if (a && a.token) rpc("tvo_logout", { p_token: a.token }).catch(() => {});
     LS.set("acct", null); LS.set("auth", null); LS.del("sync_id");
     toast("Déconnecté. Ce téléphone n'est plus synchronisé avec ton compte.");
   }
@@ -1971,9 +2112,10 @@
           <button class="btn" id="editP">${ICON.edit} Modifier</button></div>
         <button class="btn block" id="switchP">Changer de profil</button>
       </div>
+      ${isAccountAdmin() ? `<button class="card admin-link" id="goAcc"><span class="ht"><b>Gestion des comptes</b><small>Autoriser les inscriptions, essais, durées d'accès</small></span><span class="chev r"></span></button>` : ""}
       ${isAdmin(p) ? `<h2 class="section-title section"><span>Gestion des profils</span></h2>
       <div class="list" id="pman"></div>
-      <h2 class="section-title section"><span>Clés API</span></h2>
+      ` : ""}${isAccountAdmin() ? `<h2 class="section-title section"><span>Clés API</span></h2>
       <div class="list">
         <div class="card small muted">Visibles par l'administrateur uniquement. Masquées par défaut.</div>
         <div class="card keyrow"><span class="ht"><b>TMDB</b><small>Titres, résumés, affiches en français</small></span></div>
@@ -1985,7 +2127,9 @@
       </div>` : ""}
       <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
-        ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted">Compte « ${esc(acct().user)} » · tes appareils sont synchronisés</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
+        ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>${esc(acct().user)}</b><div><span class="pstat ${acct().role === "admin" ? "admin" : "std"}">${acct().role === "admin" ? "Administrateur" : "Compte actif"}</span>${acct().expires_at && acct().role !== "admin" ? ` <span class="small muted">jusqu'au ${new Date(acct().expires_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>` : ""}</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
+          ${acct().role !== "admin" ? `<details class="card"><summary class="small">Supprimer mon compte</summary><div class="list" style="padding:10px 0 0"><div class="small muted">Efface définitivement ton compte, tes profils, ta liste et ta progression.</div>
+            <input class="field" id="dPass" type="password" autocomplete="current-password" placeholder="Ton mot de passe"><button class="btn danger block" id="dGo">Supprimer définitivement</button></div></details>` : ""}
           <details class="card"><summary class="small">Changer le mot de passe</summary><div class="list" style="padding:10px 0 0">
             <input class="field" id="pOld" type="password" autocomplete="current-password" placeholder="Mot de passe actuel">
             <input class="field" id="pNew" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe">
@@ -2047,7 +2191,8 @@
       <div class="list" id="homeEd"></div>
       <h2 class="section-title section"><span>Application</span></h2>
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
-        <button class="btn block" id="upd">Rechercher une mise à jour</button></div>`;
+        <button class="btn block" id="upd">Rechercher une mise à jour</button></div>
+      <div class="legal-links pad"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions d'utilisation</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div>`;
       makeCollapsible(app, acct() ? [] : ["Compte"]);
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
       const drawHome = () => {
@@ -2114,20 +2259,26 @@
         try { if (mode === "up") await acctRegister(u, pw); else await acctLogin(u, pw); toast("Connecté ✓"); draw(); }
         catch (e) { $("#aMsg").textContent = e.message.replace(/^HTTP \d+$/, "Pas de connexion internet"); aGo.disabled = false; aGo.textContent = mode === "up" ? "Créer mon compte" : "Se connecter"; }
       });
+      const ga = $("#goAcc"); if (ga) ga.addEventListener("click", () => go("#/accounts"));
+      const dG = $("#dGo"); if (dG) dG.addEventListener("click", async () => {
+        if (!confirm("Supprimer définitivement ton compte et toutes tes données ?")) return;
+        try { const ok = await rpc("tvo_delete_me", { p_token: acct().token, p_pass: $("#dPass").value }); if (!ok) return toast("Mot de passe incorrect");
+          LS.set("acct", null); LS.del("sync_id"); toast("Compte supprimé"); route(); } catch (e) { toast(e.message, 4000); }
+      });
       const ao = $("#acctOut"); if (ao) ao.addEventListener("click", () => { if (confirm("Se déconnecter du compte TVO sur ce téléphone ?")) { acctLogout(); draw(); } });
       const pGo = $("#pGo"); if (pGo) pGo.addEventListener("click", async () => {
         try {
           await checkNewPass(acct().user, $("#pNew").value);
           const r = await rpc("tvo_change_password", { p_user: acct().user, p_old: $("#pOld").value, p_new: $("#pNew").value });
           if (!r) return toast("Mot de passe actuel incorrect");
-          if (typeof r === "string") { LS.set("sync_id", r); syncNow(); }
+          if (typeof r === "string") { LS.set("sync_id", r); try { await acctLogin(acct().user, $("#pNew").value); } catch {} }
           $("#pOld").value = $("#pNew").value = ""; toast("Mot de passe changé ✓ Les autres appareils sont déconnectés.", 4000);
         } catch (e) { toast(e.message, 4000); }
       });
       const rGo = $("#rGo"); if (rGo) rGo.addEventListener("click", async () => {
         try { const r = await rpc("tvo_rotate", { p_user: acct().user, p_pass: $("#rPass").value });
           if (!r) return toast("Mot de passe incorrect");
-          LS.set("sync_id", r); $("#rPass").value = ""; syncNow(); toast("Tous les autres appareils sont déconnectés ✓", 4000);
+          LS.set("sync_id", r); try { await acctLogin(acct().user, $("#rPass").value); } catch {} $("#rPass").value = ""; toast("Tous les autres appareils sont déconnectés ✓", 4000);
         } catch (e) { toast(e.message, 4000); }
       });
       const so = $("#signOut"); if (so) so.addEventListener("click", () => { signOut(); draw(); });
@@ -2538,6 +2689,10 @@
 
     const [page, a, b, c] = parts;
     window.scrollTo(0, 0);
+    if (page === "legal") return screenLegal(a);
+    if (!acct() || !acct().token) return screenAuth();
+    if (!acctOk()) return screenBlocked();
+    if (page === "accounts") return screenAccounts();
     if (page === "profile") return screenProfileEdit(a);
     if (page === "profiles" || !S.profile) return screenProfiles();
     switch (page) {
@@ -2582,6 +2737,8 @@
   checkProxy().then((ok) => { if (ok !== wasOn && $("#player").hidden) { cache.clear(); route(); } });
   syncNow().then((ch) => { if (ch && $("#player").hidden) route(); }).finally(() => refreshAddons());
   setInterval(() => document.hidden || syncNow(), 120000);
+  acctRefresh().then(() => { if (!acctOk() && !location.hash.startsWith("#/legal")) route(); });
+  setInterval(() => { if (!document.hidden) acctRefresh().then(() => { if (!acctOk() && !location.hash.startsWith("#/legal")) route(); }); }, 30 * 60000);
   // À l'ouverture : télécharge la nouvelle version et l'applique tout de suite (hors lecture vidéo).
   (async () => {
     const sp = $("#splash"), msg = $("#splashMsg"), t0 = Date.now();

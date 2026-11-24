@@ -104,6 +104,12 @@ object Sync {
         Tvo.store.setSyncId(raw); syncNow(); true
     }.getOrDefault(false)
 
+    /** Statut du compte relié à cette TV : active, pending, disabled, expired, signed_out (null = pas de réseau). */
+    suspend fun deviceStatus(): String? = runCatching {
+        val raw = rpc("tvo_device_status", buildJsonObject { put("p_id", Tvo.store.syncId()) })
+        kotlinx.serialization.json.Json.parseToJsonElement(raw).let { (it as? kotlinx.serialization.json.JsonObject)?.get("status")?.toString()?.trim('"') }
+    }.getOrNull()
+
     /** Joins the space of the device that displays [code]; local data is merged into it. */
     suspend fun claim(code: String): Boolean = runCatching {
         val raw = rpc("tvo_pair_claim", buildJsonObject { put("p_code", code) }).trim().trim('"')

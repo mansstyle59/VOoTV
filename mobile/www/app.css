@@ -984,3 +984,19 @@ input.selectable, .field { -webkit-user-select: text; user-select: text; }
 .tr-top .icon-btn { background: rgba(255,255,255,.12); font-size: 18px; }
 .tr-frame { position: relative; aspect-ratio: 16/9; border-radius: 16px; overflow: hidden; background: #000; }
 .tr-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+/* ---------- Connexion obligatoire / compte bloqué ---------- */
+.auth { min-height: 100vh; min-height: 100dvh; display: grid; align-content: center; justify-items: center; gap: 14px; padding: calc(var(--safe-top) + 24px) var(--pad) calc(var(--safe-bottom) + 24px); }
+.auth-logo { width: min(52vw, 230px); }
+.auth-tag { margin: -4px 0 6px; color: #c9d8ff; font-weight: 600; }
+.auth-card { width: min(420px, 100%); display: grid; gap: 10px; background: var(--surface); border: 1px solid rgba(160,190,255,.12); border-radius: 22px; padding: 18px; }
+.auth-card a, .legal-links a { color: var(--cyan); }
+.auth-note { text-align: center; max-width: 380px; margin: 0; }
+.legal-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; font-size: 13px; margin: 14px 0 8px; }
+.legal-links a { text-decoration: none; }
+.legal h3 { font-size: 16px; margin: 18px 0 6px; } .legal p { margin: 0 0 8px; line-height: 1.55; color: #dbe3fb; font-size: 14.5px; }
+.admin-link { display: flex; align-items: center; gap: 10px; margin: 12px var(--pad) 0; width: calc(100% - 2 * var(--pad)); text-align: left; border: 1px solid rgba(61,124,255,.35) !important; background: rgba(61,124,255,.12) !important; }
+.chev.r { transform: rotate(-45deg); }
+.card.acc { display: grid; gap: 8px; margin: 0 var(--pad) 10px; }
+.acc-av { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; background: var(--blue-grad); }
+.card.acc .chips { padding: 0; flex-wrap: wrap; gap: 6px; } .card.acc .chip { background: rgba(255,255,255,.07); border: 1px solid rgba(160,190,255,.12); }

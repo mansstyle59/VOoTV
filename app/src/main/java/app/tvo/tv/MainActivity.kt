@@ -1,5 +1,7 @@
 package app.tvo.tv
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.heightIn
 import androidx.lifecycle.lifecycleScope
 import android.net.Uri
@@ -91,7 +93,8 @@ private fun AppNav() {
     val nav = remember(nc) { navFor(nc) }
     LaunchedEffect(Unit) { refreshAddons() }
     NavHost(nc, startDestination = "splash") {
-        composable("splash") { SplashScreen { nc.navigate("profiles") { popUpTo("splash") { inclusive = true } } } }
+        composable("splash") { SplashScreen { nc.navigate("gate") { popUpTo("splash") { inclusive = true } } } }
+        composable("gate") { AccountGate { nc.navigate("profiles") { popUpTo("gate") { inclusive = true } } } }
         composable("profiles") {
             ProfilesScreen(
                 onSelected = { nc.navigate("home") { popUpTo("profiles") { inclusive = true } } },
@@ -174,6 +177,64 @@ private fun UpdatePrompt() {
     @Suppress("UNUSED_VARIABLE") val keep = scope
 }
 
+
+/** Accès à TVO : la TV doit être reliée à un compte validé par l'administrateur. */
+@Composable
+private fun AccountGate(onOk: () -> Unit) {
+    val ctx = LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE) }
+    var status by remember { mutableStateOf<String?>("checking") }
+    var req by remember { mutableStateOf<app.tvo.tv.data.Sync.LoginRequest?>(null) }
+    var tick by remember { mutableStateOf(0) }
+    LaunchedEffect(tick) {
+        status = "checking"
+        val s = app.tvo.tv.data.Sync.deviceStatus()
+        val okBefore = System.currentTimeMillis() - prefs.getLong("gate_ok", 0) < 14 * 86_400_000L
+        when {
+            s == "active" -> { prefs.edit().putLong("gate_ok", System.currentTimeMillis()).apply(); onOk() }
+            s == null && okBefore -> onOk() // hors connexion : dernier statut valide conservé 14 jours
+            else -> { status = s ?: "offline"; if (s == "signed_out") req = app.tvo.tv.data.Sync.loginStart() }
+        }
+    }
+    LaunchedEffect(req) {
+        val r = req ?: return@LaunchedEffect
+        repeat(300) { delay(2000); if (app.tvo.tv.data.Sync.loginPoll(r)) { req = null; tick++; return@LaunchedEffect } }
+        req = app.tvo.tv.data.Sync.loginStart()
+    }
+    val fr = remember { FocusRequester() }
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF17357F), TvoColors.Bg), radius = 1300f)),
+        contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Row(horizontalArrangement = Arrangement.spacedBy(56.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.width(560.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(70.dp))
+                val (t, d) = when (status) {
+                    "checking" -> "Vérification du compte…" to ""
+                    "signed_out" -> "Connecte cette TV à ton compte" to "1. Ouvre TVO sur ton téléphone et connecte-toi.\n2. Scanne le QR code avec l'appareil photo, ou va dans Réglages › Connecter une TV et saisis le code."
+                    "pending" -> "Compte en attente de validation" to "L'administrateur doit autoriser ton compte avant que tu puisses regarder."
+                    "disabled" -> "Compte désactivé" to "L'accès de ce compte a été suspendu par l'administrateur."
+                    "expired" -> "Accès terminé" to "La période d'accès de ce compte est terminée. Contacte l'administrateur."
+                    else -> "Pas de connexion internet" to "Vérifie le Wi-Fi de la TV puis réessaie."
+                }
+                Text(t, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                if (d.isNotEmpty()) Text(d, fontSize = 17.sp, color = TvoColors.Muted, lineHeight = 26.sp)
+                if (status != "checking") Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TvoButton("Réessayer", { tick++ }, Modifier.focusRequester(fr), primary = true)
+                    if (status != "signed_out" && status != "offline") TvoButton("Changer de compte", { Tvo.store.setSyncId(java.util.UUID.randomUUID().toString()); tick++ })
+                }
+                Text("En utilisant TVO, tu acceptes les conditions d'utilisation et la politique de confidentialité (consultables dans l'appli du téléphone).", fontSize = 12.sp, color = TvoColors.Muted)
+            }
+            req?.let { r ->
+                val bmp = remember(r) { app.tvo.tv.data.RemoteInputServer.qr("tvo://login?code=${r.code}&k=${r.key}", 460).asImageBitmap() }
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(260.dp).clip(RoundedCornerShape(16.dp)).background(androidx.compose.ui.graphics.Color.White).padding(10.dp))
+                    Text(r.code.chunked(3).joinToString(" "), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    Text("En attente du téléphone…", fontSize = 14.sp, color = TvoColors.Cyan)
+                }
+            }
+        }
+    }
+    LaunchedEffect(status) { delay(150); runCatching { fr.requestFocus() } }
+}
 
 /** Après une mise à jour : la liste des nouveautés s'affiche une fois. */
 @Composable
