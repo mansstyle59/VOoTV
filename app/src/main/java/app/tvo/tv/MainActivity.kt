@@ -189,6 +189,11 @@ private fun AccountGate(onOk: () -> Unit) {
     var status by remember { mutableStateOf<String?>("checking") }
     var req by remember { mutableStateOf<app.tvo.tv.data.Sync.LoginRequest?>(null) }
     var tick by remember { mutableStateOf(0) }
+    var entering by remember { mutableStateOf(false) }
+    var typed by remember { mutableStateOf("") }
+    var codeMsg by remember { mutableStateOf<String?>(null) }
+    val padFr = remember { FocusRequester() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     LaunchedEffect(tick) {
         status = "checking"
         val s = app.tvo.tv.data.Sync.deviceStatus()
@@ -212,7 +217,7 @@ private fun AccountGate(onOk: () -> Unit) {
                 androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(70.dp))
                 val (t, d) = when (status) {
                     "checking" -> "Vérification du compte…" to ""
-                    "signed_out" -> "Connecte cette TV à ton compte" to "1. Ouvre TVO sur ton téléphone et connecte-toi.\n2. Scanne le QR code avec l'appareil photo, ou va dans Réglages › Connecter une TV et saisis le code."
+                    "signed_out" -> "Bienvenue sur TVO" to "Avec ton téléphone, c'est le plus simple : scanne le QR code avec l'appareil photo.\n• Tu as déjà un compte : connecte-toi, la télé se connecte toute seule.\n• Pas encore de compte : crée-le en une minute sur la page qui s'ouvre.\n• Ou choisis « J'ai un code » et tape le code affiché dans l'appli du téléphone."
                     "pending" -> "Compte en attente de validation" to "L'administrateur doit autoriser ton compte avant que tu puisses regarder."
                     "disabled" -> "Compte désactivé" to "L'accès de ce compte a été suspendu par l'administrateur."
                     "expired" -> "Accès terminé" to "La période d'accès de ce compte est terminée. Contacte l'administrateur."
@@ -220,18 +225,31 @@ private fun AccountGate(onOk: () -> Unit) {
                 }
                 Text(t, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                 if (d.isNotEmpty()) Text(d, fontSize = 17.sp, color = TvoColors.Muted, lineHeight = 26.sp)
-                if (status != "checking") Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (entering) {
+                    Text(if (typed.isEmpty()) "Tape le code à 6 chiffres affiché sur le téléphone" else typed.chunked(3).joinToString(" "),
+                        fontSize = if (typed.isEmpty()) 15.sp else 32.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    app.tvo.tv.ui.DigitPad({ d -> if (typed.length < 6) typed += d }, { typed = typed.dropLast(1) }, first = padFr)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TvoButton("Valider", { if (typed.length == 6) scope.launch { codeMsg = "Connexion…"
+                            if (app.tvo.tv.data.Sync.claim(typed)) { entering = false; codeMsg = null; tick++ } else { codeMsg = "Code invalide ou expiré."; typed = "" } } }, primary = true)
+                        TvoButton("Retour", { entering = false; codeMsg = null })
+                    }
+                    codeMsg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
+                    LaunchedEffect(Unit) { delay(80); runCatching { padFr.requestFocus() } }
+                } else if (status != "checking") Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (status == "signed_out") TvoButton("J'ai un code", { entering = true; typed = ""; codeMsg = null })
                     TvoButton("Réessayer", { tick++ }, Modifier.focusRequester(fr), primary = true)
                     if (status != "signed_out" && status != "offline") TvoButton("Changer de compte", { Tvo.store.setSyncId(java.util.UUID.randomUUID().toString()); tick++ })
                 }
                 Text("En utilisant TVO, tu acceptes les conditions d'utilisation et la politique de confidentialité (consultables dans l'appli du téléphone).", fontSize = 12.sp, color = TvoColors.Muted)
             }
-            req?.let { r ->
-                val bmp = remember(r) { app.tvo.tv.data.RemoteInputServer.qr("tvo://login?code=${r.code}&k=${r.key}", 460).asImageBitmap() }
+            if (!entering) req?.let { r ->
+                val bmp = remember(r) { app.tvo.tv.data.RemoteInputServer.qr("https://mansstyle59.github.io/VOoTV/connect/?code=${r.code}&k=${r.key}", 460).asImageBitmap() }
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(260.dp).clip(RoundedCornerShape(16.dp)).background(androidx.compose.ui.graphics.Color.White).padding(10.dp))
                     Text(r.code.chunked(3).joinToString(" "), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    Text("En attente du téléphone…", fontSize = 14.sp, color = TvoColors.Cyan)
+                    Text("Scanne avec ton téléphone", fontSize = 15.sp, color = TvoColors.Cyan)
+                    Text("Connexion ou création de compte", fontSize = 13.sp, color = TvoColors.Muted)
                 }
             }
         }

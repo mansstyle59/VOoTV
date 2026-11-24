@@ -388,7 +388,7 @@ private fun SyncBlock() {
         }
         qrCode?.let { req ->
             val c = req.code
-            val bmp = remember(req) { app.tvo.tv.data.RemoteInputServer.qr("tvo://login?code=$c&k=${req.key}", 420).asImageBitmap() }
+            val bmp = remember(req) { app.tvo.tv.data.RemoteInputServer.qr("https://mansstyle59.github.io/VOoTV/connect/?code=$c&k=${req.key}", 420).asImageBitmap() }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(210.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

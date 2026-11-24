@@ -772,6 +772,7 @@
         <input class="field" id="auPass" type="password" autocomplete="current-password" placeholder="Mot de passe">
         <div class="pmeter" id="auM" hidden><i></i><span></span></div>
         <input class="field" id="auPass2" type="password" autocomplete="new-password" placeholder="Confirme le mot de passe" hidden>
+        <input class="field" id="auMail" type="email" inputmode="email" autocapitalize="off" autocomplete="email" placeholder="E-mail (pour être prévenu de l'activation)" hidden>
         <label class="small muted showpw"><input type="checkbox" id="auShow"> Afficher le mot de passe</label>
         <label class="small muted showpw" id="auCgu" hidden><input type="checkbox" id="auAccept"> J'accepte les <a href="#/legal/terms">conditions d'utilisation</a> et la <a href="#/legal/privacy">politique de confidentialité</a></label>
         <button class="btn primary block" id="auGo">Se connecter</button>
@@ -780,7 +781,7 @@
       <p class="small muted auth-note">Un nouveau compte doit être validé par l'administrateur avant de pouvoir regarder.</p>
       <div class="legal-links"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div></div>`;
     const setMode = (m) => { mode = m; $("#auSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.m === m));
-      ["auPass2", "auM", "auCgu"].forEach((k) => ($("#" + k).hidden = m !== "up")); $("#auGo").textContent = m === "up" ? "Créer mon compte" : "Se connecter"; $("#auMsg").textContent = ""; };
+      ["auPass2", "auM", "auCgu", "auMail"].forEach((k) => ($("#" + k).hidden = m !== "up")); $("#auGo").textContent = m === "up" ? "Créer mon compte" : "Se connecter"; $("#auMsg").textContent = ""; };
     $("#auSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-m]"); if (b) setMode(b.dataset.m); });
     $("#auShow").addEventListener("change", (e) => ["auPass", "auPass2"].forEach((k) => ($("#" + k).type = e.target.checked ? "text" : "password")));
     $("#auPass").addEventListener("input", () => { const v = $("#auPass").value, pb = passProblem($("#auUser").value, v), sc = passScore(v);
@@ -790,7 +791,7 @@
       if (mode === "up") { if (pw !== $("#auPass2").value) return ($("#auMsg").textContent = "Les mots de passe ne correspondent pas");
         if (!$("#auAccept").checked) return ($("#auMsg").textContent = "Accepte les conditions pour créer ton compte"); }
       b.disabled = true; b.textContent = "Patiente…";
-      try { if (mode === "up") await acctRegister(u, pw); else await acctLogin(u, pw); LS.set("cgu", Date.now()); location.hash = "#/profiles"; route(); }
+      try { if (mode === "up") await acctRegister(u, pw, $("#auMail").value.trim()); else await acctLogin(u, pw); LS.set("cgu", Date.now()); location.hash = "#/profiles"; route(); }
       catch (e) { $("#auMsg").textContent = String(e.message || "").replace(/^HTTP \d+$/, "Pas de connexion internet"); b.disabled = false; b.textContent = mode === "up" ? "Créer mon compte" : "Se connecter"; }
     });
   }
@@ -824,19 +825,38 @@
         const left = u.expires_at ? Math.ceil((new Date(u.expires_at) - Date.now()) / 864e5) : null;
         return `<div class="card acc"><div class="pm-top"><span class="acc-av">${esc(u.user.slice(0, 1).toUpperCase())}</span><span class="ht"><b>${esc(u.user)}</b>
           <span><span class="pstat ${cls}">${esc(st)}</span>${left !== null && u.role !== "admin" ? ` <span class="small muted">${left > 0 ? `${left} j restant${left > 1 ? "s" : ""}` : "terminé"}</span>` : ""}</span></span></div>
+          ${u.email ? `<div class="small" style="color:var(--cyan)">${esc(u.email)}</div>` : `<div class="small muted">Pas d'e-mail renseigné</div>`}
           <div class="small muted">Inscrit le ${when(u.created_at)} · Dernière activité ${when(u.last_seen)}${u.expires_at ? ` · Fin d'accès ${when(u.expires_at)}` : u.role !== "admin" && u.status === "active" ? " · Accès illimité" : ""}</div>
           ${u.role === "admin" ? "" : `<div class="pm-l">${u.status === "active" ? "Durée d'accès" : "Autoriser l'accès"}</div>
           <div class="chips">${[[3, "Essai 3 jours"], [7, "7 jours"], [30, "30 jours"], [365, "1 an"], [0, "Illimité"]].map(([d, t]) => `<button class="chip" data-act="${esc(u.user)}|active|${d}">${t}</button>`).join("")}</div>
           <div class="two-btn">${u.status === "disabled" ? `<button class="btn" data-act="${esc(u.user)}|active|">Réactiver</button>` : `<button class="btn" data-act="${esc(u.user)}|disabled|">Désactiver</button>`}
-            <button class="btn danger" data-del="${esc(u.user)}">Supprimer</button></div>`}</div>`; }).join("") || `<div class="empty small">Aucun compte ici.</div>`;
+            <button class="btn danger" data-del="${esc(u.user)}">Supprimer</button></div>
+          ${u.email ? `<div class="two-btn"><button class="btn" data-mail="${esc(u.user)}">✉ Envoyer un mail</button><button class="btn" data-mcopy="${esc(u.user)}">Copier le message</button></div>` : ""}`}</div>`; }).join("") || `<div class="empty small">Aucun compte ici.</div>`;
     };
     $("#acF").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { f = b.dataset.f; draw(); } });
+    // Message prêt à envoyer : s'ouvre dans Gmail (ou l'appli Mail), l'administrateur n'a plus qu'à appuyer sur Envoyer
+    const mailFor = (u) => {
+      const ok = u.eff === "active", end = u.expires_at ? new Date(u.expires_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : null;
+      const subject = ok ? "Ton compte TVO est activé" : "Ton compte TVO";
+      const body = ok ? `Bonjour ${u.user},\n\nBonne nouvelle : ton compte TVO est activé${end ? ` jusqu'au ${end}` : ""}.\nTu peux maintenant te connecter avec ton identifiant « ${u.user} » sur ton téléphone, ta télé ou ton Mac.\n\nBon visionnage !\nL'équipe TVO`
+        : `Bonjour ${u.user},\n\nNous avons bien reçu ta demande de compte TVO. Elle est en cours de traitement.\n\nL'équipe TVO`;
+      return { to: u.email, subject, body };
+    };
     $("#acL").addEventListener("click", async (e) => {
+      const mb = e.target.closest("[data-mail]"), mc = e.target.closest("[data-mcopy]");
+      if (mb || mc) { const u = list.find((x) => x.user === (mb || mc).dataset[mb ? "mail" : "mcopy"]); if (!u) return; const ml = mailFor(u);
+        if (mc) { try { await navigator.clipboard.writeText(`À : ${ml.to}\nObjet : ${ml.subject}\n\n${ml.body}`); toast("Message copié ✓"); } catch { toast("Copie impossible"); } return; }
+        const gm = `https://mail.google.com/mail/?view=cm&fs=1&to=${enc(ml.to)}&su=${enc(ml.subject)}&body=${enc(ml.body)}`;
+        actionSheet("Envoyer le mail à " + ml.to, [
+          { label: "Ouvrir dans Gmail", icon: ICON.doc, run: () => window.open(gm, "_blank") },
+          { label: "Ouvrir dans l'appli Mail", icon: ICON.doc, run: () => { location.href = `mailto:${ml.to}?subject=${enc(ml.subject)}&body=${enc(ml.body)}`; } },
+        ]); return; }
       const a = e.target.closest("[data-act]"), d = e.target.closest("[data-del]");
       try {
         if (a) { const [u, st, days] = a.dataset.act.split("|");
           await rpc("tvo_admin_set", { p_token: acct().token, p_user: u, p_status: st, p_days: days === "" ? null : +days, p_note: null });
-          toast(st === "disabled" ? "Compte désactivé" : +days ? `Accès autorisé pour ${days} jours ✓` : "Accès autorisé ✓"); load(); }
+          toast(st === "disabled" ? "Compte désactivé" : +days ? `Accès autorisé pour ${days} jours ✓` : "Accès autorisé ✓"); await load();
+          const uu = list.find((x) => x.user === u); if (st === "active" && uu && uu.email) setTimeout(() => { const b = $("#acL").querySelector(`[data-mail="${CSS.escape(u)}"]`); if (b) b.click(); }, 300); }
         if (d && confirm(`Supprimer définitivement le compte « ${d.dataset.del} » et toutes ses données ?`)) { await rpc("tvo_admin_delete", { p_token: acct().token, p_user: d.dataset.del }); toast("Compte supprimé"); load(); }
       } catch (err) { toast(err.message, 4000); }
     });
@@ -927,12 +947,12 @@
     const pb = passProblem(user, pass); if (pb) throw new Error(pb);
     if (await passLeaked(pass)) throw new Error("Ce mot de passe a déjà fuité sur Internet : choisis-en un autre");
   }
-  async function acctRegister(user, pass) {
+  async function acctRegister(user, pass, email) {
     user = cleanUser(user);
     if (!/^[a-z0-9._-]{3,24}$/.test(user)) throw new Error("Identifiant : 3 à 24 caractères (lettres, chiffres, . _ -)");
     await checkNewPass(user, pass);
     await syncNow();
-    const id = await rpc("tvo_register", { p_user: user, p_pass: pass, p_id: syncId() });
+    const id = await rpc("tvo_register", { p_user: user, p_pass: pass, p_id: syncId(), p_email: email || null });
     if (id && id !== syncId()) LS.set("sync_id", id);
     await acctLogin(user, pass);
   }
@@ -2155,6 +2175,8 @@
       <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
         ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>${esc(acct().user)}</b><div><span class="pstat ${acct().role === "admin" ? "admin" : "std"}">${acct().role === "admin" ? "Administrateur" : "Compte actif"}</span>${acct().expires_at && acct().role !== "admin" ? ` <span class="small muted">jusqu'au ${new Date(acct().expires_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>` : ""}</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
+          <details class="card"><summary class="small">Mon adresse e-mail</summary><div class="list" style="padding:10px 0 0"><div class="small muted">Pour être prévenu quand ton accès est activé ou prolongé.</div>
+            <input class="field" id="myMail" type="email" inputmode="email" autocapitalize="off" placeholder="ton@email.fr"><button class="btn primary block" id="myMailGo">Enregistrer</button></div></details>
           ${acct().role !== "admin" ? `<details class="card"><summary class="small">Supprimer mon compte</summary><div class="list" style="padding:10px 0 0"><div class="small muted">Efface définitivement ton compte, tes profils, ta liste et ta progression.</div>
             <input class="field" id="dPass" type="password" autocomplete="current-password" placeholder="Ton mot de passe"><button class="btn danger block" id="dGo">Supprimer définitivement</button></div></details>` : ""}
           <details class="card"><summary class="small">Changer le mot de passe</summary><div class="list" style="padding:10px 0 0">
@@ -2180,7 +2202,8 @@
       </div>
       <h2 class="section-title section"><span>Connecter une TV</span></h2>
       <div class="list">
-        <div class="card small muted">Sur la TV : Réglages › Compte › Connexion rapide. Scanne le QR code avec l'appareil photo, ou saisis le code affiché.</div>
+        <div class="card small muted">Sur la télé : scanne le QR code avec l'appareil photo, ou saisis ici le code affiché sur la télé. Tu peux aussi afficher un code ici et le taper sur la télé avec la télécommande (« J'ai un code »).</div>
+        <button class="btn block" id="tvShowCode">Afficher un code pour la télé</button><div id="tvCodeBox"></div>
         <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
           <input class="field" id="tvCode" inputmode="numeric" maxlength="6" placeholder="Code TV (6 chiffres)" autocomplete="one-time-code">
           <button class="btn primary" id="tvGo">Connecter</button></div>
@@ -2285,6 +2308,12 @@
         aGo.disabled = true; aGo.textContent = "Patiente…";
         try { if (mode === "up") await acctRegister(u, pw); else await acctLogin(u, pw); toast("Connecté ✓"); draw(); }
         catch (e) { $("#aMsg").textContent = e.message.replace(/^HTTP \d+$/, "Pas de connexion internet"); aGo.disabled = false; aGo.textContent = mode === "up" ? "Créer mon compte" : "Se connecter"; }
+      });
+      const mm = $("#myMailGo"); if (mm) mm.addEventListener("click", async () => { try { await rpc("tvo_set_email", { p_token: acct().token, p_email: $("#myMail").value.trim() }); toast("E-mail enregistré ✓"); } catch (e) { toast(e.message, 4000); } });
+      const tsc = $("#tvShowCode"); if (tsc) tsc.addEventListener("click", async () => {
+        $("#tvCodeBox").innerHTML = '<div class="card">Création du code…</div>';
+        try { const c = String(await pairCreate()); $("#tvCodeBox").innerHTML = `<div class="card" style="text-align:center"><div style="font-size:36px;font-weight:800;letter-spacing:.12em">${esc(c.slice(0, 3) + " " + c.slice(3))}</div><div class="small muted">Sur la télé : « J'ai un code », puis tape ces 6 chiffres. Valable 10 minutes.</div></div>`; }
+        catch { $("#tvCodeBox").innerHTML = '<div class="card">Pas de connexion.</div>'; }
       });
       const ga = $("#goAcc"); if (ga) ga.addEventListener("click", () => go("#/accounts"));
       const dG = $("#dGo"); if (dG) dG.addEventListener("click", async () => {
