@@ -447,7 +447,6 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         if (type == null) item(key = "platforms") { PlatformTiles(nav) }
         if (type == null || type == "movie") item(key = "sagas") { SagaTiles(nav) }
-        if (type == null) item(key = "actors") { ActorRow(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
@@ -573,19 +572,6 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                     }
                 }
             } }
-        }
-    }
-}
-
-@Composable
-private fun ActorRow(nav: Nav) {
-    val select = LocalSelect.current
-    val people by produceState<List<app.tvo.tv.data.Person>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.popularPeople() else emptyList() }
-    if (people.isEmpty()) return
-    PanelSection("Acteurs et actrices du moment") {
-        val rf = rememberRowFocus()
-        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            itemsIndexed(people, key = { _, pp -> pp.id }) { i, pp -> RowItem(rf, i) { PersonBubble(pp, onFocus = { select(MetaPreview("person:${pp.id}", "person", pp.name, pp.photo?.replace("/w185/", "/h632/"), pp.photo?.replace("/w185/", "/h632/"), null, pp.role?.let { "Connu(e) pour : $it" } ?: "Voir ses films et séries.")) }) { nav.openPerson(pp.id) } } }
         }
     }
 }

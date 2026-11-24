@@ -269,6 +269,7 @@ fun SearchSection(nav: Nav) {
         value = if (query.trim().length < 2 || !app.tvo.tv.data.Tmdb.enabled) emptyList() else { delay(450); app.tvo.tv.data.Tmdb.searchSagas(query.trim()) }
     }
     val trendMovies by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("movie") else emptyList() }
+    val popPeople by produceState<List<app.tvo.tv.data.Person>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.popularPeople().take(20) else emptyList() }
     val trendSeries by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("series") else emptyList() }
     Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF))) {
         Column(Modifier.width(500.dp).padding(start = 40.dp, top = 28.dp)) {
@@ -288,6 +289,14 @@ fun SearchSection(nav: Nav) {
                 r == null -> CenterMessage("Recherche…")
                 query.trim().length < 2 -> LazyColumn(contentPadding = PaddingValues(top = 36.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     item { Text("Que veux-tu regarder ?", Modifier.padding(start = 48.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text) }
+                    if (popPeople.isNotEmpty()) item(key = "popPeople") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SectionTitle("Acteurs et actrices du moment")
+                            androidx.compose.foundation.lazy.LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                                items(popPeople, key = { it.id }) { pp -> PersonBubble(pp) { nav.openPerson(pp.id) } }
+                            }
+                        }
+                    }
                     if (trendMovies.isNotEmpty()) item { PosterRow("Films tendance", trendMovies, nav.openMeta, {}) }
                     if (trendSeries.isNotEmpty()) item { PosterRow("Séries tendance", trendSeries, nav.openMeta, {}) }
                 }

@@ -4413,10 +4413,16 @@ var qrcode = function() {
       <section class="section" id="qIdeas" hidden><h2 class="section-title"><span class="st plain">Idées de recherche</span></h2><div class="qchips pad" id="qIdeasL"></div></section>
       ${genres.length ? `<section class="section"><h2 class="section-title"><span class="st plain">Par genre</span></h2><div class="qchips pad">${genres.map(([l, t, g]) =>
         `<a class="qchip g" href="#/genre/${t}/${enc(g)}">${esc(l)}</a>`).join("")}</div></section>` : ""}
+      <section class="section" id="qActors" hidden><h2 class="section-title"><span class="st plain">Acteurs et actrices du moment</span></h2><div class="row ppl-row" id="qActorsR"></div></section>
       <section class="section" id="qTrend" hidden><h2 class="section-title"><span class="st plain">Tendances en ce moment</span></h2><div class="row" id="qTrendR"></div></section>`;
     res.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => pickQ(b.dataset.q)));
     const qc = $("#qClear"); if (qc) qc.addEventListener("click", () => { LS.set("qhist", []); searchHome(res, pickQ); });
     if (!tmdbOn()) return;
+    tget("/person/popular").then((d) => {
+      const l = (d.results || []).filter((x) => x.profile_path).slice(0, 15), box = $("#qActorsR"); if (!box) return;
+      box.innerHTML = l.map((pp) => `<a class="bubble" href="#/person/${enc(String(pp.id))}"><span class="ph"><img src="${esc(timg(pp.profile_path, "w185"))}" alt="" loading="lazy"></span><b>${esc(pp.name)}</b></a>`).join("");
+      $("#qActors").hidden = !l.length;
+    }).catch(() => {});
     tget("/trending/all/day").then((d) => {
       const l = (d.results || []).filter((o) => o.media_type === "movie" || o.media_type === "tv");
       const ideas = $("#qIdeasL"), tr = $("#qTrendR"); if (!ideas || !tr) return;
