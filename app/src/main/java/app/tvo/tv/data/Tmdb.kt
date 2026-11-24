@@ -106,7 +106,18 @@ object Tmdb {
     private class RC(val cat: CatalogDef, val path: String, val params: Map<String, String>)
     @Volatile private var remote: Map<String, RC> = emptyMap()
     @Volatile private var hidden: Set<String> = emptySet()
+    // Ordre logique des catalogues (nouveautés, tendances, plateformes, genres, classiques) ; surchargeable par catalogs.json
+    private val DEFAULT_ORDER: List<String> = listOf("ev:new", "now_playing", "recent_pop", "trending", "series:trending", "latest", "latest_tv", "prov_8", "prov_119", "prov_337", "r_m_toprated", "on_the_air", "r_s_toprated", "r_m_action", "r_s_action", "r_m_comedy", "r_s_comedy", "r_m_scifi", "r_s_scifi", "r_m_thriller", "r_s_crime", "r_m_crime", "r_m_drama", "r_s_drama", "r_m_romance", "r_m_fantasy", "r_m_anim", "r_s_anime", "r_m_horror", "r_m_french", "r_s_french", "r_m_apple", "prov_381", "prov_350", "r_s_disney", "r_m_doc", "r_s_doc", "r_s_mystery", "r_m_war", "popular", "ev:old", "movie:kids_new", "movie:kids", "movie:kids_anim", "kids_fun", "kids_adv", "kids_disney", "kids_netflix", "kids_prime", "kids_r_toprated", "kids_tv", "kids_r_tv_disney", "kids_r_tv_netflix", "series:kids", "kids_tiny", "kids_r_tv_family", "kids_r_fantasy", "kids_r_music", "kids_r_french")
+    @Volatile private var order: List<String> = DEFAULT_ORDER
+    /** Rang d'un catalogue : « type:id » puis « id » ; saison : nouveautés en tête, classiques en fin ; genres en dernier. */
+    fun rank(type: String, id: String, genre: Boolean): Int {
+        if (genre) return 800
+        var i = order.indexOf("$type:$id"); if (i < 0) i = order.indexOf(id)
+        if (i < 0 && id.startsWith("ev_")) i = order.indexOf(if (id.endsWith("_old")) "ev:old" else "ev:new")
+        return if (i < 0) 500 else i
+    }
     private fun applyRemote(o: JsonObject) {
+        order = o.arr("order")?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }?.takeIf { it.isNotEmpty() } ?: DEFAULT_ORDER
         hidden = o.arr("hide")?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }?.toSet() ?: emptySet()
         remote = o.arr("catalogs")?.mapNotNull { it as? JsonObject }?.mapNotNull { c ->
             val id = c.s("id") ?: return@mapNotNull null; val type = c.s("type") ?: return@mapNotNull null

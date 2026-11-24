@@ -404,7 +404,8 @@ fun buildRows(addons: List<Addon>, type: String?, kidsAllowed: Boolean = addons.
             }
         }
     }
-    return rows
+    // Ordre logique (voir Tmdb.rank) ; tri stable : les autres add-ons gardent leur place relative
+    return rows.withIndex().sortedWith(compareBy({ app.tvo.tv.data.Tmdb.rank(it.value.cat.type, it.value.cat.id, it.value.extra.containsKey("genre")) }, { it.index })).map { it.value }
 }
 
 @Composable

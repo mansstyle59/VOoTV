@@ -2528,10 +2528,23 @@ var qrcode = function() {
   // Catalogues à jour sans réinstaller : liste publiée sur GitHub (docs/catalogs.json), lue en arrière-plan
   const REMOTE_URL = "https://raw.githubusercontent.com/mansstyle59/VOoTV/main/docs/catalogs.json";
   const REMOTE = {};
+  // Ordre logique des catalogues (nouveautés d'abord, puis tendances, plateformes, genres, classiques) ; surchargeable par catalogs.json
+  const DEFAULT_ORDER = ["ev:new", "now_playing", "recent_pop", "trending", "series:trending", "latest", "latest_tv", "prov_8", "prov_119", "prov_337", "r_m_toprated", "on_the_air", "r_s_toprated", "r_m_action", "r_s_action", "r_m_comedy", "r_s_comedy", "r_m_scifi", "r_s_scifi", "r_m_thriller", "r_s_crime", "r_m_crime", "r_m_drama", "r_s_drama", "r_m_romance", "r_m_fantasy", "r_m_anim", "r_s_anime", "r_m_horror", "r_m_french", "r_s_french", "r_m_apple", "prov_381", "prov_350", "r_s_disney", "r_m_doc", "r_s_doc", "r_s_mystery", "r_m_war", "popular", "ev:old", "movie:kids_new", "movie:kids", "movie:kids_anim", "kids_fun", "kids_adv", "kids_disney", "kids_netflix", "kids_prime", "kids_r_toprated", "kids_tv", "kids_r_tv_disney", "kids_r_tv_netflix", "series:kids", "kids_tiny", "kids_r_tv_family", "kids_r_fantasy", "kids_r_music", "kids_r_french"];
+  let ORDER = DEFAULT_ORDER;
+  /** Rang d'un catalogue : « type:id » puis « id » ; événements de saison : nouveautés en tête, classiques en fin ; genres en dernier. */
+  function catRank(r) {
+    if (r.extra && r.extra.genre) return 800;
+    const id = String(r.c.id), t = r.c.type;
+    let i = ORDER.indexOf(t + ":" + id); if (i < 0) i = ORDER.indexOf(id);
+    if (i < 0 && id.startsWith("ev_")) i = ORDER.indexOf(id.endsWith("_old") ? "ev:old" : "ev:new");
+    return i < 0 ? 500 : i;
+  }
+  const smartSort = (rows) => rows.map((r, n) => [r, n]).sort((x, y) => catRank(x[0]) - catRank(y[0]) || x[1] - y[1]).map((x) => x[0]);
   const BASE_CATS = TMDB.addon.manifest.catalogs.slice();
   function applyRemote(o) {
     if (!o || !Array.isArray(o.catalogs)) return false;
     Object.keys(REMOTE).forEach((k) => delete REMOTE[k]);
+    ORDER = Array.isArray(o.order) && o.order.length ? o.order : DEFAULT_ORDER;
     const hide = new Set(o.hide || []);
     const add = [];
     o.catalogs.forEach((c) => { if (c && c.id && c.type && c.name && c.path && !hide.has(c.id)) { REMOTE[c.id] = c; add.push(tcat(c.type, c.id, c.name)); } });
@@ -3767,7 +3780,7 @@ var qrcode = function() {
           rows.push({ key: `${src.a.url}|${type}|${src.c.id}|${g}`, title: `${genreLabel(g)} · ${typeLabel(type)}`, a: src.a, c: src.c, extra: { genre: g } }));
       }
     }
-    return rows;
+    return smartSort(rows);
   }
   function genreSource(type) {
     for (const a of catalogAddons()) {
@@ -3955,7 +3968,7 @@ var qrcode = function() {
     if (!type && tmdbOn() && !hidden.includes("collections")) {
       const cs = document.createElement("section"); cs.className = "section";
       cs.innerHTML = `<h2 class="section-title"><span class="st">${ICON.movie}Sagas et collections</span><a href="#/collections">Tout voir →</a></h2><div class="row colrow" id="colrow"><div class="empty small">Chargement des sagas…</div></div>`;
-      rowsEl.insertBefore(cs, rowsEl.children[2] || null);
+      rowsEl.insertBefore(cs, rowsEl.children[Math.min(7, rowsEl.children.length)] || null);
       loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, S.profile && S.profile.kids);
     }
   }
