@@ -770,7 +770,11 @@
   function screenAuth() {
     setTabs(null);
     let mode = "in";
+    // Sur une télé, la version téléphone n'est pas adaptée : on indique la bonne appli (connexion par QR code ou code).
+    const onTv = /Android/i.test(navigator.userAgent) && (/\b(TV|AFT\w*|BRAVIA|SmartTV|GoogleTV|Chromecast)\b/i.test(navigator.userAgent) || (navigator.maxTouchPoints === 0 && innerWidth >= 900));
     app.innerHTML = `<div class="auth"><span class="auth-logo">${LOGO_SVG}</span><p class="auth-tag">Films, séries et TV en direct</p>
+      ${onTv ? `<div class="auth-card tv-hint"><b>Tu es sur une télé ?</b><span>Ceci est la version téléphone. Installe la version télé de TVO : elle se connecte avec un QR code ou un code à 6 chiffres, sans rien taper.</span>
+        <span>Dans <b>Downloader</b>, tape le code <b class="big">7971420</b></span></div>` : ""}
       <div class="auth-card">
         <div class="seg wide" id="auSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
         <input class="field" id="auUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
