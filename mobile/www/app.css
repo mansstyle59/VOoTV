@@ -1378,3 +1378,8 @@ body:has(#app .pv2)::after { background: transparent; }
 #app:has(.pv2) .pv-hero.pv2 { height: calc(44vh + var(--safe-top, 0px) + 72px); min-height: 0; max-height: none; padding-top: 0; }
 @media (min-width: 900px) { #app:has(.pv2) .pv-hero.pv2 { height: calc(52vh + var(--safe-top, 0px) + 72px); } }
 #app:has(.pv2) .pv-hero.pv2 .shade { background: linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 22%, rgba(19,17,31,0) 45%, rgba(19,17,31,.55) 72%, var(--bg) 100%); }
+
+/* Boutons : contenu parfaitement centré (icône + texte alignés) */
+.btn, .btn.pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; line-height: 1; padding-top: 0; padding-bottom: 0; }
+.btn svg, .btn.pill svg { flex: 0 0 auto; display: block; margin: 0; }
+.btn.pill { width: 100%; }
