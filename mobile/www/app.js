@@ -4086,11 +4086,11 @@ var qrcode = function() {
     } catch { return {}; }
   }
   /** Image de fond de chaque plateforme (une série populaire chez elle), visible même sans clé. */
-  const PROV_BG = {"8": "/dg3OindVAGZBjlT3xYKqIAdukPL.jpg", "119": "/mo9bfYdewzmHxnaeURB2jRPvGuX.jpg", "337": "/jbTqU6BJMufoMnPSlO4ThrcXs3Y.jpg", "381": "/AdlDrgoNCDu3naYjZMwmiklBHnV.jpg", "350": "/gPQppUnLx9vqPDLz3WwZ2HJsNbt.jpg", "531": "/tUtXfyVy54BY7eJnRtI8Xnmr1ZL.jpg", "1899": "/aQTtua5pG490fMfeKgtYg5B853e.jpg"};
+  const PROV_BG = {"8": "/9P4IIMYY3HifqeruZq0ZZ9g7YUi.jpg", "337": "/9zcbqSxdsRMZWHYtyCd1nXPr2xq.jpg", "119": "/bq28ajZaoMyzEIm6REelqyqtEDZ.jpg", "381": "/3ZIWMs9vRjuss8RJWn2ijGRuwtE.jpg", "350": "/ixgFmf1X59PUZam2qbAfskx2gQr.jpg", "531": "/zW0v2YT74C6tRafzqqBkfSqLAN0.jpg", "1899": "/577eXC8wFQT0eUrJcgznSiFPRmk.jpg"};
   let PROV_IMG = LS.get("provimg", { t: 0, m: {} });
   function provTile(id, n, c) {
     const logo = (PROV_LOGOS && PROV_LOGOS.m[id]) || (PROV_DEF[id] ? "https://image.tmdb.org/t/p/w154" + PROV_DEF[id] : null);
-    const bg = PROV_IMG.m[id] || (PROV_BG[id] ? "https://image.tmdb.org/t/p/w500" + PROV_BG[id] : null);
+    const bg = (PROV_BG[id] ? "https://image.tmdb.org/t/p/w500" + PROV_BG[id] : null);
     return `<a class="prov ptile rich" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}">${bg ? `<img class="pbg" src="${esc(bg)}" alt="" loading="lazy">` : ""}<span class="pshade"></span>
       <span class="plogo">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : esc(n.slice(0, 1))}</span><span class="ptx"><b>${esc(n)}</b><small>Films et séries</small></span></a>`;
   }
@@ -4105,7 +4105,6 @@ var qrcode = function() {
     if (Object.keys(m).length) { PROV_IMG = { t: Date.now(), m }; LS.set("provimg", PROV_IMG); }
   }
   function refreshProvTiles() {
-    fillProvImages();
     if (PROV_LOGOS && Object.keys(PROV_LOGOS.m).length) return;
     provLogos().then(() => document.querySelectorAll(".prov.ptile").forEach((a) => { const id = a.getAttribute("href").split("/").pop(); const p = PROVIDERS.find((x) => x[0] === id); if (p) a.outerHTML = provTile(...p); }));
   }

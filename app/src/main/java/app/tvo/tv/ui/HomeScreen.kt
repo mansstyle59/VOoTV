@@ -115,11 +115,33 @@ val RowTopSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec
 /** Défilement horizontal normal (le minimum pour voir la carte) à l'intérieur des rangées. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 val RowSideSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    // Garde toujours une marge de 48 dp à gauche et à droite : la carte choisie (agrandie) ne dépasse jamais de l'écran
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        val pad = 56f * android.content.res.Resources.getSystem().displayMetrics.density
         val end = offset + size
-        return when { offset >= 0 && end <= containerSize -> 0f; offset < 0 && end > containerSize -> 0f
-            kotlin.math.abs(offset) < kotlin.math.abs(end - containerSize) -> offset; else -> end - containerSize }
+        return when {
+            offset < pad -> offset - pad
+            end > containerSize - pad -> end - (containerSize - pad)
+            else -> 0f
+        }
     }
+}
+
+
+/** Mémoire de focus d'une rangée : en descendant/remontant, on arrive sur la dernière carte choisie de la rangée
+ *  (ou la première), jamais sur une carte décalée vers la droite. */
+class RowFocus {
+    var last by androidx.compose.runtime.mutableIntStateOf(0)
+    val reqs = mutableMapOf<Int, FocusRequester>()
+}
+@Composable fun rememberRowFocus() = remember { RowFocus() }
+@OptIn(ExperimentalComposeUiApi::class)
+fun Modifier.rowEnter(rf: RowFocus) = this.focusProperties { enter = { rf.reqs[rf.last] ?: rf.reqs.entries.minByOrNull { it.key }?.value ?: FocusRequester.Default } }
+@Composable
+fun RowItem(rf: RowFocus, i: Int, content: @Composable () -> Unit) {
+    val r = remember(i) { FocusRequester() }
+    androidx.compose.runtime.DisposableEffect(i) { rf.reqs[i] = r; onDispose { if (rf.reqs[i] === r) rf.reqs.remove(i) } }
+    Box(Modifier.focusRequester(r).onFocusChanged { if (it.hasFocus) rf.last = i }) { content() }
 }
 
 /** Hauteur de la barre de navigation du haut (façon Netflix). */
@@ -229,7 +251,15 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     val library by Tvo.store.library.collectAsState()
     var inRows by remember(key) { mutableStateOf(false) }
 
-    val m = shown
+    // Les cartes « Continuer à regarder » n'ont pas le résumé : on va chercher la fiche complète (genre, année, note, résumé)
+    val full by produceState<MetaPreview?>(null, shown?.id) {
+        val s0 = shown
+        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type != "tv" && s0.type != "channel")
+            runCatching { Tvo.client.metaCache["${s0.type}/${s0.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), s0.type, s0.id)?.preview }.getOrNull()
+        else null
+    }
+    val m = shown?.let { sh -> full?.takeIf { it.id == sh.id }?.let { f -> sh.copy(description = f.description, genres = sh.genres.ifEmpty { f.genres },
+        releaseInfo = sh.releaseInfo ?: f.releaseInfo, imdbRating = sh.imdbRating ?: f.imdbRating, logo = sh.logo ?: f.logo, background = sh.background ?: f.background) } ?: sh }
     val navHidden = LocalNavHidden.current
     LaunchedEffect(inRows) { navHidden.value = inRows }
     val logo by produceState<String?>(m?.logo, m?.id) {
@@ -272,12 +302,17 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                 }
             }
             androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }, androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowTopSpec) {
-                LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f).onFocusChanged { inRows = it.hasFocus },
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    content = rows,
-                )
+                Box(Modifier.fillMaxWidth().weight(1f)) {
+                    LazyColumn(
+                        Modifier.fillMaxSize().onFocusChanged { inRows = it.hasFocus },
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        content = rows,
+                    )
+                    // Fondu doux en bas : la rangée suivante apparaît en transparence au lieu d'être coupée net
+                    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(70.dp)
+                        .background(Brush.verticalGradient(0f to Color.Transparent, 1f to TvoColors.Bg.copy(alpha = 0.92f))))
+                }
             }
         }
     }
@@ -361,8 +396,9 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (cont.isNotEmpty() && "continue" !in hidden) item(key = "continue") {
             val select = LocalSelect.current
             PanelSection("Continuer à regarder") {
-                LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(cont, key = { it.metaId }) { p ->
+                val rf = rememberRowFocus()
+                LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    itemsIndexed(cont, key = { _, it -> it.metaId }) { idx, p -> RowItem(rf, idx) {
                         WideCard(
                             image = p.background ?: p.poster,
                             title = p.name,
@@ -374,7 +410,7 @@ fun BrowseSection(type: String?, nav: Nav) {
                             showPlay = true,
                             onFocus = { select(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) },
                         )
-                    }
+                    } }
                 }
             }
         }
@@ -404,8 +440,9 @@ fun PanelSection(title: String, action: (@Composable () -> Unit)? = null, conten
 fun PortraitPanel(title: String, items: List<MetaPreview>, nav: Nav) {
     val select = LocalSelect.current
     PanelSection(title) {
-        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(items, key = { it.id }) { m -> ExpandCard(m, { nav.openMeta(m) }, onFocus = { select(m) }) }
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            itemsIndexed(items, key = { _, it -> it.id }) { i, m -> RowItem(rf, i) { ExpandCard(m, { nav.openMeta(m) }, onFocus = { select(m) }) } }
         }
     }
 }
@@ -445,20 +482,21 @@ private val GENRE_IMG = mapOf(
 private const val TMDB_IMG = "https://image.tmdb.org/t/p/"
 /** Image de fond de chaque plateforme (série populaire chez elle). */
 private val PROV_BG = mapOf(
-    "8" to "/dg3OindVAGZBjlT3xYKqIAdukPL.jpg",
-    "119" to "/mo9bfYdewzmHxnaeURB2jRPvGuX.jpg",
-    "337" to "/jbTqU6BJMufoMnPSlO4ThrcXs3Y.jpg",
-    "381" to "/AdlDrgoNCDu3naYjZMwmiklBHnV.jpg",
-    "350" to "/gPQppUnLx9vqPDLz3WwZ2HJsNbt.jpg",
-    "531" to "/tUtXfyVy54BY7eJnRtI8Xnmr1ZL.jpg",
-    "1899" to "/aQTtua5pG490fMfeKgtYg5B853e.jpg",
+    "8" to "/9P4IIMYY3HifqeruZq0ZZ9g7YUi.jpg",
+    "337" to "/9zcbqSxdsRMZWHYtyCd1nXPr2xq.jpg",
+    "119" to "/bq28ajZaoMyzEIm6REelqyqtEDZ.jpg",
+    "381" to "/3ZIWMs9vRjuss8RJWn2ijGRuwtE.jpg",
+    "350" to "/ixgFmf1X59PUZam2qbAfskx2gQr.jpg",
+    "531" to "/zW0v2YT74C6tRafzqqBkfSqLAN0.jpg",
+    "1899" to "/577eXC8wFQT0eUrJcgznSiFPRmk.jpg",
 )
 
 @Composable
 private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
     PanelSection("Catégories") {
-        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(homeGenres) { g ->
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            itemsIndexed(homeGenres) { gi, g -> RowItem(rf, gi) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("movie", g) },
@@ -474,7 +512,7 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                         Text(genreLabel(g), Modifier.align(Alignment.BottomStart).padding(12.dp), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
-            }
+            } }
         }
     }
 }
@@ -482,8 +520,9 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
 @Composable
 private fun PlatformTiles(nav: Nav) {
     PanelSection("Plateformes") {
-        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(PLATFORMS) { (pl, logo) ->
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            itemsIndexed(PLATFORMS) { pi, (pl, logo) -> RowItem(rf, pi) {
                 val (id, name, color) = pl
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
@@ -509,7 +548,7 @@ private fun PlatformTiles(nav: Nav) {
                         }
                     }
                 }
-            }
+            } }
         }
     }
 }
