@@ -101,6 +101,11 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
+    /** Lecteur de secours : MPV (Android 8+), sinon VLC. */
+    private fun fallbackPlayer(r: PlayRequest) {
+        if (android.os.Build.VERSION.SDK_INT >= 26) MpvPlayerActivity.start(this, r) else VlcPlayerActivity.start(this, r)
+    }
+
     private lateinit var player: ExoPlayer
     private lateinit var playerView: PlayerView
     private lateinit var overlayView: ComposeView
@@ -156,17 +161,17 @@ class PlayerActivity : ComponentActivity() {
                 tracksVersion++
                 val audio = tracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
                 if (audio.isNotEmpty() && audio.none { g -> (0 until g.length).any { g.isTrackSupported(it) } }) {
-                    // Son illisible (DTS, TrueHD…) : VLC intégré le décode.
-                    VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition))
+                    // Son illisible (DTS, TrueHD…) : MPV intégré le décode (comme Nuvio), sinon VLC.
+                    fallbackPlayer(req.copy(startPosition = player.currentPosition))
                     finish()
                 }
             }
             override fun onPlayerError(e: PlaybackException) {
-                // Format non pris en charge par ExoPlayer : bascule automatique sur VLC intégré, au même endroit.
+                // Format non pris en charge par ExoPlayer : bascule automatique sur MPV intégré (comme Nuvio), au même endroit.
                 if (e.errorCode in listOf(PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED, PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
                         PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED, PlaybackException.ERROR_CODE_DECODING_FAILED,
                         PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED, PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED)) {
-                    VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition.coerceAtLeast(req.startPosition)))
+                    fallbackPlayer(req.copy(startPosition = player.currentPosition.coerceAtLeast(req.startPosition)))
                     finish(); return
                 }
                 Tvo.store.clearLastStream(req.videoId)
