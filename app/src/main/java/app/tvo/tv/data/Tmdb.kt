@@ -53,6 +53,11 @@ object Tmdb {
             cat("series", "prov_350", "Nouveautés Apple TV+"),
             cat("movie", "top_rated", "Films les mieux notés"),
             cat("series", "top_rated", "Séries les mieux notées"),
+            cat("series", "latest_tv", "Nouvelles séries"),
+            cat("series", "on_the_air", "Séries en cours de diffusion"),
+            cat("series", "prov_337", "Séries Disney+"),
+            cat("series", "prov_1899", "Séries Max"),
+            cat("series", "prov_531", "Séries Paramount+"),
         ),
     ))
 
@@ -160,6 +165,8 @@ object Tmdb {
             }
             cat.id == "latest" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "primary_release_date.desc",
                 "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20", "with_release_type" to "3|4|6"))
+            cat.id == "latest_tv" -> get("/discover/tv", mapOf("page" to page, "sort_by" to "first_air_date.desc",
+                "first_air_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20"))
             cat.id.startsWith("prov_") -> get("/discover/$k", mapOf("page" to page, "watch_region" to "FR",
                 "with_watch_providers" to cat.id.removePrefix("prov_"), "with_watch_monetization_types" to "flatrate",
                 "sort_by" to if (k == "tv") "first_air_date.desc" else "primary_release_date.desc",

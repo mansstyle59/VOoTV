@@ -1,5 +1,11 @@
 package app.tvo.tv.ui
 
+import androidx.tv.material3.ClickableSurfaceDefaults
+
+import androidx.tv.material3.Surface
+
+import androidx.compose.foundation.layout.fillMaxHeight
+
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -222,6 +228,9 @@ fun SearchSection(nav: Nav) {
 
 // ---------------------------------------------------------------- Réglages
 
+private data class SetPage(val key: String, val icon: String, val color: Long, val title: String, val sub: String)
+
+/** Réglages façon télé : menu à gauche (comme les blocs du téléphone), contenu à droite. */
 @Composable
 fun SettingsSection(nav: Nav) {
     val store = Tvo.store
@@ -232,77 +241,122 @@ fun SettingsSection(nav: Nav) {
     val scope = rememberCoroutineScope()
     var updateMsg by remember { mutableStateOf<String?>(null) }
     var release by remember { mutableStateOf<Updater.Release?>(null) }
+    val pages = listOf(
+        SetPage("profil", "👤", 0xFF8B5CF6, "Profil", "Nom, avatar, changer de profil"),
+        SetPage("tele", "📺", 0xFF0EA5E9, "Compte et synchro", "QR code, code à 6 chiffres"),
+        SetPage("lecteur", "▶", 0xFF22C55E, "Lecteur", "Automatique, VLC, MPV"),
+        SetPage("addons", "🧩", 0xFFA855F7, "Add-ons", "Catalogues, sources, chaînes"),
+        SetPage("accueil", "🏠", 0xFFF59E0B, "Page d'accueil", "Rangées affichées et ordre"),
+        SetPage("tmdb", "🎬", 0xFF14B8A6, "Titres et résumés", "TMDB en français"),
+        SetPage("app", "⚙", 0xFF64748B, "Application", "Version et mises à jour"),
+    )
+    var page by rememberSaveable { mutableStateOf("profil") }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 36.dp, bottom = 60.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text) }
-
-        item { Heading("Profil") }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                profile?.let { Avatar(it.name, it.color, 44.dp, icon = it.icon); Text(it.name, fontSize = 18.sp, color = TvoColors.Text, modifier = Modifier.padding(end = 12.dp)) }
-                TvoButton("Changer de profil", nav.switchProfile, icon = Icons.Default.Person)
-                profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
-            }
-        }
-
-        item { Heading("Synchronisation TV ⇄ téléphone") }
-        item { SyncBlock() }
-
-        item { Heading("TMDB (titres et résumés en français)") }
-        item { TmdbBlock(nav) }
-
-        item { Heading("Add-ons") }
-        item { Text("Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Catalogues, fiches, vidéos et sous-titres viennent des add-ons ; le premier de la liste est prioritaire. Les sources torrent seules ne sont pas lisibles.",
-            fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
-        app.tvo.tv.data.ADDON_CATEGORIES.forEach { cat ->
-            val group = addons.filter { it.category() == cat }
-            if (group.isNotEmpty()) {
-                item(key = "cat-$cat") { Text(cat, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text, modifier = Modifier.padding(top = 6.dp)) }
-                items(group, key = { it.url }) { a -> AddonRow(a, addons.indexOf(a)) }
-            }
-        }
-        item { TvoButton("Ajouter un add-on", nav.addAddon, icon = Icons.Default.Add, primary = true) }
-
-        item { Heading("Page d'accueil") }
-        item { HomeEditor() }
-
-        item { Heading("Lecture") }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val engine by store.engine.collectAsState()
-                Chip("Automatique (recommandé)", !external && engine == "auto", { store.setExternalPlayer(false); store.setEngine("auto") })
-                Chip("VLC intégré", !external && engine == "vlc", { store.setExternalPlayer(false); store.setEngine("vlc") })
-                if (android.os.Build.VERSION.SDK_INT >= 26) Chip("MPV intégré", !external && engine == "mpv", { store.setExternalPlayer(false); store.setEngine("mpv") })
-                Chip("Appli externe", external, { store.setExternalPlayer(true) })
-            }
-        }
-        item { Text("Automatique : lecteur rapide, qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, DTS, TrueHD, sous-titres stylés). En cas d'échec, chaque lecteur propose d'essayer l'autre.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
-
-        item { Heading("Mise à jour") }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Version ${BuildConfig.VERSION_NAME}", fontSize = 16.sp, color = TvoColors.Text)
-                TvoButton("Rechercher une mise à jour", {
-                    updateMsg = "Recherche…"
-                    scope.launch {
-                        release = Updater.check()
-                        updateMsg = if (release == null) "TVO est à jour." else "Version ${release!!.versionName} disponible."
+    Row(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
+        // Menu
+        Column(Modifier.width(330.dp).fillMaxHeight()) {
+            Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(bottom = 14.dp))
+            Column(Modifier.clip(RoundedCornerShape(18.dp)).background(TvoColors.Surface)) {
+                pages.forEach { pg ->
+                    val on = pg.key == page
+                    Surface(
+                        onClick = { page = pg.key },
+                        modifier = Modifier.fillMaxWidth().onFocused { page = pg.key },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(0.dp)),
+                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (on) Color(0x1FFFFFFF) else Color.Transparent, contentColor = TvoColors.Text,
+                            focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+                    ) {
+                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color(pg.color)), contentAlignment = Alignment.Center) {
+                                Text(pg.icon, fontSize = 17.sp, color = Color.White)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(pg.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Text(pg.sub, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.65f))
+                            }
+                        }
                     }
-                }, icon = Icons.Default.Refresh)
-                release?.let { r -> TvoButton("Installer ${r.versionName}", {
-                    scope.launch {
-                        updateMsg = "Téléchargement…"
-                        updateMsg = runCatching {
-                            val f = Updater.download(ctx, r.apkUrl) { p -> updateMsg = "Téléchargement ${(p * 100).toInt()} %" }
-                            Updater.install(ctx, f) ?: "Installation lancée."
-                        }.getOrElse { "Échec du téléchargement : ${it.message}" }
-                    }
-                }, primary = true) }
+                }
             }
         }
-        updateMsg?.let { m -> item { Text(m, fontSize = 15.sp, color = TvoColors.Cyan) } }
-        item { Spacer(Modifier.height(10.dp)); Text("TVO réunit tes catalogues et tes add-ons dans une seule appli. Elle n'héberge aucun contenu.", fontSize = 13.sp, color = TvoColors.Muted) }
+        Spacer(Modifier.width(32.dp))
+        // Contenu
+        LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(top = 56.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            when (page) {
+                "profil" -> {
+                    item { Heading("Profil") }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            profile?.let { Avatar(it.name, it.color, 56.dp, icon = it.icon); Text(it.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(end = 12.dp)) }
+                        }
+                    }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TvoButton("Changer de profil", nav.switchProfile, icon = Icons.Default.Person)
+                            profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
+                        }
+                    }
+                }
+                "tele" -> { item { Heading("Compte et synchronisation") }; item { SyncBlock() } }
+                "lecteur" -> {
+                    item { Heading("Lecteur vidéo") }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            val engine by store.engine.collectAsState()
+                            Chip("Automatique (recommandé)", !external && engine == "auto", { store.setExternalPlayer(false); store.setEngine("auto") })
+                            Chip("VLC intégré", !external && engine == "vlc", { store.setExternalPlayer(false); store.setEngine("vlc") })
+                            if (android.os.Build.VERSION.SDK_INT >= 26) Chip("MPV intégré", !external && engine == "mpv", { store.setExternalPlayer(false); store.setEngine("mpv") })
+                            Chip("Appli externe", external, { store.setExternalPlayer(true) })
+                        }
+                    }
+                    item { Text("Automatique : lecteur rapide, qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, DTS, TrueHD, sous-titres stylés).", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                }
+                "addons" -> {
+                    item { Heading("Add-ons") }
+                    item { Text("Compatible avec les add-ons Stremio / Nuvio : catalogues, fiches, vidéos et sous-titres. Le premier de la liste est prioritaire.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { TvoButton("Ajouter un add-on", nav.addAddon, icon = Icons.Default.Add, primary = true) }
+                    app.tvo.tv.data.ADDON_CATEGORIES.forEach { cat ->
+                        val group = addons.filter { it.category() == cat }
+                        if (group.isNotEmpty()) {
+                            item(key = "cat-$cat") { Text(cat, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text, modifier = Modifier.padding(top = 6.dp)) }
+                            items(group, key = { it.url }) { a -> AddonRow(a, addons.indexOf(a)) }
+                        }
+                    }
+                }
+                "accueil" -> { item { Heading("Page d'accueil") }; item { HomeEditor() } }
+                "tmdb" -> { item { Heading("Titres et résumés en français (TMDB)") }; item { TmdbBlock(nav) } }
+                else -> {
+                    item { Heading("Application") }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Version ${BuildConfig.VERSION_NAME}", fontSize = 16.sp, color = TvoColors.Text)
+                            TvoButton("Rechercher une mise à jour", {
+                                updateMsg = "Recherche…"
+                                scope.launch {
+                                    release = Updater.check()
+                                    updateMsg = if (release == null) "TVO est à jour." else "Version ${release!!.versionName} disponible."
+                                }
+                            }, icon = Icons.Default.Refresh)
+                            release?.let { r -> TvoButton("Installer ${r.versionName}", {
+                                scope.launch {
+                                    updateMsg = "Téléchargement…"
+                                    updateMsg = runCatching {
+                                        val f = Updater.download(ctx, r.apkUrl) { p -> updateMsg = "Téléchargement ${(p * 100).toInt()} %" }
+                                        Updater.install(ctx, f) ?: "Installation lancée."
+                                    }.getOrElse { "Échec du téléchargement : ${it.message}" }
+                                }
+                            }, primary = true) }
+                        }
+                    }
+                    updateMsg?.let { m -> item { Text(m, fontSize = 15.sp, color = TvoColors.Cyan) } }
+                    item { Text("TVO réunit tes catalogues et tes add-ons dans une seule appli. Elle n'héberge aucun contenu.", fontSize = 13.sp, color = TvoColors.Muted) }
+                }
+            }
+        }
     }
 }
 
