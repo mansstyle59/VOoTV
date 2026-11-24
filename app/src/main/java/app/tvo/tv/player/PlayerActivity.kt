@@ -69,6 +69,10 @@ import app.tvo.tv.ui.Chip
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.focus.onFocusChanged
 import app.tvo.tv.ui.TvoColors
 import app.tvo.tv.ui.TvoTheme
 import app.tvo.tv.ui.langLabel
@@ -117,6 +121,10 @@ class PlayerActivity : ComponentActivity() {
     private var nextUp by mutableStateOf<NextUp?>(null)
     private var nextDismissed = false
     private var options by mutableStateOf(false)
+    private var audioMenu by mutableStateOf(false)
+    private var subsMenu by mutableStateOf(false)
+    private var ctrlTick by mutableIntStateOf(0)
+    private val anyPanel get() = options || audioMenu || subsMenu || episodesMenu
     private var episodesMenu by mutableStateOf(false)
     private var seekFlash by mutableStateOf<String?>(null)
     private var seekFlashId by mutableIntStateOf(0)
@@ -188,16 +196,8 @@ class PlayerActivity : ComponentActivity() {
 
         playerView = PlayerView(this).apply {
             player = this@PlayerActivity.player
-            useController = true
-            controllerShowTimeoutMs = 4500
-            controllerAutoShow = false
-            setShowSubtitleButton(true)
-            setShowNextButton(false)
-            setShowPreviousButton(false)
-            setShowFastForwardButton(true)
-            setShowRewindButton(true)
+            useController = false
             keepScreenOn = true
-            setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { v -> controllerVisible = v == View.VISIBLE })
             isFocusable = true
             isFocusableInTouchMode = true
         }
@@ -209,7 +209,7 @@ class PlayerActivity : ComponentActivity() {
         }
         setContentView(root)
         playerView.requestFocus()
-        getSharedPreferences("tvo_ui", MODE_PRIVATE).let { subSize = it.getFloat("sub_size", 1f); subBox = it.getBoolean("sub_box", false) }
+        getSharedPreferences("tvo_ui", MODE_PRIVATE).let { subSize = it.getFloat("sub_size", 1f); subBox = it.getBoolean("sub_box", false); subColor = it.getInt("sub_color", android.graphics.Color.WHITE) }
         applySubStyle()
 
         // Retour : ferme le menu ouvert, sinon quitte le lecteur (un seul appui, jamais de boucle).
@@ -217,9 +217,11 @@ class PlayerActivity : ComponentActivity() {
             override fun handleOnBackPressed() {
                 when {
                     options -> closeOptions()
+                    audioMenu || subsMenu -> closePanels()
+                    episodesMenu -> closeEpisodes()
                     nextUp != null -> { nextUp = null; nextDismissed = true; playerView.requestFocus() }
                     // 1er appui : cacher les boutons ; 2e appui (boutons déjà cachés) : quitter
-                    controllerVisible && error == null -> { playerView.hideController(); controllerVisible = false; playerView.requestFocus() }
+                    controllerVisible && error == null -> hideControls()
                     else -> { saveProgress(); app.tvo.tv.data.Sync.syncInBackground(); finish() }
                 }
             }
@@ -363,22 +365,9 @@ class PlayerActivity : ComponentActivity() {
     @Composable
     private fun Overlay() {
         Box(Modifier.fillMaxSize()) {
-            AnimatedVisibility(controllerVisible && error == null, enter = fadeIn(), exit = fadeOut()) {
-                Box(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color(0xCC000000), Color.Transparent))).padding(start = 48.dp, top = 28.dp, end = 48.dp, bottom = 40.dp)) {
-                    Column {
-                        Text(req.title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        req.subtitle?.let { Text(it, fontSize = 16.sp, color = TvoColors.Muted) }
-                        Text("▲ Options (audio, sous-titres, format, vitesse)   ◀ ▶ reculer / avancer de 10 s" + if (req.type == "series") "   ▼ Épisodes" else "", fontSize = 12.sp,
-                            color = Color(0xB3FFFFFF), modifier = Modifier.padding(top = 6.dp))
-                        if (req.type == "series") Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            TvoButton("Épisodes", { openEpisodes() })
-                            TvoButton("Options", { openOptions() })
-                        }
-                    }
-                }
-            }
+            AnimatedVisibility(controllerVisible && error == null && !anyPanel, enter = fadeIn(), exit = fadeOut()) { Controls() }
             // Heure actuelle et heure de fin (vitesse comprise), en haut à droite, mises à jour chaque seconde
-            AnimatedVisibility(controllerVisible && error == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopEnd)) {
+            AnimatedVisibility(controllerVisible && error == null && !anyPanel, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopEnd)) {
                 var tick by remember { mutableStateOf(0L) }
                 LaunchedEffect(Unit) { while (true) { tick = System.currentTimeMillis(); delay(1000) } }
                 val fmt = remember { SimpleDateFormat("HH:mm", Locale.FRANCE) }
@@ -396,6 +385,8 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
             if (options) OptionsPanel()
+            if (audioMenu) AudioPanel()
+            if (subsMenu) SubsPanel()
             if (episodesMenu) EpisodesPanel()
             nextUp?.let { n -> NextUpCard(n) }
             error?.let { ErrorCard(it) }
@@ -443,14 +434,15 @@ class PlayerActivity : ComponentActivity() {
 
     private var subSize by mutableStateOf(1f)
     private var subBox by mutableStateOf(false)
+    private var subColor by mutableIntStateOf(android.graphics.Color.WHITE)
     private fun applySubStyle() {
         val sv = playerView.subtitleView ?: return
         sv.setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * subSize)
-        sv.setStyle(androidx.media3.ui.CaptionStyleCompat(android.graphics.Color.WHITE,
+        sv.setStyle(androidx.media3.ui.CaptionStyleCompat(subColor,
             if (subBox) 0xB3000000.toInt() else android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT,
             if (subBox) androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_NONE else androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
             android.graphics.Color.BLACK, null))
-        getSharedPreferences("tvo_ui", MODE_PRIVATE).edit().putFloat("sub_size", subSize).putBoolean("sub_box", subBox).apply()
+        getSharedPreferences("tvo_ui", MODE_PRIVATE).edit().putFloat("sub_size", subSize).putBoolean("sub_box", subBox).putInt("sub_color", subColor).apply()
     }
 
     private fun selectTrack(type: Int, c: TrackChoice?) {
@@ -466,9 +458,14 @@ class PlayerActivity : ComponentActivity() {
         "Étirer" to androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL,
     )
 
-    private fun openOptions() { playerView.hideController(); options = true; overlayView.requestFocus() }
-    private fun openEpisodes() { if (req.type != "series") return; playerView.hideController(); episodesMenu = true; options = false; overlayView.requestFocus() }
-    private fun closeEpisodes() { episodesMenu = false; playerView.requestFocus() }
+    private fun showControls() { controllerVisible = true; ctrlTick++; overlayView.requestFocus() }
+    private fun hideControls() { controllerVisible = false; playerView.requestFocus() }
+    private fun openOptions() { hideControls(); options = true; overlayView.requestFocus() }
+    private fun openAudio() { hideControls(); audioMenu = true; overlayView.requestFocus() }
+    private fun openSubs() { hideControls(); subsMenu = true; overlayView.requestFocus() }
+    private fun closePanels() { audioMenu = false; subsMenu = false; showControls() }
+    private fun openEpisodes() { if (req.type != "series") return; hideControls(); episodesMenu = true; options = false; overlayView.requestFocus() }
+    private fun closeEpisodes() { episodesMenu = false; showControls() }
 
     /** Menu Épisodes : saisons + liste de la saison, pour passer d'un épisode à l'autre pendant une série. */
     @Composable
@@ -509,65 +506,23 @@ class PlayerActivity : ComponentActivity() {
             }
         }
     }
-    private fun closeOptions() { options = false; playerView.requestFocus() }
+    private fun closeOptions() { options = false; showControls() }
 
     @Composable
     private fun OptionsPanel() {
         val fr = remember { FocusRequester() }
         @Suppress("UNUSED_VARIABLE") val v = tracksVersion
-        val audio = trackChoices(C.TRACK_TYPE_AUDIO)
-        val text = trackChoices(C.TRACK_TYPE_TEXT)
-        val textOff = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || text.none { it.selected }
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.45f to Color.Transparent, 1f to Color(0xEE000000)))) {
             androidx.compose.foundation.lazy.LazyColumn(
                 Modifier.align(Alignment.CenterEnd).width(520.dp).fillMaxHeight().padding(end = 40.dp, top = 40.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                item { Text("Options de lecture", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-                item { OptTitle("Audio") }
-                item {
-                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (audio.isEmpty()) item { Text("Piste unique", color = TvoColors.Muted, fontSize = 14.sp) }
-                        items(audio.size) { i ->
-                            val c = audio[i]
-                            Chip(c.label, c.selected, { selectTrack(C.TRACK_TYPE_AUDIO, c); tracksVersion++ },
-                                if (i == 0) Modifier.focusRequester(fr) else Modifier)
-                        }
-                    }
-                }
-                item { OptTitle("Sous-titres") }
-                item {
-                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { Chip("Désactivés", textOff, { selectTrack(C.TRACK_TYPE_TEXT, null); tracksVersion++ },
-                            if (audio.isEmpty()) Modifier.focusRequester(fr) else Modifier) }
-                        items(text.size) { i -> val c = text[i]; Chip(c.label, c.selected && !textOff, { selectTrack(C.TRACK_TYPE_TEXT, c); tracksVersion++ }) }
-                    }
-                }
-                item { OptTitle("Taille des sous-titres") }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Petite" to 0.8f, "Normale" to 1f, "Grande" to 1.25f, "Très grande" to 1.5f).forEach { (l, k) ->
-                            Chip(l, subSize == k, { subSize = k; applySubStyle() }) }
-                    }
-                }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Chip("Texte avec ombre", !subBox, { subBox = false; applySubStyle() })
-                        Chip("Fond noir (plus lisible)", subBox, { subBox = true; applySubStyle() })
-                    }
-                }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Sous-titres en avance ou en retard ?", fontSize = 13.sp, color = TvoColors.Muted)
-                        Chip("Régler le décalage (VLC)", false, {
-                            VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition)); finish() })
-                    }
-                }
+                item { Text("Plus d'options", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White) }
                 item { OptTitle("Format de l'image") }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         resizeModes.forEachIndexed { i, (label, mode) ->
-                            Chip(label, resizeIdx == i, { resizeIdx = i; playerView.resizeMode = mode })
+                            Chip(label, resizeIdx == i, { resizeIdx = i; playerView.resizeMode = mode }, if (i == 0) Modifier.focusRequester(fr) else Modifier)
                         }
                     }
                 }
@@ -633,20 +588,215 @@ class PlayerActivity : ComponentActivity() {
         LaunchedEffect(msg) { delay(100); runCatching { fr.requestFocus() } }
     }
 
+
+    // ------------------------------------------------------------ commandes façon Nuvio (barre en bas, icônes rondes)
+
+    private object PIcons {
+        private fun icon(name: String, d: String) = androidx.compose.ui.graphics.vector.ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f).addPath(
+            pathData = androidx.compose.ui.graphics.vector.PathParser().parsePathString(d).toNodes(),
+            fill = androidx.compose.ui.graphics.SolidColor(Color.Black)).build()
+        val Pause by lazy { icon("pause", "M6,19h4V5H6v14zM14,5v14h4V5h-4z") }
+        val Audio by lazy { icon("audio", "M3,9v6h4l5,5V4L7,9H3zM16.5,12c0,-1.77 -1.02,-3.29 -2.5,-4.03v8.05c1.48,-0.73 2.5,-2.25 2.5,-4.02zM14,3.23v2.06c2.89,0.86 5,3.54 5,6.71s-2.11,5.85 -5,6.71v2.06c4.01,-0.91 7,-4.49 7,-8.77s-2.99,-7.86 -7,-8.77z") }
+        val Subs by lazy { icon("subs", "M19,4H5c-1.11,0 -2,0.9 -2,2v12c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V6c0,-1.1 -0.9,-2 -2,-2zM11,11H9.5v-0.5h-2v3h2V13H11v1c0,0.55 -0.45,1 -1,1H7c-0.55,0 -1,-0.45 -1,-1v-4c0,-0.55 0.45,-1 1,-1h3c0.55,0 1,0.45 1,1v1zM18,11h-1.5v-0.5h-2v3h2V13H18v1c0,0.55 -0.45,1 -1,1h-3c-0.55,0 -1,-0.45 -1,-1v-4c0,-0.55 0.45,-1 1,-1h3c0.55,0 1,0.45 1,1v1z") }
+        val More by lazy { icon("more", "M10,6L8.59,7.41 13.17,12l-4.58,4.59L10,18l6,-6z") }
+    }
+
+    private fun fmtTime(ms: Long): String {
+        val t = (ms / 1000).coerceAtLeast(0); val h = t / 3600; val m = (t % 3600) / 60; val sec = t % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec)
+    }
+
+    @Composable
+    private fun CtlBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, size: androidx.compose.ui.unit.Dp = 46.dp, big: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+        androidx.tv.material3.Surface(
+            onClick = onClick, modifier = modifier.size(size),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.12f),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = if (big) Color.White else Color(0xFF6D7691).copy(alpha = 0.40f), contentColor = if (big) Color.Black else Color.White,
+                focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+            border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), inset = (-3).dp, shape = androidx.compose.foundation.shape.CircleShape)),
+        ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { androidx.tv.material3.Icon(icon, desc, Modifier.size(size * 0.5f)) } }
+    }
+
+    @Composable
+    private fun Controls() {
+        val playFr = remember { FocusRequester() }
+        var pos by remember { mutableStateOf(player.currentPosition) }
+        var dur by remember { mutableStateOf(player.duration.coerceAtLeast(0)) }
+        var playing by remember { mutableStateOf(player.isPlaying) }
+        LaunchedEffect(Unit) { while (true) { pos = player.currentPosition; dur = player.duration.coerceAtLeast(0); playing = player.isPlaying; delay(400) } }
+        LaunchedEffect(Unit) { delay(80); runCatching { playFr.requestFocus() } }
+        // masque tout seul après 5 s sans appui (seulement pendant la lecture)
+        LaunchedEffect(ctrlTick) { delay(5000); if (player.isPlaying && !anyPanel) hideControls() }
+        var barFocused by remember { mutableStateOf(false) }
+        Box(Modifier.fillMaxSize()) {
+            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(150.dp).background(Brush.verticalGradient(listOf(Color(0xB3000000), Color.Transparent))))
+            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color(0xE6000000))))
+                .padding(start = 52.dp, end = 52.dp, top = 70.dp, bottom = 36.dp)) {
+                Text(req.title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                req.subtitle?.let { Text(it, fontSize = 16.sp, color = Color(0xCCFFFFFF), maxLines = 1) }
+                Spacer(Modifier.height(14.dp))
+                // barre de progression (◀ ▶ quand elle est sélectionnée : ±10 s)
+                val frac = if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
+                Box(Modifier.fillMaxWidth().height(22.dp)
+                    .onFocusChanged { barFocused = it.isFocused }
+                    .onPreviewKeyEvent { e ->
+                        if (e.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) when (e.nativeKeyEvent.keyCode) {
+                            KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(if (e.nativeKeyEvent.repeatCount > 2) -30_000L else -10_000L); pos = player.currentPosition; true }
+                            KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(if (e.nativeKeyEvent.repeatCount > 2) 30_000L else 10_000L); pos = player.currentPosition; true }
+                            else -> false
+                        } else false
+                    }.focusable(), contentAlignment = Alignment.CenterStart) {
+                    val h = if (barFocused) 10.dp else 6.dp
+                    Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.28f))) {
+                        Box(Modifier.fillMaxWidth(frac).fillMaxHeight().background(TvoColors.Cyan))
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    CtlBtn(if (playing) PIcons.Pause else androidx.compose.material.icons.Icons.Filled.PlayArrow, if (playing) "Pause" else "Lecture", 58.dp, big = true, modifier = Modifier.focusRequester(playFr)) {
+                        if (player.isPlaying) player.pause() else player.play(); playing = player.isPlaying; ctrlTick++ }
+                    CtlBtn(PIcons.Subs, "Sous-titres") { openSubs() }
+                    CtlBtn(PIcons.Audio, "Audio") { openAudio() }
+                    if (req.type == "series") CtlBtn(androidx.compose.material.icons.automirrored.filled.List, "Épisodes") { openEpisodes() }
+                    CtlBtn(PIcons.More, "Plus") { openOptions() }
+                    Spacer(Modifier.weight(1f))
+                    Text("${fmtTime(pos)} / ${fmtTime(dur)}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ fenêtres Audio et Sous-titres
+
+    @Composable
+    private fun PanelRow(title: String, selected: Boolean, detail: String? = null, badge: String? = null, modifier: Modifier = Modifier, onClick: () -> Unit) {
+        androidx.tv.material3.Surface(
+            onClick = onClick, modifier = modifier.fillMaxWidth(),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = if (selected) TvoColors.Blue.copy(alpha = 0.85f) else Color.Transparent, contentColor = Color.White,
+                focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+        ) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                    detail?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 2.dp)) }
+                }
+                badge?.let { Box(Modifier.clip(androidx.compose.foundation.shape.CircleShape).background(TvoColors.Blue).padding(horizontal = 9.dp, vertical = 3.dp)) { Text(it, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold) } }
+                if (selected) androidx.tv.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, Modifier.size(24.dp).padding(start = 6.dp))
+            }
+        }
+    }
+
+    @Composable
+    private fun PanelScrim(title: String, content: @Composable () -> Unit) {
+        Box(Modifier.fillMaxSize().background(Color(0xE6050810)).padding(horizontal = 64.dp, vertical = 36.dp)) {
+            Column(Modifier.fillMaxSize()) {
+                Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Spacer(Modifier.height(18.dp))
+                content()
+            }
+        }
+    }
+
+    @Composable
+    private fun AudioPanel() {
+        @Suppress("UNUSED_VARIABLE") val v = tracksVersion
+        val audio = trackChoices(C.TRACK_TYPE_AUDIO)
+        val fr = remember { FocusRequester() }
+        PanelScrim("Audio") {
+            if (audio.isEmpty()) Text("Une seule piste audio dans cette vidéo.", color = TvoColors.Muted, fontSize = 17.sp)
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.width(620.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(audio.size) { i ->
+                    val c = audio[i]; val parts = c.label.split(" · ")
+                    PanelRow(parts.first() + parts.getOrNull(1)?.let { " ($it)" }.orEmpty(), c.selected, parts.drop(1).joinToString(" | "), null,
+                        if (i == 0) Modifier.focusRequester(fr) else Modifier) { selectTrack(C.TRACK_TYPE_AUDIO, c); tracksVersion++ }
+                }
+            }
+        }
+        LaunchedEffect(Unit) { delay(120); runCatching { fr.requestFocus() } }
+    }
+
+    @Composable
+    private fun SubsPanel() {
+        @Suppress("UNUSED_VARIABLE") val v = tracksVersion
+        val text = trackChoices(C.TRACK_TYPE_TEXT)
+        val off = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || text.none { it.selected }
+        val langs = text.map { it.lang.lowercase() }.distinct()
+        var sel by remember { mutableStateOf(text.firstOrNull { it.selected }?.lang?.lowercase() ?: langs.firstOrNull()) }
+        val fr = remember { FocusRequester() }
+        PanelScrim("Sous-titres") {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                Column(Modifier.weight(0.8f)) {
+                    Text("Langues", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, modifier = Modifier.padding(bottom = 8.dp))
+                    androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        item { PanelRow("Aucun", off, modifier = Modifier.focusRequester(fr)) { selectTrack(C.TRACK_TYPE_TEXT, null); tracksVersion++ } }
+                        items(langs.size) { i ->
+                            val l = langs[i]
+                            PanelRow(if (l.isBlank()) "Autre" else langLabel(l), sel == l && !off, null, text.count { it.lang.lowercase() == l }.toString()) { sel = l }
+                        }
+                    }
+                }
+                Column(Modifier.weight(1.2f)) {
+                    Text("Sous-titres", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, modifier = Modifier.padding(bottom = 8.dp))
+                    androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val list = text.filter { it.lang.lowercase() == sel }
+                        items(list.size) { i ->
+                            val c = list[i]; val parts = c.label.split(" · ")
+                            PanelRow(parts.first(), c.selected && !off, parts.drop(1).joinToString(" · ").replace("externe", "Externe")) { selectTrack(C.TRACK_TYPE_TEXT, c); tracksVersion++ }
+                        }
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Style des sous-titres", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted)
+                    Text("Taille de la police", fontSize = 15.sp, color = Color.White)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Chip("−", false, { subSize = (subSize - 0.1f).coerceAtLeast(0.6f); applySubStyle() })
+                        Text("${(subSize * 100).toInt()}%", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Chip("+", false, { subSize = (subSize + 0.1f).coerceAtMost(2f); applySubStyle() })
+                    }
+                    Text("Fond noir", fontSize = 15.sp, color = Color.White)
+                    Chip(if (subBox) "Activé" else "Désactivé", subBox, { subBox = !subBox; applySubStyle() })
+                    Text("Couleur du texte", fontSize = 15.sp, color = Color.White)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf(0xFFFFFFFF, 0xFFFFE14D, 0xFF5CD6FF, 0xFFFF8FA3, 0xFF7CF29A).forEach { col ->
+                            val ci = col.toInt()
+                            androidx.tv.material3.Surface(onClick = { subColor = ci; applySubStyle() }, Modifier.size(36.dp),
+                                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+                                scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.15f),
+                                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(col), focusedContainerColor = Color(col)),
+                                border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                                    border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(if (subColor == ci) 3.dp else 0.dp, TvoColors.Blue), shape = androidx.compose.foundation.shape.CircleShape),
+                                    focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = androidx.compose.foundation.shape.CircleShape)),
+                            ) {}
+                        }
+                    }
+                }
+            }
+        }
+        LaunchedEffect(Unit) { delay(120); runCatching { fr.requestFocus() } }
+    }
+
     // ------------------------------------------------------------ lifecycle
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Netflix-like remote: ◀ ▶ seek without opening the controls, ▲ or Menu opens options.
-        if (event.action == KeyEvent.ACTION_DOWN && !options && !episodesMenu && nextUp == null && error == null && !playerView.isControllerFullyVisible) {
+        if (event.action == KeyEvent.ACTION_DOWN) ctrlTick++
+        // Commandes cachées : ◀ ▶ avancent/reculent directement, tout autre bouton affiche les commandes (comme Nuvio).
+        if (event.action == KeyEvent.ACTION_DOWN && !anyPanel && nextUp == null && error == null && !controllerVisible) {
             val step = if (event.repeatCount > 2) 30_000L else 10_000L
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(step); return true }
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> { openOptions(); return true }
-                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> if (req.type == "series") { openEpisodes(); return true }
+                KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> { openOptions(); return true }
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> { showControls(); return true }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     if (player.isPlaying) player.pause() else player.play()
-                    playerView.showController(); return true
+                    showControls(); return true
                 }
             }
         }
@@ -654,7 +804,16 @@ class PlayerActivity : ComponentActivity() {
         // Media keys always go to the player, even when an overlayView has focus.
         if (event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
             event.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) {
-            if (playerView.dispatchMediaKeyEvent(event)) return true
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                when {
+                    event.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE -> player.pause()
+                    event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY -> player.play()
+                    player.isPlaying -> player.pause()
+                    else -> player.play()
+                }
+                showControls()
+            }
+            return true
         }
         return super.dispatchKeyEvent(event)
     }
