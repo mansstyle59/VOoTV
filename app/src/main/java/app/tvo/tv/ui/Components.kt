@@ -435,7 +435,7 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
     val tv = item.type == "tv" || item.type == "channel"
     val w by androidx.compose.animation.core.animateDpAsState(
         if (focused && !tv && item.background != null) height * 16f / 9f else height * 2f / 3f,
-        androidx.compose.animation.core.tween(220), label = "w")
+        androidx.compose.animation.core.snap(), label = "w")
     val logo by produceState<String?>(item.logo, item.id, focused) {
         if (focused && value == null && !tv && app.tvo.tv.data.Tmdb.enabled) value = app.tvo.tv.data.Tmdb.logo(item.type, item.id)
     }

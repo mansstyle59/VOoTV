@@ -158,7 +158,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
         // Quand on parcourt les rangées : fond sombre progressif pour que visages et affiches restent nets
-        val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, label = "scrim")
+        val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, androidx.compose.animation.core.snap(), label = "scrim")
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {

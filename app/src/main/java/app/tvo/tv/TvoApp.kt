@@ -49,5 +49,5 @@ class TvoApp : Application(), ImageLoaderFactory {
     }
 
     override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this).crossfade(250).okHttpClient(Tvo.http).build()
+        ImageLoader.Builder(this).crossfade(false).okHttpClient(Tvo.http).build()
 }

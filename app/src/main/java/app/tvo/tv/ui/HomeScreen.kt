@@ -670,7 +670,7 @@ fun Backdrop(url: String?) {
 @Composable
 fun HeroInfo(item: MetaPreview?, modifier: Modifier = Modifier) {
     Box(modifier.padding(start = 48.dp, top = 34.dp, end = 48.dp)) {
-        AnimatedVisibility(item != null, enter = fadeIn(), exit = fadeOut()) {
+        AnimatedVisibility(item != null, enter = androidx.compose.animation.EnterTransition.None, exit = androidx.compose.animation.ExitTransition.None) {
             if (item != null) Column(Modifier.width(560.dp)) {
                 if (item.logo != null) {
                     AsyncImage(item.logo, item.name, Modifier.height(80.dp).fillMaxWidth(0.8f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)

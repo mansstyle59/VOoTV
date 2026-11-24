@@ -1644,3 +1644,19 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 .section-title { gap: 12px; }
 .section-title .st { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .section-title a, .section-title .linkbtn { flex: none; white-space: nowrap; margin-left: auto; }
+
+/* ---------- Mode calme : aucune animation décorative, aucun flou (pas de flashs ni de micro-flashs) ---------- */
+*, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.tabs, html.glass .tabs { background: #1c1c1e !important; }
+.dt-actions button svg, .car-act .btn:not(.primary) { background: rgba(255,255,255,.16); }
+/* Fond de l'accueil : fondu simple, plus de zoom lent ni de filtre */
+#app .car-bg img.kb, #app .car-bg img.kb0, #app .car-bg img.kb1, #app .car-bg img.kb2 { animation: none !important; transform: none !important; filter: none !important; will-change: auto; transition: opacity .4s ease; }
+#app .car-bg img.kb.in { opacity: .6; }
+.car-info.swap > *, .car-dots i.on::after { animation: none !important; }
+.cslide.center .shine, .shine { animation: none !important; }
+.skeleton { animation: none !important; background: var(--surface); }
+.aw-row { animation: none !important; }
+.splash, .splash * { filter: none !important; }
+/* Pas d'effets de zoom au toucher ni au survol sur les cartes, boutons et onglets */
+.card, .btn, .tab, .tab .ico, .dx img, .cslide { transition: none !important; }
+.card:active, .btn:active, .cslide:active { transform: none !important; }
