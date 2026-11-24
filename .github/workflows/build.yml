@@ -117,19 +117,19 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: macos, path: desktop/dist/*.dmg }
 
+  # La version (APK télé + téléphone) est publiée dès que les deux APK sont prêts :
+  # un retard ou un échec de l'iPhone ou du Mac ne bloque plus la mise à jour de la télé.
   release:
-    name: Publier la version complète
-    needs: [tv, mobile, ios, macos]
+    name: Publier la version
+    needs: [tv, mobile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
-        with: { path: dist, merge-multiple: true }
+        with: { path: dist, merge-multiple: true, pattern: "{tv,mobile}" }
       - name: Vérifier les fichiers avant publication
         run: |
           ls -lh dist
-          test -n "$(find dist -maxdepth 1 -name '*.apk' -print -quit)"
-          test -n "$(find dist -maxdepth 1 -name '*.ipa' -print -quit)"
-          test -n "$(find dist -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -f dist/TVO-TV.apk
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
@@ -139,7 +139,23 @@ jobs:
 
             - TVO-TV : Android TV / box (télécommande)
             - Android-Mobile : téléphone Android
-            - TVO-iOS : iPhone (à installer avec ESign ou KSign)
-            - TVO-macOS : application Mac
-          files: dist/*
+            - TVO-iOS : iPhone (à installer avec ESign ou KSign), ajouté dès qu'il est prêt
+            - TVO-macOS : application Mac, ajoutée dès qu'elle est prête
+          files: dist/*.apk
           make_latest: true
+
+  release-extra:
+    name: Ajouter iPhone et Mac à la version
+    needs: [release, ios, macos]
+    if: ${{ always() && needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          files: |
+            dist/*.ipa
+            dist/*.dmg
+          make_latest: false

@@ -35,16 +35,19 @@ object Updater {
     }.getOrDefault(emptyList())
 
     suspend fun check(): Release? = runCatching {
-        val o = Tvo.client.getJson("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest")
-        val tag = o.s("tag_name") ?: return@runCatching null
-        val code = tag.substringAfterLast('.').filter { it.isDigit() }.toIntOrNull() ?: return@runCatching null
-        val apk = o.arr("assets")?.mapNotNull { it as? JsonObject }
-            // Uniquement l'APK télé (« TVO-TV… ») : jamais la version téléphone.
-            ?.let { list -> list.firstOrNull { it.s("name") == "TVO-TV.apk" }
-                ?: list.firstOrNull { it.s("name")?.let { n -> n.startsWith("TVO-TV") && n.endsWith(".apk") } == true } }
-            ?.s("browser_download_url")
-            ?: return@runCatching null
-        if (code > BuildConfig.VERSION_CODE) Release(code, tag.removePrefix("v"), apk, o.s("body") ?: "") else null
+        // On prend la version la plus haute parmi les dernières publications (et non « latest »,
+        // qui peut pointer sur une version plus ancienne si deux compilations finissent dans le désordre).
+        val arr = Tvo.client.getJsonArray("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases?per_page=15")
+        arr.mapNotNull { it as? JsonObject }.filter { it.s("draft") != "true" }.mapNotNull { o ->
+            val tag = o.s("tag_name") ?: return@mapNotNull null
+            val code = tag.substringAfterLast('.').filter { it.isDigit() }.toIntOrNull() ?: return@mapNotNull null
+            val apk = o.arr("assets")?.mapNotNull { it as? JsonObject }
+                // Uniquement l'APK télé (« TVO-TV… ») : jamais la version téléphone.
+                ?.let { list -> list.firstOrNull { it.s("name") == "TVO-TV.apk" }
+                    ?: list.firstOrNull { it.s("name")?.let { n -> n.startsWith("TVO-TV") && n.endsWith(".apk") } == true } }
+                ?.s("browser_download_url") ?: return@mapNotNull null
+            Release(code, tag.removePrefix("v"), apk, o.s("body") ?: "")
+        }.maxByOrNull { it.versionCode }?.takeIf { it.versionCode > BuildConfig.VERSION_CODE }
     }.getOrNull()
 
     suspend fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
