@@ -4491,9 +4491,12 @@ var qrcode = function() {
 
   let SRC_QUEUE = null;
   /** Source suivante de la liste classée (si la lecture échoue ou ne démarre pas). */
+  // iPhone : le lecteur intégré lit MP4 / HLS, mais pas les MKV / AVI, ni le son DTS / TrueHD
+  const iosBad = (s) => isIOS && !!s && /\.(mkv|avi|wmv|flv)(\?|$)|\bmkv\b|\bremux\b|\bdts\b|dts-hd|truehd|\bavi\b/i.test(`${s.name || ""} ${s.title || ""} ${s.url || ""}`);
   function nextSource(cur) {
     if (!SRC_QUEUE) return null; const l = SRC_QUEUE.list; const i = l.findIndex((x) => x === cur || (x.url && x.url === cur.url));
-    return l.slice(i + 1).find((x) => x.url && !x.needsHeaders) || null;
+    const rest = l.slice(i + 1).filter((x) => x.url && !x.needsHeaders);
+    return rest.find((x) => !iosBad(x)) || rest[0] || null;
   }
   async function screenSources(type, metaId, videoId) {
     setTabs(null);
@@ -4511,7 +4514,7 @@ var qrcode = function() {
       return /\bmulti\b/.test(t) ? "MULTI" : /\b(vff|vfq|vf2?|french|truefrench|fr)\b|🇫🇷/.test(t) ? "VF" : /\bvostfr\b/.test(t) ? "VOSTFR" : ""; };
     const size = (s) => { const m = (s.name + " " + s.title).match(/(\d+(?:[.,]\d+)?)\s?(GB|Go|MB|Mo)\b/i); return m ? m[1].replace(",", ".") + " " + (/g/i.test(m[2]) ? "Go" : "Mo") : ""; };
     const score = (s) => { const r = test.get(s.url); const alive = !r ? 1 : r.ok ? 2 : 0;
-      return alive * 1e7 + (lang(s) ? 1e6 : 0) + s.quality * 1e5 - (r && r.ok ? Math.min(r.ms, 99999) : 50000); };
+      return alive * 1e7 + (iosBad(s) ? 0 : 3e6) + (lang(s) ? 1e6 : 0) + s.quality * 1e5 - (r && r.ok ? Math.min(r.ms, 99999) : 50000); };
     // Test rapide : on mesure le temps de réponse de chaque lien (sans télécharger la vidéo)
     const queue = []; let running = 0;
     const pump = () => {
@@ -4526,6 +4529,7 @@ var qrcode = function() {
     };
     let raf = 0; const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => draw(st.total)); };
     const badge = (s) => { if (!s.url) return `<span class="sp ext">Lien externe</span>`;
+      if (iosBad(s)) return `<span class="sp bad">Pas lisible sur iPhone (VLC)</span>`;
       const r = test.get(s.url); if (!r) return `<span class="sp wait">Test…</span>`;
       if (!r.ok) return `<span class="sp bad">Hors ligne</span>`;
       return `<span class="sp ${r.ms < 400 ? "fast" : r.ms < 1200 ? "mid" : "slow"}">⚡ ${r.ms < 1000 ? r.ms + " ms" : (r.ms / 1000).toFixed(1) + " s"}</span>`; };
@@ -5174,7 +5178,7 @@ var qrcode = function() {
       if (failed || !document.body.contains(video)) return; failed = true;
       const nx = nextSource(s);
       el.insertAdjacentHTML("beforeend", `<div class="err"><div class="card"><b style="font-size:20px">${esc(why)}</b>
-        <div class="muted">Cette source ne répond pas ou n'est pas lisible ici. ${nx ? "La suivante dans la liste est prête." : ""}</div>
+        <div class="muted">${isIOS ? "L'iPhone ne lit que certains formats. Choisis une autre source (MP4), ou ouvre celle-ci dans VLC / Infuse." : "Cette source ne répond pas ou n'est pas lisible ici."} ${nx ? "La suivante dans la liste est prête." : ""}</div>
         ${nx ? `<button class="btn primary" id="eNext">Essayer la source suivante</button>` : ""}<button class="btn" id="eVlc">Ouvrir dans VLC</button>${isIOS ? `<button class="btn" id="eInfuse">Ouvrir dans Infuse</button>` : ""}<button class="btn" id="eBack">Retour aux sources</button></div></div>`);
       if (nx) $("#eNext").addEventListener("click", () => { closePlayer(); playStream(m, nx, ctx.videoId); });
       $("#eVlc").addEventListener("click", () => { location.href = isIOS ? "vlc-x-callback://x-callback-url/stream?url=" + enc(s.url) : "vlc://" + s.url; });
@@ -5184,7 +5188,7 @@ var qrcode = function() {
     video.addEventListener("error", () => fail("Lecture impossible"));
     // iPhone : le lecteur intégré ne lit pas les MKV / AVI. On le dit tout de suite au lieu de charger dans le vide.
     const label = (s.name + " " + (s.title || "") + " " + s.url).toLowerCase();
-    if (isIOS && (/\.(mkv|avi|wmv|flv)(\?|$)/i.test(s.url) || /\bmkv\b|\.mkv\b/.test(label))) setTimeout(() => fail("Format MKV : non lisible par l'iPhone"), 60);
+    if (iosBad(s)) setTimeout(() => fail("Format non lisible par l'iPhone (MKV, DTS…)"), 60);
     // Si rien ne démarre au bout de 15 s, on propose tout de suite une autre source au lieu d'attendre
     const watchdog = setTimeout(() => { if (!video.currentTime && video.readyState < 3) fail("La vidéo ne démarre pas"); }, 15000);
     video.addEventListener("playing", () => clearTimeout(watchdog), { once: true });
@@ -5212,10 +5216,11 @@ var qrcode = function() {
     if (!next) return closePlayer();
     toast("Recherche de l'épisode suivant…");
     const all = await streams(m.type, next.id).done;
-    const ok = all.filter((x) => x.url && !x.needsHeaders);
+    const ok = all.filter((x) => x.url && !x.needsHeaders).sort((a, b) => iosBad(a) - iosBad(b));
     const pick = ok.find((x) => ctx.s.bingeGroup && x.bingeGroup === ctx.s.bingeGroup)
-      || ok.filter((x) => x.addonName === ctx.s.addonName).sort((a, b) => b.quality - a.quality)[0]
-      || ok.sort((a, b) => b.quality - a.quality)[0];
+      || ok.filter((x) => x.addonName === ctx.s.addonName && !iosBad(x)).sort((a, b) => b.quality - a.quality)[0]
+      || ok.filter((x) => !iosBad(x)).sort((a, b) => b.quality - a.quality)[0]
+      || ok[0];
     closePlayer();
     if (!pick) return toast("Aucune source pour l'épisode suivant");
     const subs = [...pick.subtitles, ...(await subtitles(m.type, next.id).catch(() => []))];
