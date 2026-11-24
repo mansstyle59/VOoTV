@@ -37,6 +37,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -385,23 +388,13 @@ private val homeGenres = listOf("Action", "Comedy", "Animation", "Sci-Fi", "Horr
 fun buildRows(addons: List<Addon>, type: String?, kidsAllowed: Boolean = addons.isNotEmpty() && addons.all { a -> a.manifest.catalogs.all { it.id.startsWith("kids") } }): List<RowSource> {
     val rows = mutableListOf<RowSource>()
     addons.forEach { a ->
-        a.manifest.catalogs.filter { !it.requiresExtra && !Regex("talk", RegexOption.IGNORE_CASE).containsMatchIn(it.id + " " + it.name) && (type == null || it.type == type) && (kidsAllowed || !it.id.startsWith("kids")) }.forEach { c ->
+        a.manifest.catalogs.filter { !it.requiresExtra && !Regex("talk", RegexOption.IGNORE_CASE).containsMatchIn(it.id + " " + it.name) && (type == null || it.type == type) && it.id != "popular" && (kidsAllowed || !it.id.startsWith("kids")) }.forEach { c ->
             val title = when (a.manifest.id) {
                 "com.linvo.cinemeta" -> catalogTitle(c.type, c.name)
                 "tmdb", "tvo.freetv.fr" -> c.name
                 else -> "${c.name} · ${a.manifest.name}"
             }
             rows += RowSource("${a.url}|${c.type}|${c.id}", title, a, c)
-        }
-    }
-    if (type != null) {
-        // Genre rows for the Films / Séries pages.
-        val src = addons.firstNotNullOfOrNull { a -> a.manifest.catalogs.firstOrNull { it.type == type && it.supports("genre") && it.onlyRequires("genre") }?.let { a to it } }
-        if (src != null) {
-            val opts = src.second.options("genre").ifEmpty { homeGenres }
-            homeGenres.filter { it in opts }.forEach { g ->
-                rows += RowSource("${src.first.url}|$type|${src.second.id}|$g", "${genreLabel(g)} · ${typeLabel(type)}", src.first, src.second, mapOf("genre" to g))
-            }
         }
     }
     // Ordre logique (voir Tmdb.rank) ; tri stable : les autres add-ons gardent leur place relative
@@ -460,19 +453,31 @@ fun BrowseSection(type: String?, nav: Nav) {
             }
         }
         if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { PortraitPanel("Ma liste", lib.map { it.toPreview() }, nav) }
+        if (!kidsPage && "top10" !in hidden) item(key = "top10") { Top10Row(type, nav) }
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
-        if (type == null) item(key = "platforms") { PlatformTiles(nav) }
-        if (type == null || type == "movie") item(key = "sagas") { SagaTiles(nav) }
+        if (type == null && "collections" !in hidden) item(key = "sagas") { SagaTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav, seen) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
 }
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+/** Petite icône devant chaque titre de rangée, cohérente avec le contenu. */
+internal fun titleIcon(t: String): ImageVector? = when {
+    Regex("top 10", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Icons.Default.Star
+    Regex("halloween|no[eë]l|nouvel an|p[aâ]ques|valentin|vacances|ma liste", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Icons.Default.Favorite
+    Regex("saga|collection", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Icons.Default.Menu
+    Regex("cat[eé]gor", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Icons.AutoMirrored.Filled.List
+    Regex("mini", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Icons.Default.DateRange
+    Regex("^(Nouv|Dernier|Continuer|Actuellement|Bient)", RegexOption.IGNORE_CASE).containsMatchIn(t) -> Icons.Default.Notifications
+    else -> Icons.Default.PlayArrow
+}
+
 @Composable
 fun PanelSection(title: String, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(36.dp).padding(start = 48.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            titleIcon(title)?.let { Icon(it, null, Modifier.size(20.dp), tint = TvoColors.Blue); Spacer(Modifier.width(10.dp)) }
             Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, letterSpacing = (-0.2).sp)
             Spacer(Modifier.weight(1f))
             action?.invoke()
@@ -791,3 +796,23 @@ private fun LiveSuggestions() {
 /** 4213000 ms → « 1:10:13 », 133000 → « 2:13 ». */
 fun fmtTime(ms: Long): String { val t = ms / 1000; val h = t / 3600; val m = (t % 3600) / 60; val sec = t % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec) }
+
+
+/** Top 10 de la semaine : grands chiffres à côté des affiches. */
+@Composable
+private fun Top10Row(type: String?, nav: Nav) {
+    val select = LocalSelect.current
+    val items by produceState<List<MetaPreview>>(emptyList(), type) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.top10(type) else emptyList() }
+    if (items.size < 3) return
+    PanelSection("Top 10 " + when (type) { "movie" -> "films"; "series" -> "séries"; else -> "de la semaine" }) {
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            itemsIndexed(items, key = { _, it -> it.id }) { i, m -> RowItem(rf, i) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text("${i + 1}", Modifier.padding(end = 2.dp), fontSize = 96.sp, fontWeight = FontWeight.Black, color = Color(0xFF3A3A3A), letterSpacing = (-6).sp)
+                    PortraitCard(m, { nav.openMeta(m) }, onFocus = { select(m) })
+                }
+            } }
+        }
+    }
+}

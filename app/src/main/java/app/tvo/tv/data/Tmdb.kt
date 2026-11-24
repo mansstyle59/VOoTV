@@ -79,7 +79,7 @@ object Tmdb {
             m == 1 && day <= 7 -> "new year's eve" to "Nouvel An"
             else -> null
         } ?: return emptyList()
-        return listOf(cat("movie", "ev_${ev.first}_new", "Films de ${ev.second} récents"), cat("movie", "ev_${ev.first}_old", "Classiques de ${ev.second}"))
+        return listOf(cat("movie", "ev_${ev.first}_new", "Films de ${ev.second} récents"), cat("series", "ev_${ev.first}_tv", "Séries de ${ev.second}"), cat("movie", "ev_${ev.first}_old", "Classiques de ${ev.second}"))
     }
     private val kw = ConcurrentHashMap<String, String>()
     private suspend fun keywordId(q: String): String? = kw[q] ?: runCatching {
@@ -113,7 +113,7 @@ object Tmdb {
     fun rank(type: String, id: String, genre: Boolean): Int {
         if (genre) return 800
         var i = order.indexOf("$type:$id"); if (i < 0) i = order.indexOf(id)
-        if (i < 0 && id.startsWith("ev_")) i = order.indexOf(if (id.endsWith("_old")) "ev:old" else "ev:new")
+        if (i < 0 && id.startsWith("ev_")) i = order.indexOf(if (id.endsWith("_old")) "ev:old" else if (id.endsWith("_tv")) "ev:tv" else "ev:new")
         return if (i < 0) 500 else i
     }
     private fun applyRemote(o: JsonObject) {
@@ -223,7 +223,9 @@ object Tmdb {
             cat.id == "anime" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16", "with_original_language" to "ja", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
             cat.id.startsWith("ev_") -> {
                 val parts = cat.id.split("_"); val id = keywordId(parts[1])
-                if (id == null) JsonObject(emptyMap()) else get("/discover/movie", mapOf("page" to page, "with_keywords" to id,
+                if (id == null) JsonObject(emptyMap()) else if (parts[2] == "tv") get("/discover/tv", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc",
+                    "first_air_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "5"))
+                else get("/discover/movie", mapOf("page" to page, "with_keywords" to id,
                     "sort_by" to if (parts[2] == "new") "primary_release_date.desc" else "vote_average.desc",
                     "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to if (parts[2] == "new") "15" else "200"))
             }
@@ -293,6 +295,16 @@ object Tmdb {
     private val SAGA_IDS = listOf(1241, 10, 86311, 645, 9485, 119, 328, 10194, 87359, 295, 2344, 131635, 2150, 404609, 8091, 748, 263, 87096, 86055)
 
     private fun saga(o: JsonObject, id: String) = Saga(id, o.s("name") ?: "", img(o.s("poster_path"), "w342"), img(o.s("backdrop_path"), "w1280"))
+
+    /** Top 10 de la semaine : films, séries, ou les deux mélangés (accueil). */
+    suspend fun top10(type: String?): List<MetaPreview> = runCatching {
+        val m = if (type != "series") get("/trending/movie/week").arr("results")?.mapNotNull { it as? JsonObject }?.mapNotNull { preview(it, "movie") }?.filter { it.poster != null } ?: emptyList() else emptyList()
+        val t = if (type != "movie") get("/trending/tv/week").arr("results")?.mapNotNull { it as? JsonObject }?.mapNotNull { preview(it, "series") }?.filter { it.poster != null } ?: emptyList() else emptyList()
+        val mix = ArrayList<MetaPreview>()
+        var i = 0
+        while (mix.size < 10 && (i < m.size || i < t.size)) { m.getOrNull(i)?.let { mix += it }; if (mix.size < 10) t.getOrNull(i)?.let { mix += it }; i++ }
+        mix
+    }.getOrDefault(emptyList())
 
     /** Grandes sagas du cinéma (Harry Potter, Star Wars, James Bond…). */
     suspend fun sagas(): List<Saga> = coroutineScope {

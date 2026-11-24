@@ -5022,7 +5022,7 @@ var qrcode = function() {
         $("#themePick").querySelectorAll("[data-theme]").forEach((x) => x.classList.toggle("on", x === b)); });
       const drawHome = () => {
         const h = homeLayout();
-        const special = [["continue", "Continuer à regarder", "Reprends là où tu t'es arrêté"], ["library", "Ma liste", "Tes films et séries enregistrés"], ["collections", "Sagas et collections", "Toy Story, Fast & Furious, Harry Potter…"]];
+        const special = [["continue", "Continuer à regarder", "Reprends là où tu t'es arrêté"], ["library", "Ma liste", "Tes films et séries enregistrés"], ["top10", "Top 10 de la semaine", "Les films et séries les plus regardés"], ["genres", "Catégories", "Action, comédie, horreur…"], ["collections", "Sagas et collections", "Toy Story, Fast & Furious, Harry Potter…"]];
         const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
         const all = buildRows(null).sort((a, b) => idx(a.key) - idx(b.key)).map((r) => [r.key, r.title]);
         const shown = all.filter(([k]) => !h.hidden.includes(k)), off = all.filter(([k]) => h.hidden.includes(k));

@@ -730,7 +730,7 @@ private fun HomeEditor() {
     val key by store.tmdbKey.collectAsState()
     val home by store.home.collectAsState()
     val all = remember(raw, key) { buildRows(app.tvo.tv.data.Tmdb.withTmdb(raw, key), null) }
-    val special = listOf("continue" to "Continuer à regarder", "library" to "Ma liste", "genres" to "Explorer par catégorie")
+    val special = listOf("continue" to "Continuer à regarder", "library" to "Ma liste", "top10" to "Top 10 de la semaine", "genres" to "Catégories", "collections" to "Sagas et collections")
     val rows = remember(all, home) {
         val ordered = all.sortedBy { r -> home.order.indexOf(r.key).let { if (it < 0) Int.MAX_VALUE else it } }
         special + ordered.map { it.key to it.title }
