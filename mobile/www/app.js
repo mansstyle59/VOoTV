@@ -5167,14 +5167,18 @@ var qrcode = function() {
       const nx = nextSource(s);
       el.insertAdjacentHTML("beforeend", `<div class="err"><div class="card"><b style="font-size:20px">${esc(why)}</b>
         <div class="muted">Cette source ne répond pas ou n'est pas lisible ici. ${nx ? "La suivante dans la liste est prête." : ""}</div>
-        ${nx ? `<button class="btn primary" id="eNext">Essayer la source suivante</button>` : ""}<button class="btn" id="eVlc">Ouvrir dans VLC</button><button class="btn" id="eBack">Retour aux sources</button></div></div>`);
+        ${nx ? `<button class="btn primary" id="eNext">Essayer la source suivante</button>` : ""}<button class="btn" id="eVlc">Ouvrir dans VLC</button>${isIOS ? `<button class="btn" id="eInfuse">Ouvrir dans Infuse</button>` : ""}<button class="btn" id="eBack">Retour aux sources</button></div></div>`);
       if (nx) $("#eNext").addEventListener("click", () => { closePlayer(); playStream(m, nx, ctx.videoId); });
       $("#eVlc").addEventListener("click", () => { location.href = isIOS ? "vlc-x-callback://x-callback-url/stream?url=" + enc(s.url) : "vlc://" + s.url; });
+      const inf = $("#eInfuse"); if (inf) inf.addEventListener("click", () => { location.href = "infuse://x-callback-url/play?url=" + enc(s.url); });
       $("#eBack").addEventListener("click", closePlayer);
     };
     video.addEventListener("error", () => fail("Lecture impossible"));
-    // Si rien ne démarre au bout de 20 s, on propose tout de suite une autre source au lieu d'attendre
-    const watchdog = setTimeout(() => { if (!video.currentTime && video.readyState < 3) fail("La vidéo ne démarre pas"); }, 20000);
+    // iPhone : le lecteur intégré ne lit pas les MKV / AVI. On le dit tout de suite au lieu de charger dans le vide.
+    const label = (s.name + " " + (s.title || "") + " " + s.url).toLowerCase();
+    if (isIOS && (/\.(mkv|avi|wmv|flv)(\?|$)/i.test(s.url) || /\bmkv\b|\.mkv\b/.test(label))) setTimeout(() => fail("Format MKV : non lisible par l'iPhone"), 60);
+    // Si rien ne démarre au bout de 15 s, on propose tout de suite une autre source au lieu d'attendre
+    const watchdog = setTimeout(() => { if (!video.currentTime && video.readyState < 3) fail("La vidéo ne démarre pas"); }, 15000);
     video.addEventListener("playing", () => clearTimeout(watchdog), { once: true });
     // Vidéo factice de 8 s envoyée par certains add-ons à la place du film (lien expiré ou débrideur manquant)
     video.addEventListener("loadedmetadata", () => { if (video.duration > 0 && video.duration < 20 && m.type !== "tv") setTimeout(() => fail("Cette source envoie une vidéo d'erreur"), 1500); }, { once: true });

@@ -589,8 +589,11 @@ class PlayerActivity : ComponentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    override fun onResume() { super.onResume(); app.tvo.tv.data.Sync.playbackActive = true }
+
     override fun onPause() {
         super.onPause()
+        app.tvo.tv.data.Sync.playbackActive = false
         saveProgress()
         app.tvo.tv.data.Sync.syncInBackground()
         player.pause()

@@ -290,7 +290,9 @@ class VlcPlayerActivity : ComponentActivity() {
         LaunchedEffect(Unit) { delay(150); runCatching { fr.requestFocus() } }
     }
 
-    override fun onPause() { super.onPause(); save(); mp.pause(); Sync.syncInBackground() }
+    override fun onResume() { super.onResume(); app.tvo.tv.data.Sync.playbackActive = true }
+
+    override fun onPause() { super.onPause(); Sync.playbackActive = false; save(); mp.pause(); Sync.syncInBackground() }
 
     override fun onDestroy() {
         saveJob?.cancel()

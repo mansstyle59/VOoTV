@@ -38,6 +38,9 @@ object Sync {
     private val mutex = Mutex()
     private val requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     val status = MutableStateFlow("")
+    /** Vrai pendant qu'une vidéo est lue (synchro allégée). */
+    @Volatile var playbackActive = false
+    @Volatile private var lastPlaySync = 0L
     private var started = false
 
     @OptIn(FlowPreview::class)
@@ -46,7 +49,13 @@ object Sync {
         started = true
         Tvo.store.onChange = { requests.tryEmit(Unit) }
         // Au plus une synchro toutes les 10 s, même pendant la lecture (position envoyée en continu)
-        scope.launch { requests.collect { kotlinx.coroutines.delay(3_000); syncNow(); kotlinx.coroutines.delay(7_000) } }
+        scope.launch { requests.collect {
+            kotlinx.coroutines.delay(3_000)
+            // Pendant la lecture : une synchro par minute au plus, pour ne jamais faire saccader la vidéo
+            if (playbackActive && System.currentTimeMillis() - lastPlaySync < 60_000) return@collect
+            if (playbackActive) lastPlaySync = System.currentTimeMillis()
+            syncNow(); kotlinx.coroutines.delay(7_000)
+        } }
         scope.launch { syncNow() }
     }
 

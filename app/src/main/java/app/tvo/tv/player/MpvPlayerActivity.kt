@@ -359,7 +359,9 @@ class MpvPlayerActivity : ComponentActivity() {
         LaunchedEffect(Unit) { delay(150); runCatching { fr.requestFocus() } }
     }
 
-    override fun onPause() { super.onPause(); save(); if (mpvReady) MPVLib.setPropertyBoolean("pause", true); Sync.syncInBackground() }
+    override fun onResume() { super.onResume(); app.tvo.tv.data.Sync.playbackActive = true }
+
+    override fun onPause() { super.onPause(); Sync.playbackActive = false; save(); if (mpvReady) MPVLib.setPropertyBoolean("pause", true); Sync.syncInBackground() }
 
     override fun onDestroy() {
         saveJob?.cancel()
