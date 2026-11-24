@@ -94,7 +94,12 @@ private fun AppNav() {
     LaunchedEffect(Unit) { refreshAddons() }
     NavHost(nc, startDestination = "splash") {
         composable("splash") { SplashScreen { nc.navigate("gate") { popUpTo("splash") { inclusive = true } } } }
-        composable("gate") { AccountGate { nc.navigate("profiles") { popUpTo("gate") { inclusive = true } } } }
+        composable("gate") { AccountGate {
+            // Rouvre directement le dernier profil utilisé (sauf s'il est protégé par un code ou bloqué)
+            val last = Tvo.store.lastProfileToOpen()
+            if (last != null) { Tvo.store.selectProfile(last); nc.navigate("home") { popUpTo("gate") { inclusive = true } } }
+            else nc.navigate("profiles") { popUpTo("gate") { inclusive = true } }
+        } }
         composable("profiles") {
             ProfilesScreen(
                 onSelected = { nc.navigate("home") { popUpTo("profiles") { inclusive = true } } },

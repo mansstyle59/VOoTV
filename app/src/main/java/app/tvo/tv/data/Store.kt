@@ -74,8 +74,17 @@ class Store(ctx: Context) {
     // ---- profiles ----
     fun selectProfile(p: Profile) {
         currentProfile.value = p
+        prefs.edit().putString("last_profile", p.id).apply()
         library.value = load("library_${p.id}") ?: emptyList()
         progress.value = load("progress_${p.id}") ?: emptyList()
+    }
+
+    /** Dernier profil ouvert, s'il peut s'ouvrir directement (pas de code, pas bloqué). */
+    fun lastProfileToOpen(): Profile? {
+        val id = prefs.getString("last_profile", null) ?: return null
+        val p = profiles.value.firstOrNull { it.id == id } ?: return null
+        if (!p.pin.isNullOrBlank() || p.disabled || (p.trialUntil != null && p.trialUntil < now())) return null
+        return p
     }
 
     /** Administrateur : le profil marqué admin, sinon le premier. */
