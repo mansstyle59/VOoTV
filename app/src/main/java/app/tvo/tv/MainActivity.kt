@@ -149,32 +149,35 @@ private fun UpdatePrompt() {
     val scope = rememberCoroutineScope()
     fun install() { file?.let { f -> msg = Updater.install(ctx, f) ?: "Valide « Installer » sur l'écran suivant." } }
     val pending by PendingUpdate.release
-    LaunchedEffect(pending) {
-        val r = pending ?: return@LaunchedEffect
-        release = r
-        msg = "Téléchargement…"
-        file = runCatching { Updater.download(ctx, r.apkUrl) { p -> msg = "Téléchargement ${(p * 100).toInt()} %" } }
-            .onFailure { msg = "Échec du téléchargement : ${it.message}" }.getOrNull()
-        install()
+    // La mise à jour est proposée ; elle ne s'installe que si on appuie sur « Mettre à jour »
+    LaunchedEffect(pending) { val r = pending ?: return@LaunchedEffect; release = r; msg = null; file = null }
+    fun start() {
+        val r = release ?: return
+        if (file != null) { install(); return }
+        scope.launch {
+            msg = "Téléchargement…"
+            file = runCatching { Updater.download(ctx, r.apkUrl) { p -> msg = "Téléchargement ${(p * 100).toInt()} %" } }
+                .onFailure { msg = "Échec du téléchargement : ${it.message}" }.getOrNull()
+            install()
+        }
     }
     val r = release ?: return
     val fr = remember { FocusRequester() }
     Dialog(onDismissRequest = { release = null }) {
         Surface(shape = RoundedCornerShape(16.dp), colors = SurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text)) {
             Column(Modifier.width(460.dp).padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Mise à jour de TVO ${r.versionName}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("Mise à jour disponible : TVO ${r.versionName}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Text("Ta liste, ta progression et tes réglages sont conservés.", fontSize = 15.sp, color = TvoColors.Muted)
                 Updater.cleanNotes(r.notes).takeIf { it.isNotBlank() }?.let { Text("Nouveautés : $it", fontSize = 14.sp, color = TvoColors.Text, maxLines = 6) }
                 msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvoButton("Installer", { if (file != null) install() }, Modifier.focusRequester(fr), primary = true)
+                    TvoButton("Mettre à jour", { start() }, Modifier.focusRequester(fr), primary = true)
                     TvoButton("Plus tard", { release = null })
                 }
             }
         }
     }
     LaunchedEffect(r) { delay(100); runCatching { fr.requestFocus() } }
-    @Suppress("UNUSED_VARIABLE") val keep = scope
 }
 
 
@@ -253,8 +256,8 @@ private fun WhatsNew() {
     Dialog(onDismissRequest = { notes = emptyList() }) {
         Surface(shape = RoundedCornerShape(20.dp), colors = SurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text)) {
             Column(Modifier.width(620.dp).padding(30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Nouveautés de TVO ${app.tvo.tv.BuildConfig.VERSION_NAME}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Text("Ce qui a changé depuis ta dernière ouverture", fontSize = 14.sp, color = TvoColors.Muted)
+                Text("TVO ${app.tvo.tv.BuildConfig.VERSION_NAME} est installée ✓", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text("Récapitulatif : tout ce qui a été ajouté, amélioré et réparé", fontSize = 14.sp, color = TvoColors.Muted)
                 androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(notes.size) { i -> val (v, n) = notes[i]
                         Column { Text("Version $v", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan); Text(n, fontSize = 15.sp) } }

@@ -11,12 +11,6 @@
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const VERSION = window.TVO_VERSION || { code: 0, name: "dev", repo: "mansstyle59/VOoTV" };
-  // Écran de démarrage : créé ici s'il manque (anciennes installations dont la page d'origine ne l'avait pas)
-  (() => {
-    let sp = document.getElementById("splash");
-    if (!sp) { sp = document.createElement("div"); sp.id = "splash"; sp.className = "splash"; document.body.prepend(sp); }
-    sp.innerHTML = `<img src="logo-tv.png" alt="TVO"><span class="stag">Films, séries et TV en direct</span><span class="sbar"><i></i></span><p id="splashMsg">Recherche de mise à jour…</p><small id="splashVer"></small>`;
-  })();
 
   const ICON = {
     home: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11h3v9h6v-6h2v6h6v-9h3z"/></svg>',
@@ -47,7 +41,15 @@
     more: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="9" r="1.8"/><circle cx="12" cy="9" r="1.8"/><circle cx="18" cy="9" r="1.8"/><circle cx="6" cy="15" r="1.8"/><circle cx="12" cy="15" r="1.8"/><circle cx="18" cy="15" r="1.8"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
   };
-  const LOGO = `<img class="logo" src="logo-tv.png" alt="TVO">`;
+  // Logo vectoriel dans le code : toujours net, et mis à jour avec l'appli (sans réinstaller)
+  const LOGO_SVG = `<svg class="tvo-logo" role="img" aria-label="TVO" xmlns="http://www.w3.org/2000/svg" viewBox="-10 -40 640 280"><defs>   <linearGradient id="tvoLg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34E4D8"/><stop offset=".5" stop-color="#3D7CFF"/><stop offset="1" stop-color="#2A4FE6"/></linearGradient>   <linearGradient id="tvoLgl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>   <radialGradient id="tvoLbg" cx=".3" cy=".25" r="1"><stop offset="0" stop-color="#1B3A8C"/><stop offset=".6" stop-color="#0C1634"/><stop offset="1" stop-color="#070B1A"/></radialGradient>   <filter id="tvoLsh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#1d4dff" flood-opacity=".45"/></filter> </defs><g transform="translate(0 0)"><path d="M0 0 H150 V40 H96 V200 H54 V40 H0 Z" fill="#F3F6FF"/><path d="M170 0 H215 L262 146 L309 0 H354 L284 200 H240 Z" fill="#F3F6FF"/></g> <g transform="translate(372 -28) scale(.5)"><g filter="url(#tvoLsh)"><circle cx="256" cy="256" r="196" fill="none" stroke="url(#tvoLg)" stroke-width="36"/><path d="M212 172 Q212 152 230 162 L352 238 Q368 248 352 258 L230 334 Q212 344 212 324 Z" transform="translate(6 10)" fill="url(#tvoLg)"/></g><path d="M108 210 A156 156 0 0 1 300 104" fill="none" stroke="url(#tvoLgl)" stroke-width="14" stroke-linecap="round"/></g></svg>`;
+  const LOGO = `<span class="logo">${LOGO_SVG}</span>`;
+  // Écran de démarrage : créé ici s'il manque (anciennes installations dont la page d'origine ne l'avait pas)
+  (() => {
+    let sp = document.getElementById("splash");
+    if (!sp) { sp = document.createElement("div"); sp.id = "splash"; sp.className = "splash"; document.body.prepend(sp); }
+    sp.innerHTML = `<span class="splash-logo">${LOGO_SVG}</span><span class="stag">Films, séries et TV en direct</span><span class="sbar"><i></i></span><p id="splashMsg">Recherche de mise à jour…</p><small id="splashVer"></small>`;
+  })();
   const MARK = `<img class="mark" src="logo-mark.png" alt="TVO">`;
 
   // ------------------------------------------------------------------ storage
@@ -763,7 +765,7 @@
   function screenAuth() {
     setTabs(null);
     let mode = "in";
-    app.innerHTML = `<div class="auth"><img class="auth-logo" src="logo-tv.png" alt="TVO"><p class="auth-tag">Films, séries et TV en direct</p>
+    app.innerHTML = `<div class="auth"><span class="auth-logo">${LOGO_SVG}</span><p class="auth-tag">Films, séries et TV en direct</p>
       <div class="auth-card">
         <div class="seg wide" id="auSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
         <input class="field" id="auUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
@@ -795,7 +797,7 @@
   function screenBlocked() {
     setTabs(null);
     const a = acct() || {}; const [t, d] = STATUS_TXT[a.status] || ["Accès impossible", "Vérifie ta connexion internet."];
-    app.innerHTML = `<div class="auth"><img class="auth-logo" src="logo-tv.png" alt="TVO"><div class="auth-card" style="text-align:center">
+    app.innerHTML = `<div class="auth"><span class="auth-logo">${LOGO_SVG}</span><div class="auth-card" style="text-align:center">
       <b style="font-size:20px">${esc(t)}</b><p class="small muted" style="margin:0">${esc(d)}</p><p class="small" style="margin:0;color:var(--cyan)">Compte « ${esc(a.user || "")} »</p>
       <button class="btn primary block" id="blkRetry">Vérifier à nouveau</button><button class="btn block" id="blkOut">Changer de compte</button></div>
       <div class="legal-links"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions</a><a href="#/legal/privacy">Confidentialité</a></div></div>`;
@@ -1379,7 +1381,6 @@
         <h1>Tendances pour toi</h1>
         <button class="icon-btn round" data-go="#/discover" aria-label="Rechercher">${ICON.search}</button></header>`)
       + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
-    showUpdateBanner($("#upd"));
     const rowsEl = $("#rows");
 
     const hidden = type ? [] : homeLayout().hidden;
@@ -2364,7 +2365,7 @@
       app.querySelectorAll("[data-pl]").forEach((b) => b.addEventListener("click", () => { S.player = b.dataset.pl; LS.set("player", S.player); draw(); }));
       $("#upd").addEventListener("click", async () => {
         toast("Recherche…");
-        if (await autoUpdate(true)) applyUpdate(); else toast("TVO est à jour");
+        const r = await checkUpdate(); if (r) showUpdateBanner(r); else toast("TVO est à jour");
       });
     };
     draw();
@@ -2641,7 +2642,7 @@
   function showWhatsNew(list, name) {
     if (!list.length) return;
     const box = document.createElement("div"); box.className = "wn-sheet";
-    box.innerHTML = `<div class="wn-card"><div class="wn-head"><img src="logo-mark.png" alt=""><div><b>Nouveautés de TVO ${esc(name)}</b><span class="small muted">Ce qui a changé depuis ta dernière ouverture</span></div></div>
+    box.innerHTML = `<div class="wn-card"><div class="wn-head"><img src="logo-mark.png" alt=""><div><b>TVO ${esc(name)} est installée ✓</b><span class="small muted">Récapitulatif : tout ce qui a été ajouté, amélioré et réparé</span></div></div>
       <div class="wn-list">${list.map((r) => `<div class="wn-item"><span class="tag">${esc(r.name)}</span><p>${esc(r.notes).replace(/\n/g, "<br>")}</p></div>`).join("")}</div>
       <button class="btn primary block" data-x>Super, on y va !</button></div>`;
     document.body.appendChild(box);
@@ -2650,6 +2651,25 @@
   async function latestRelease() {
     const r = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases/latest`, 10000);
     return { code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, "") };
+  }
+  /** Regarde s'il existe une nouvelle version (sans rien installer). */
+  async function checkUpdate() {
+    if (!VERSION.code) return null;
+    try { const rel = await latestRelease(); if (rel.code > VERSION.code) { updateInfo = rel; return rel; } } catch {}
+    return null;
+  }
+  /** Bannière en haut de l'écran : la mise à jour ne s'installe que si on appuie dessus. */
+  function showUpdateBanner(rel) {
+    if (!rel || $("#updBanner")) return;
+    const b = document.createElement("div"); b.id = "updBanner"; b.className = "upd-banner";
+    b.innerHTML = `<span class="ub-ic">⬆</span><span class="ub-t"><b>Mise à jour disponible</b><small>TVO ${esc(rel.name)}</small></span>
+      <button class="btn sm primary" id="ubGo">Mettre à jour</button><button class="icon-btn" id="ubX" aria-label="Plus tard">✕</button>`;
+    document.body.appendChild(b);
+    $("#ubX").addEventListener("click", () => b.remove());
+    $("#ubGo").addEventListener("click", async () => {
+      const go = $("#ubGo"); go.disabled = true; go.textContent = "Téléchargement…";
+      if (await autoUpdate(true)) applyUpdate(); else { go.disabled = false; go.textContent = "Réessayer"; toast("Échec du téléchargement, réessaie."); }
+    });
   }
   /** Télécharge le nouveau code de l'appli et le garde pour les prochains démarrages. */
   async function autoUpdate(force = false) {
@@ -2671,10 +2691,10 @@
   }
   function applyUpdate() {
     if (!$("#player").hidden) return; // ne jamais couper une vidéo
-    document.body.insertAdjacentHTML("beforeend", `<div class="toast" style="bottom:50%">Mise à jour de TVO ${esc(updateInfo.name)}…</div>`);
+    LS.set("seen_code", VERSION.code); // le récapitulatif s'affichera après le redémarrage
+    document.body.insertAdjacentHTML("beforeend", `<div class="toast" style="bottom:50%">Installation de TVO ${esc(updateInfo.name)}…</div>`);
     setTimeout(() => location.reload(), 600);
   }
-  function showUpdateBanner() { /* mises à jour automatiques : plus de bannière */ }
 
   // ------------------------------------------------------------------ routeur
   // ------------------------------------------------------------------ animations
@@ -2763,10 +2783,10 @@
   (async () => {
     const sp = $("#splash"), msg = $("#splashMsg"), t0 = Date.now();
     const sv = $("#splashVer"); if (sv) sv.textContent = "Version " + VERSION.name;
-    const ok = await Promise.race([autoUpdate(), sleep(5000).then(() => false)]);
+    const rel = await Promise.race([checkUpdate(), sleep(5000).then(() => null)]);
     await sleep(Math.max(0, 2400 - (Date.now() - t0)));
-    if (ok && $("#player").hidden) { if (msg) msg.textContent = `Installation de TVO ${updateInfo.name}…`; setTimeout(() => location.reload(), 500); return; }
-    if (msg) msg.textContent = "TVO est à jour ✓";
+    if (msg) msg.textContent = rel ? `Mise à jour ${rel.name} disponible` : "TVO est à jour ✓";
+    if (rel) setTimeout(() => showUpdateBanner(rel), 900);
     if (sp) sp.classList.add("done");
     // Nouveautés : affichées une fois, à la première ouverture après une mise à jour (code ou appli réinstallée)
     const seen = LS.get("seen_code", null);
@@ -2776,5 +2796,5 @@
     }, 450);
   })();
   document.addEventListener("visibilitychange", () => { if (document.hidden && syncTimer) { clearTimeout(syncTimer); syncTimer = null; syncNow(); } });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) autoUpdate().then((ok) => ok && applyUpdate()); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate().then((r) => r && showUpdateBanner(r)); });
 })();
