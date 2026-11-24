@@ -2130,8 +2130,15 @@
     draw(st.total);
   }
 
+  // ------------------------------------------------------------------ icône de l'appli (iPhone) : choisie dans les réglages, sans réinstaller
+  const APP_ICONS = [[null, "Classique", "#0c1634", "#3d7cff"], ["IconTurquoise", "Turquoise", "linear-gradient(135deg,#2fd6cf,#2a5be8)", "#fff"],
+    ["IconNuit", "Nuit", "#050505", "#3d7cff"], ["IconClair", "Clair", "linear-gradient(#fff,#e6edff)", "#3d7cff"],
+    ["IconNoel", "Noël", "linear-gradient(135deg,#c8102e,#6b0a1a)", "#fff"], ["IconOr", "Or", "#121214", "#e0b04a"]];
+  const APPICON = () => window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.Plugins && Capacitor.Plugins.AppIcon;
+  const iconTile = ([n, label, bg, c]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev" style="background:${bg}">
+      <svg viewBox="0 0 512 512"><circle cx="256" cy="256" r="150" fill="none" stroke="${c}" stroke-width="28"/><path d="M220 186 Q220 170 234 178 L330 240 Q343 248 330 256 L234 318 Q220 326 220 310 Z" transform="translate(4 8)" fill="${c}"/></svg></span><span>${label}</span></button>`;
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
-  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
+  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
@@ -2239,6 +2246,8 @@
       <h2 class="section-title section"><span>Page d'accueil</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
       <div class="list" id="homeEd"></div>
+      ${APPICON() ? `<h2 class="section-title section"><span>Icône de l'appli</span></h2>
+      <div class="list"><div class="card small muted">Change l'icône de TVO sur l'écran d'accueil, sans réinstaller.</div><div class="aicons" id="aicons">${APP_ICONS.map(iconTile).join("")}</div></div>` : ""}
       <h2 class="section-title section"><span>Application</span></h2>
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>
@@ -2315,6 +2324,14 @@
         try { const c = String(await pairCreate()); $("#tvCodeBox").innerHTML = `<div class="card" style="text-align:center"><div style="font-size:36px;font-weight:800;letter-spacing:.12em">${esc(c.slice(0, 3) + " " + c.slice(3))}</div><div class="small muted">Sur la télé : « J'ai un code », puis tape ces 6 chiffres. Valable 10 minutes.</div></div>`; }
         catch { $("#tvCodeBox").innerHTML = '<div class="card">Pas de connexion.</div>'; }
       });
+      if ($("#aicons")) {
+        const mark = async () => { let cur = null; try { cur = (await APPICON().getName()).value || null; } catch {}
+          $("#aicons").querySelectorAll("[data-icon]").forEach((b) => b.classList.toggle("on", (b.dataset.icon || null) === cur)); };
+        mark();
+        $("#aicons").addEventListener("click", async (e) => { const b = e.target.closest("[data-icon]"); if (!b) return;
+          try { if (b.dataset.icon) await APPICON().change({ name: b.dataset.icon, suppressNotification: false }); else await APPICON().reset({ suppressNotification: false }); mark(); }
+          catch (err) { toast("Cette icône arrivera avec la prochaine installation de l'appli.", 4500); } });
+      }
       const ga = $("#goAcc"); if (ga) ga.addEventListener("click", () => go("#/accounts"));
       const dG = $("#dGo"); if (dG) dG.addEventListener("click", async () => {
         if (!confirm("Supprimer définitivement ton compte et toutes tes données ?")) return;

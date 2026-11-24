@@ -1082,3 +1082,10 @@ html.mac .upd-banner { top: 40px; }
   .upd-banner { top: 80px; }
 }
 @media (min-width: 1600px) { .ncard { width: 340px; } }
+
+/* Choix de l'icône */
+.aicons { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 6px 0; }
+.aicon { display: grid; justify-items: center; gap: 6px; background: none; border: 0; color: var(--text); font-size: 13px; font-weight: 600; }
+.aiprev { width: 64px; height: 64px; border-radius: 15px; display: grid; place-items: center; border: 2px solid transparent; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+.aiprev svg { width: 78%; height: 78%; }
+.aicon.on .aiprev { border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(61,124,255,.35); }
