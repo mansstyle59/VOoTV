@@ -2515,7 +2515,7 @@ var qrcode = function() {
       tcat("movie", "kids", "Films pour enfants"), tcat("series", "kids", "Dessins animés et séries enfants"),
       tcat("movie", "trending", "Films tendance cette semaine"), tcat("series", "trending", "Séries tendance cette semaine"),
       tcat("movie", "popular", "Films populaires", TMDB.MOVIE, true), tcat("series", "popular", "Séries populaires", TMDB.TV, true),
-      tcat("movie", "now_playing", "Actuellement au cinéma"), tcat("movie", "upcoming", "Bientôt au cinéma"),
+
       tcat("movie", "prov_8", "Nouveaux films sur Netflix"), tcat("series", "prov_8", "Nouvelles séries sur Netflix"),
       tcat("movie", "prov_119", "Nouveaux films sur Prime Video"), tcat("series", "prov_119", "Nouvelles séries sur Prime Video"),
       tcat("movie", "prov_337", "Nouveautés Disney+"), tcat("series", "prov_381", "Nouveautés Canal+"), tcat("series", "prov_350", "Nouveautés Apple TV+"),

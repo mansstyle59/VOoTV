@@ -42,8 +42,6 @@ object Tmdb {
             cat("series", "trending", "Séries tendance cette semaine"),
             cat("movie", "popular", "Films populaires", MOVIE_GENRES.keys, search = true),
             cat("series", "popular", "Séries populaires", TV_GENRES.keys, search = true),
-            cat("movie", "now_playing", "Actuellement au cinéma"),
-            cat("movie", "upcoming", "Bientôt au cinéma"),
             cat("movie", "prov_8", "Nouveaux films sur Netflix"),
             cat("series", "prov_8", "Nouvelles séries sur Netflix"),
             cat("movie", "prov_119", "Nouveaux films sur Prime Video"),

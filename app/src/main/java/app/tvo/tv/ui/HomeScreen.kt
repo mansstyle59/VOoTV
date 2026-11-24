@@ -51,6 +51,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -254,7 +257,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     // Les cartes « Continuer à regarder » n'ont pas le résumé : on va chercher la fiche complète (genre, année, note, résumé)
     val full by produceState<MetaPreview?>(null, shown?.id) {
         val s0 = shown
-        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type != "tv" && s0.type != "channel")
+        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform"))
             runCatching { Tvo.client.metaCache["${s0.type}/${s0.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), s0.type, s0.id)?.preview }.getOrNull()
         else null
     }
@@ -264,7 +267,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     LaunchedEffect(inRows) { navHidden.value = inRows }
     val logo by produceState<String?>(m?.logo, m?.id) {
         val mm = m
-        value = mm?.logo ?: if (mm != null && mm.type != "tv" && mm.type != "channel" && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
+        value = mm?.logo ?: if (mm != null && mm.type !in listOf("tv", "channel", "genre", "platform") && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
     }
     Box(Modifier.fillMaxSize()) {
         if (m != null) {
@@ -284,7 +287,8 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                     if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
                     else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
                     Spacer(Modifier.height(10.dp))
-                    Text(listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
+                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries"
+                        else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
                     if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text("TMDB", Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF01B4E4)).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0D253F))
@@ -303,8 +307,18 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
             }
             androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }, androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowTopSpec) {
                 Box(Modifier.fillMaxWidth().weight(1f)) {
+                    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+                    val upScope = rememberCoroutineScope()
+                    val fm = androidx.compose.ui.platform.LocalFocusManager.current
                     LazyColumn(
-                        Modifier.fillMaxSize().onFocusChanged { inRows = it.hasFocus },
+                        // Haut : remonte d'une seule rangée à la fois ; l'en-tête n'est atteint qu'en étant sur la première rangée
+                        Modifier.fillMaxSize().onFocusChanged { inRows = it.hasFocus }.onPreviewKeyEvent { e ->
+                            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionUp && listState.firstVisibleItemIndex > 0) {
+                                upScope.launch { listState.scrollToItem(listState.firstVisibleItemIndex - 1); delay(30); fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Up) }
+                                true
+                            } else false
+                        },
+                        state = listState,
                         contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         content = rows,
@@ -491,8 +505,23 @@ private val PROV_BG = mapOf(
     "1899" to "/577eXC8wFQT0eUrJcgznSiFPRmk.jpg",
 )
 
+private val GENRE_TXT = mapOf(
+    "Action" to "Poursuites, combats et héros : les films qui ne laissent pas souffler.",
+    "Comedy" to "De quoi rire seul ou en famille : comédies françaises et internationales.",
+    "Animation" to "Pixar, Disney, Ghibli et toutes les pépites animées, pour petits et grands.",
+    "Sci-Fi" to "Voyages dans l'espace, futurs possibles et mondes imaginaires.",
+    "Horror" to "Frissons garantis : épouvante, suspense et nuits blanches.",
+    "Thriller" to "Tension, enquêtes et retournements jusqu'à la dernière minute.",
+    "Drama" to "Des histoires fortes et émouvantes, portées par de grands acteurs.",
+    "Documentary" to "Le monde réel raconté : nature, histoire, société, sport.",
+)
+
+private fun GenreTilesSelect(g: String) = MetaPreview("genre:$g", "genre", genreLabel(g), null,
+    GENRE_IMG[g]?.let { TMDB_IMG + "w1280" + it }, null, GENRE_TXT[g] ?: "Les meilleurs titres de la catégorie ${genreLabel(g)}.")
+
 @Composable
 private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
+    val select = LocalSelect.current
     PanelSection("Catégories") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -500,7 +529,7 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("movie", g) },
-                    modifier = Modifier.width(240.dp).height(135.dp).onFocused(onFocus),
+                    modifier = Modifier.width(240.dp).height(135.dp).onFocused { onFocus(); select(GenreTilesSelect(g)) },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
@@ -519,6 +548,7 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
 
 @Composable
 private fun PlatformTiles(nav: Nav) {
+    val select = LocalSelect.current
     PanelSection("Plateformes") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -527,7 +557,10 @@ private fun PlatformTiles(nav: Nav) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("all", "prov:$id") },
-                    modifier = Modifier.width(250.dp).height(124.dp),
+                    modifier = Modifier.width(250.dp).height(124.dp).onFocused {
+                        select(MetaPreview("platform:$id", "platform", name, null, PROV_BG[id]?.let { TMDB_IMG + "w1280" + it }, TMDB_IMG + "w300" + logo,
+                            "Les nouveautés films et séries disponibles sur $name, en France."))
+                    },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
