@@ -196,23 +196,24 @@ fun TvoButton(
     primary: Boolean = false,
     wide: Boolean = false,
 ) {
-    // Boutons 2.0 : pilule, verre dépoli au repos, blanc éclatant + léger zoom quand on est dessus
+    // Boutons façon Netflix : rectangle aux coins légèrement arrondis, plein (blanc) ou gris translucide, sans effet verre
+    val shape = RoundedCornerShape(6.dp)
     Button(
         onClick = onClick,
         modifier = modifier.height(48.dp),
-        shape = ButtonDefaults.shape(RoundedCornerShape(50)),
+        shape = ButtonDefaults.shape(shape),
         colors = ButtonDefaults.colors(
-            containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.12f),
-            contentColor = if (primary) Color(0xFF0B0A12) else Color.White,
-            focusedContainerColor = Color.White,
-            focusedContentColor = Color(0xFF0B0A12),
-            pressedContainerColor = Color(0xFFE6E6EE),
-            pressedContentColor = Color(0xFF0B0A12),
+            containerColor = if (primary) Color.White else Color(0xFF6D7691).copy(alpha = 0.45f),
+            contentColor = if (primary) Color.Black else Color.White,
+            focusedContainerColor = if (primary) Color.White else Color.White,
+            focusedContentColor = Color.Black,
+            pressedContainerColor = Color(0xFFD9D9D9),
+            pressedContentColor = Color.Black,
         ),
-        scale = ButtonDefaults.scale(focusedScale = 1.07f, pressedScale = 0.97f),
+        scale = ButtonDefaults.scale(focusedScale = 1.06f, pressedScale = 0.97f),
         border = ButtonDefaults.border(
-            border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = if (primary) 0f else 0.22f)), shape = RoundedCornerShape(50)),
-            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.55f)), inset = (-4).dp, shape = RoundedCornerShape(50)),
+            border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(0.dp, Color.Transparent), shape = shape),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), inset = (-3).dp, shape = shape),
         ),
         contentPadding = PaddingValues(start = if (icon != null) 20.dp else 26.dp, end = 26.dp),
     ) {
@@ -239,7 +240,7 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
     Surface(
         onClick = onClick,
         modifier = modifier,
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) TvoColors.Violet else TvoColors.Surface2,
             contentColor = TvoColors.Text,

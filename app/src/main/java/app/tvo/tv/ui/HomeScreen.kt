@@ -237,7 +237,7 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
 private fun RoundIconButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick, modifier = modifier.size(40.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = TvoColors.Text,
             focusedContainerColor = Color.White, focusedContentColor = Color.Black),
@@ -350,18 +350,18 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
 
 @Composable
 fun BlueButton(text: String, onClick: () -> Unit, filled: Boolean, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(6.dp)
     androidx.tv.material3.Button(
         onClick = onClick, modifier = modifier,
         shape = androidx.tv.material3.ButtonDefaults.shape(shape),
         colors = androidx.tv.material3.ButtonDefaults.colors(
-            containerColor = if (filled) TvoColors.Blue else Color.Transparent,
+            containerColor = if (filled) TvoColors.Blue else Color(0xFF6D7691).copy(alpha = 0.45f),
             contentColor = Color.White,
             focusedContainerColor = if (filled) Color(0xFF5A7DFF) else Color.White,
             focusedContentColor = if (filled) Color.White else Color.Black,
         ),
         border = androidx.tv.material3.ButtonDefaults.border(
-            border = Border(BorderStroke(1.5.dp, if (filled) Color.Transparent else TvoColors.Blue), shape = shape),
+            border = Border(BorderStroke(0.dp, Color.Transparent), shape = shape),
             focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = shape)),
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 9.dp),
     ) { Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
