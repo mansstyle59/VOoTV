@@ -5181,7 +5181,8 @@ var qrcode = function() {
     video.addEventListener("playing", () => clearTimeout(watchdog), { once: true });
     // Vidéo factice de 8 s envoyée par certains add-ons à la place du film (lien expiré ou débrideur manquant)
     video.addEventListener("loadedmetadata", () => { if (video.duration > 0 && video.duration < 20 && m.type !== "tv") setTimeout(() => fail("Cette source envoie une vidéo d'erreur"), 1500); }, { once: true });
-    if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => {});
+    // Orientation automatique : le lecteur suit la rotation du téléphone (portrait ou paysage), sans forcer le paysage
+    if (screen.orientation && screen.orientation.unlock) try { screen.orientation.unlock(); } catch { /* */ }
   }
 
   function showNext(ctx, video) {
