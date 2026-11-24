@@ -39,8 +39,9 @@ object Updater {
         val tag = o.s("tag_name") ?: return@runCatching null
         val code = tag.substringAfterLast('.').filter { it.isDigit() }.toIntOrNull() ?: return@runCatching null
         val apk = o.arr("assets")?.mapNotNull { it as? JsonObject }
-            ?.let { list -> list.firstOrNull { it.s("name")?.let { n -> n.endsWith(".apk") && n.contains("TV", true) } == true }
-                ?: list.firstOrNull { it.s("name")?.endsWith(".apk") == true && it.s("name")?.contains("Mobile", true) != true } }
+            // Uniquement l'APK télé (« TVO-TV… ») : jamais la version téléphone.
+            ?.let { list -> list.firstOrNull { it.s("name") == "TVO-TV.apk" }
+                ?: list.firstOrNull { it.s("name")?.let { n -> n.startsWith("TVO-TV") && n.endsWith(".apk") } == true } }
             ?.s("browser_download_url")
             ?: return@runCatching null
         if (code > BuildConfig.VERSION_CODE) Release(code, tag.removePrefix("v"), apk, o.s("body") ?: "") else null

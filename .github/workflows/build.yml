@@ -52,8 +52,8 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-          mkdir -p ../../dist && cp app/build/outputs/apk/release/app-release.apk "../../dist/TVO-Mobile-1.0.${BUILD_NUMBER}.apk"
-          cp app/build/outputs/apk/release/app-release.apk ../../dist/TVO-Mobile.apk
+          mkdir -p ../../dist && cp app/build/outputs/apk/release/app-release.apk "../../dist/Android-Mobile-1.0.${BUILD_NUMBER}.apk"
+          cp app/build/outputs/apk/release/app-release.apk ../../dist/Android-Mobile.apk
       - uses: actions/upload-artifact@v4
         with: { name: mobile, path: dist/* }
 
@@ -110,7 +110,7 @@ jobs:
             ${{ github.event.head_commit.message }}
 
             - TVO-TV : Android TV / box (télécommande)
-            - TVO-Mobile : téléphone Android
+            - Android-Mobile : téléphone Android
             - TVO-iOS : iPhone (à installer avec ESign ou KSign)
           files: dist/*
           make_latest: true
