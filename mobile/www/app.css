@@ -1641,3 +1641,7 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 .homebar { grid-template-columns: 44px 1fr 44px 44px; gap: 6px; }
 /* Page Kids */
 .kidspage .section-title .st { color: #ffd166; }
+
+/* Sources : bouton Signaler */
+.card.source { position: relative; }
+.srep { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-left: 4px; border-radius: 8px; color: #ffb4a8; background: rgba(255,90,70,.12); font-size: 18px; }

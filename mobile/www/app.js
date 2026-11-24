@@ -3044,6 +3044,18 @@ var qrcode = function() {
     return 0;
   };
   const qLabel = (q) => ["Auto", "SD", "720p", "1080p", "4K"][q];
+  // Qualité souhaitée (réglage) : all | 4k | 1080 | 720 ; synchronisée avec la télé
+  const QPREFS = [["all", "Toutes"], ["4k", "4K"], ["1080", "1080p"], ["720", "720p et moins"]];
+  const qpref = () => (LS.get("qpref", { v: "all", t: 0 }) || {}).v || "all";
+  const qpass = (s) => { const p = qpref(); if (p === "all" || !s.quality) return true;
+    return p === "4k" ? s.quality === 4 : p === "1080" ? s.quality === 3 : s.quality <= 2; };
+  // Sources signalées : masquées pour tout le monde (synchro) jusqu'à expiration (14 jours), le temps qu'elles soient mises à jour
+  const BAD_TTL = 14 * 864e5;
+  const srcKey = (u) => { let h = 5381; const x = String(u || "").split("?")[0]; for (let i = 0; i < x.length; i++) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  const badMap = () => { const m = LS.get("badsrc", {}), now = Date.now(); let ch = false;
+    Object.keys(m).forEach((k) => { if (now - m[k] > BAD_TTL) { delete m[k]; ch = true; } }); if (ch) LS.set("badsrc", m); return m; };
+  const isBad = (s) => !!s.url && srcKey(s.url) in badMap();
+  function reportSource(s) { const m = badMap(); m[srcKey(s.url)] = Date.now(); LS.set("badsrc", m); syncNow && syncNow(); }
   function parseStream(o, addonName) {
     const url = o.url || null;
     const ext = o.externalUrl || (o.ytId ? "https://www.youtube.com/watch?v=" + o.ytId : null);
@@ -3501,7 +3513,7 @@ var qrcode = function() {
       lib[p.id] = m;
       const pm = {}; LS.get("prog." + p.id, []).forEach((x) => (pm[x.videoId] = x)); prog[p.id] = pm;
     });
-    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout() };
+    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout(), bad: badMap(), qpref: LS.get("qpref", { v: "all", t: 0 }) };
   }
   function mergeDocs(a, b) {
     const mm = (x = {}, y = {}, t) => { const o = { ...x }; Object.entries(y).forEach(([k, v]) => { if (!o[k] || t(v) > t(o[k])) o[k] = v; }); return o; };
@@ -3518,7 +3530,9 @@ var qrcode = function() {
     const tB = (b.tmdbT || 0) > (a.tmdbT || 0);
     return { v: 1, profiles, addons: useB ? b.addons : a.addons, addonsT: useB ? b.addonsT : (a.addonsT || 0), lib, prog,
       tmdbKey: tB ? b.tmdbKey || null : a.tmdbKey || null, tmdbT: tB ? b.tmdbT : (a.tmdbT || 0),
-      home: ((b.home && b.home.t) || 0) > ((a.home && a.home.t) || 0) ? b.home : (a.home || null) };
+      home: ((b.home && b.home.t) || 0) > ((a.home && a.home.t) || 0) ? b.home : (a.home || null),
+      bad: mm(a.bad, b.bad, (t) => t || 0),
+      qpref: ((b.qpref && b.qpref.t) || 0) > ((a.qpref && a.qpref.t) || 0) ? b.qpref : (a.qpref || { v: "all", t: 0 }) };
   }
   function importDoc(d) {
     const order = S.profiles.map((p) => p.id);
@@ -3535,6 +3549,8 @@ var qrcode = function() {
       LS.set("prog." + p.id, Object.values((d.prog || {})[p.id] || {}).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400));
     });
     if (d.home && (d.home.t || 0) > homeLayout().t) LS.set("home", d.home);
+    if (d.bad) { const now = Date.now(), m = {}; Object.entries(d.bad).forEach(([k, t]) => { if (now - t <= BAD_TTL) m[k] = t; }); LS.set("badsrc", m); }
+    if (d.qpref && (d.qpref.t || 0) > (LS.get("qpref", { t: 0 }).t || 0)) LS.set("qpref", d.qpref);
     if ((d.tmdbT || 0) > LS.get("tmdb_t", 0) || (d.tmdbKey && !tmdbKey())) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
     if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = cleanAddons(d.addons); LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
     if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
@@ -4722,13 +4738,15 @@ var qrcode = function() {
         <span class="tags">${badge(s)}${lang(s) ? `<span class="tag">${lang(s)}</span>` : ""}${size(s) ? `<span class="tag">${size(s)}</span>` : ""}<span class="from">${esc(s.addonName)}</span></span></span>
         <span class="playic">${ICON.play}</span></button>`;
     const draw = (total) => {
-      const playable = found.filter((s) => s.url || s.externalUrl).sort((a, b) => score(b) - score(a));
+      const usable = found.filter((s) => (s.url || s.externalUrl) && !isBad(s));
+      const qOk = usable.filter(qpass), qFallback = qpref() !== "all" && !qOk.length && usable.length > 0;
+      const playable = (qFallback ? usable : qOk).sort((a, b) => score(b) - score(a));
       const torrents = found.length - playable.length;
       const tested = playable.filter((s) => s.url && test.has(s.url)).length, toTest = playable.filter((s) => s.url).length;
       $("#status").textContent = total === 0 ? "Aucun add-on de sources installé."
         : done < total ? `Recherche des sources… (${done}/${total} add-ons)`
         : tested < toTest ? `${playable.length} sources · test des liens ${tested}/${toTest}…`
-        : `${playable.length} sources testées et classées` + (torrents ? ` · ${torrents} torrent(s) non pris en charge` : "");
+        : `${playable.length} sources testées et classées` + (qpref() !== "all" ? ` · filtre ${QPREFS.find((x) => x[0] === qpref())[1]}${qFallback ? " (aucune source, toutes affichées)" : ""}` : "") + (torrents ? ` · ${torrents} torrent(s) non pris en charge` : "");
       if (!playable.length) { $("#list").innerHTML = done >= total ? `<div class="empty">${total === 0 ? "Ajoute un add-on qui fournit des vidéos dans Réglages › Add-ons." : "Aucune source lisible pour ce titre."}</div>` : ""; return; }
       const best = playable.find((s) => !s.url || (test.get(s.url) || {}).ok !== false) || playable[0];
       const groups = [4, 3, 2, 1, 0].map((q) => [q, playable.filter((s) => s.quality === q)]).filter(([, l]) => l.length);
@@ -4737,6 +4755,14 @@ var qrcode = function() {
           return `<details class="qgroup" data-q="${q}" ${openQ.has(q) ? "open" : ""}><summary><b>${qLabel(q) === "Auto" ? "Autres" : qLabel(q)}</b><span class="small muted">${l.length} lien${l.length > 1 ? "s" : ""}${ok < l.length ? ` · ${ok} en ligne` : ""}</span><i class="chev"></i></summary>
             <div class="list">${l.map(row).join("")}</div></details>`; }).join("");
       $("#list").querySelectorAll("details.qgroup").forEach((d) => d.addEventListener("toggle", () => { const q = +d.dataset.q; d.open ? openQ.add(q) : openQ.delete(q); }));
+      $("#list").querySelectorAll("button.source[data-k]").forEach((b) => {
+        const s = playable.find((x) => x._k === b.dataset.k); if (!s || !s.url) return;
+        const f = document.createElement("span"); f.className = "srep"; f.setAttribute("role", "button"); f.setAttribute("aria-label", "Signaler cette source"); f.textContent = "⚑";
+        f.addEventListener("click", (e) => { e.stopPropagation(); e.preventDefault();
+          if (!confirm("Signaler cette source ? Elle ne s'affichera plus (sur tous tes appareils) jusqu'à sa mise à jour.")) return;
+          reportSource(s); toast("Source signalée : elle est retirée de la liste."); draw(st.total); });
+        b.appendChild(f);
+      });
       SRC_QUEUE = { list: playable, m, videoId };
       $("#list").querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { const s = playable.find((x) => x._k === b.dataset.k); if (s) playStream(m, s, videoId); }));
     };
@@ -4881,6 +4907,9 @@ var qrcode = function() {
       <h2 class="section-title section"><span>Lecteur</span></h2>
       <div class="chips">${[["tvo", "Lecteur TVO (recommandé)"], ["vlc", "Appli VLC"], ...(isIOS ? [["infuse", "Infuse"]] : [])].map(([k, l]) => `<button class="chip ${S.player === k ? "on" : ""}" data-pl="${k}">${l}</button>`).join("")}</div>
       ${isIOS && window.Capacitor && Capacitor.isPluginAvailable && Capacitor.isPluginAvailable("TvoMpv") ? `<div class="chips" style="margin-top:8px">${[[true, "Moteur MPV (MKV, DTS…)"], [false, "Moteur Apple"]].map(([k, l]) => `<button class="chip ${LS.get("mpv", true) === k ? "on" : ""}" data-mpv="${k}">${l}</button>`).join("")}</div>` : ""}
+      <div class="pad small" style="margin:12px 0 6px;font-weight:700">Qualité des films</div>
+      <div class="chips">${QPREFS.map(([k, l]) => `<button class="chip ${qpref() === k ? "on" : ""}" data-qp="${k}">${l}</button>`).join("")}</div>
+      <p class="pad small muted">Choisis la qualité proposée dans les sources : « 4K » ne montre que la 4K, « 1080p » bloque la 4K et le reste, « 720p et moins » pour une connexion lente. Si aucune source n'a cette qualité, toutes sont affichées. Synchronisé avec la télé.</p>
       <p class="pad small muted">${isIOS ? "Le moteur MPV lit presque tout (MKV, HEVC, DTS, TrueHD, sous-titres intégrés), comme Nuvio. Le moteur Apple ne lit que MP4 et HLS." : "Le lecteur TVO lit MP4, HLS et la plupart des MKV. Pour un fichier au son illisible (DTS, TrueHD), choisis VLC ou Infuse s'ils sont installés."}</p>
       ${isAccountAdmin() ? "" : `      <h2 class="section-title section"><span>Titres et résumés (TMDB)</span></h2>
       <div class="list">
@@ -5093,6 +5122,7 @@ var qrcode = function() {
         try { S.addons[i] = await installAddon(S.addons[i].url); saveAddons(); cache.clear(); toast("Add-on à jour ✓"); draw(); }
         catch (e) { toast("Impossible d'actualiser (" + e.message + ")"); }
       }));
+      app.querySelectorAll("[data-qp]").forEach((b) => b.addEventListener("click", () => { LS.set("qpref", { v: b.dataset.qp, t: Date.now() }); syncNow(); draw(); }));
       app.querySelectorAll("[data-pl]").forEach((b) => b.addEventListener("click", () => { S.player = b.dataset.pl; LS.set("player", S.player); draw(); }));
       app.querySelectorAll("[data-mpv]").forEach((b) => b.addEventListener("click", () => { LS.set("mpv", b.dataset.mpv === "true"); draw(); }));
       $("#upd").addEventListener("click", async () => {
