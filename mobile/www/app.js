@@ -5561,8 +5561,12 @@ var qrcode = function() {
     box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) box.remove(); });
   }
   async function latestRelease() {
-    const r = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases/latest`, 10000);
-    return { code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, "") };
+    // Version la plus haute parmi les dernières publications (« latest » peut être en retard si deux compilations finissent dans le désordre)
+    const list = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases?per_page=15`, 10000);
+    const best = list.filter((r) => !r.draft).map((r) => ({ code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, "") }))
+      .sort((x, y) => y.code - x.code)[0];
+    if (!best) throw new Error("no release");
+    return best;
   }
   /** Regarde s'il existe une nouvelle version (sans rien installer). */
   async function checkUpdate() {
@@ -5711,6 +5715,13 @@ var qrcode = function() {
     const sv = $("#splashVer"); if (sv) sv.textContent = "Version " + VERSION.name;
     const rel = await Promise.race([checkUpdate(), sleep(5000).then(() => null)]);
     await sleep(Math.max(0, 2400 - (Date.now() - t0)));
+    // Mise à jour interne et automatique : téléchargée puis appliquée sans rien faire (bannière seulement en cas d'échec)
+    let applied = false;
+    if (rel) {
+      if (msg) msg.textContent = `Mise à jour ${rel.name}…`;
+      if (await autoUpdate(true)) { applied = true; applyUpdate(); }
+    }
+    if (applied) return;
     if (msg) msg.textContent = rel ? `Mise à jour ${rel.name} disponible` : "TVO est à jour ✓";
     if (rel) setTimeout(() => showUpdateBanner(rel), 900);
     if (sp) sp.classList.add("done");
@@ -5722,5 +5733,5 @@ var qrcode = function() {
     }, 450);
   })();
   document.addEventListener("visibilitychange", () => { if (document.hidden && syncTimer) { clearTimeout(syncTimer); syncTimer = null; syncNow(); } });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate().then((r) => r && showUpdateBanner(r)); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate().then(async (r) => { if (!r) return; if ($("#player").hidden && await autoUpdate(true)) applyUpdate(); else showUpdateBanner(r); }); });
 })();
