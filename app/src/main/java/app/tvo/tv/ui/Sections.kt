@@ -476,20 +476,20 @@ private fun AddonRow(a: Addon, index: Int) {
     val kinds = m.resources.map { it.name }.mapNotNull {
         when (it) { "catalog" -> "catalogues"; "meta" -> "fiches"; "stream" -> "vidéos"; "subtitles" -> "sous-titres"; else -> null }
     }
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f)) {
-            Text("${m.name}  ${m.version}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
-            Text(kinds.joinToString(" · ").ifEmpty { "—" }, fontSize = 13.sp, color = TvoColors.Cyan)
-            if (m.description.isNotBlank()) Text(m.description, fontSize = 13.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (m.configurable && a.url.startsWith("http")) Text("Configurer depuis le téléphone : ${a.url}/configure", fontSize = 12.sp, color = TvoColors.Cyan, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("${m.name}  ${m.version}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+        Text(kinds.joinToString(" · ").ifEmpty { "—" }, fontSize = 13.sp, color = TvoColors.Cyan)
+        if (m.description.isNotBlank()) Text(m.description, fontSize = 13.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (m.configurable && a.url.startsWith("http")) Text("Configurer depuis le téléphone : ${a.url}/configure", fontSize = 12.sp, color = TvoColors.Cyan, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+            if (index > 0) TvoButton("Monter", { store.moveAddon(a.url, -1) }, icon = Icons.Default.KeyboardArrowUp)
+            if (a.url.startsWith("http")) {
+                val scope = rememberCoroutineScope()
+                TvoButton("Actualiser", { scope.launch { runCatching { Tvo.client.install(a.url) }.onSuccess { store.addAddon(it); Tvo.client.clearCaches() } } }, icon = Icons.Default.Refresh)
+            }
+            TvoButton("Retirer", { store.removeAddon(a.url) }, icon = Icons.Default.Delete)
         }
-        if (index > 0) TvoButton("Monter", { store.moveAddon(a.url, -1) }, icon = Icons.Default.KeyboardArrowUp)
-        if (a.url.startsWith("http")) {
-            val scope = rememberCoroutineScope()
-            TvoButton("Actualiser", { scope.launch { runCatching { Tvo.client.install(a.url) }.onSuccess { store.addAddon(it); Tvo.client.clearCaches() } } }, icon = Icons.Default.Refresh)
-        }
-        TvoButton("Retirer", { store.removeAddon(a.url) }, icon = Icons.Default.Delete)
     }
 }
 

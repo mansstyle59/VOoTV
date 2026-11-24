@@ -451,11 +451,14 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
 
 /** Carte d'une saga / collection : fond de la saga, voile et nom. */
 @Composable
-fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onClick: () -> Unit) {
+fun sagaName(n: String) = n.replace(" - Saga", "").replace(" Collection", "").replace("— Saga", "").trim()
+
+@Composable
+fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onFocus: () -> Unit = {}, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Surface(
         onClick = onClick,
-        modifier = Modifier.width(240.dp).height(135.dp),
+        modifier = Modifier.width(240.dp).height(135.dp).onFocusChanged { if (it.isFocused) onFocus() },
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
@@ -467,7 +470,7 @@ fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onClick: () -> Unit) {
             Column(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 10.dp)) {
                 Box(Modifier.width(28.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFF59E0B)))
                 Spacer(Modifier.height(6.dp))
-                Text(sg.name.replace(" - Saga", "").replace(" Collection", "").replace("— Saga", "").trim(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
+                Text(sagaName(sg.name), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
             }
         }
     }

@@ -159,6 +159,10 @@ fun HomeScreen(nav: Nav) {
     BackHandler(enabled = section != Section.HOME) { section = Section.HOME }
     val immersive = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES || section == Section.LIVE
 
+    // Live TV n'apparaît que si un add-on de chaînes TV est installé
+    val addonsAll by Tvo.store.addons.collectAsState()
+    val hasTv = remember(addonsAll) { Tvo.store.allowed(addonsAll).any { a -> a.manifest.catalogs.any { it.type == "tv" || it.type == "channel" } } }
+    LaunchedEffect(hasTv, section) { if (!hasTv && section == Section.LIVE) section = Section.HOME }
     val navHidden = remember { mutableStateOf(false) }
     LaunchedEffect(section) { navHidden.value = false }
     Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
@@ -174,14 +178,14 @@ fun HomeScreen(nav: Nav) {
                 Section.SETTINGS -> SettingsSection(nav)
             }
         }
-        TopNav(section, profile, onSelect = { section = it }, onProfile = nav.switchProfile, hidden = navHidden.value && immersive)
+        TopNav(section, profile, onSelect = { section = it }, onProfile = nav.switchProfile, hidden = navHidden.value && immersive, showLive = hasTv)
       }
     }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> Unit, onProfile: () -> Unit, hidden: Boolean = false) {
+private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> Unit, onProfile: () -> Unit, hidden: Boolean = false, showLive: Boolean = true) {
     val currentFr = remember { FocusRequester() }
     Row(
         Modifier.fillMaxWidth().height(NavBarHeight).alpha(if (hidden) 0f else 1f)
@@ -192,7 +196,7 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
         Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(30.dp))
         Spacer(Modifier.width(34.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Section.entries.filter { it.inRail }.forEach { s ->
+            Section.entries.filter { it.inRail && (it != Section.LIVE || showLive) }.forEach { s ->
                 val on = s == current
                 Surface(
                     onClick = { onSelect(s) },
@@ -259,7 +263,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     // Les cartes « Continuer à regarder » n'ont pas le résumé : on va chercher la fiche complète (genre, année, note, résumé)
     val full by produceState<MetaPreview?>(null, shown?.id) {
         val s0 = shown
-        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform"))
+        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform", "collection"))
             runCatching { Tvo.client.metaCache["${s0.type}/${s0.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), s0.type, s0.id)?.preview }.getOrNull()
         else null
     }
@@ -269,7 +273,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     LaunchedEffect(inRows) { navHidden.value = inRows }
     val logo by produceState<String?>(m?.logo, m?.id) {
         val mm = m
-        value = mm?.logo ?: if (mm != null && mm.type !in listOf("tv", "channel", "genre", "platform") && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
+        value = mm?.logo ?: if (mm != null && mm.type !in listOf("tv", "channel", "genre", "platform", "collection") && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
     }
     Box(Modifier.fillMaxSize()) {
         if (m != null) {
@@ -289,7 +293,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                     if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
                     else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
                     Spacer(Modifier.height(10.dp))
-                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries"
+                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films"
                         else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
                     if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -577,12 +581,15 @@ private fun ActorRow(nav: Nav) {
 
 @Composable
 private fun SagaTiles(nav: Nav) {
+    val select = LocalSelect.current
     val sagas by produceState<List<app.tvo.tv.data.Tmdb.Saga>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagas() else emptyList() }
     if (sagas.isEmpty()) return
     PanelSection("Sagas et collections") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            itemsIndexed(sagas, key = { _, sg -> sg.id }) { i, sg -> RowItem(rf, i) { SagaTile(sg) { nav.openGenre("movie", "col:${sg.id}") } } }
+            itemsIndexed(sagas, key = { _, sg -> sg.id }) { i, sg -> RowItem(rf, i) {
+                SagaTile(sg, onFocus = { select(MetaPreview("col:${sg.id}", "collection", sagaName(sg.name), null, sg.backdrop, null, "Tous les films de la saga, dans l'ordre de sortie.")) }) { nav.openGenre("movie", "col:${sg.id}") }
+            } }
         }
     }
 }
