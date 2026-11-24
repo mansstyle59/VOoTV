@@ -1,5 +1,6 @@
 package app.tvo.tv.ui
 
+import androidx.compose.animation.togetherWith
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -120,7 +121,11 @@ fun HomeScreen(nav: Nav) {
             TopBar(profile, onSearch = { section = Section.SEARCH }, onSettings = { section = Section.SETTINGS }, onProfile = nav.switchProfile)
             Box(Modifier.fillMaxSize()) {
                 androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }) {
-                    when (section) {
+                    androidx.compose.animation.AnimatedContent(section, label = "section", transitionSpec = {
+                        (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(320)) +
+                            androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(320)) { it / 14 }) togetherWith
+                            androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))
+                    }) { sec -> when (sec) {
                         Section.HOME -> BrowseSection(null, nav)
                         Section.MOVIES -> BrowseSection("movie", nav)
                         Section.SERIES -> BrowseSection("series", nav)
@@ -128,7 +133,7 @@ fun HomeScreen(nav: Nav) {
                         Section.LIST -> LibrarySection(nav)
                         Section.SEARCH -> SearchSection(nav)
                         Section.SETTINGS -> SettingsSection(nav)
-                    }
+                    } }
                 }
             }
         }
