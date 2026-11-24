@@ -649,37 +649,12 @@ details.card summary::-webkit-details-marker{display:none}
 @media (min-width: 900px) { .pv-hero { height: 52vh; } .pv-logo { width: 84px; height: 84px; border-radius: 20px; } .pv-brand h1 { font-size: 40px; } }
 
 /* ---------- Écran d'accueil (splash) animé ---------- */
-.splash img { animation: splashIn .9s cubic-bezier(.2,.9,.2,1) both, splashGlow 2.4s ease-in-out .9s infinite; }
-.splash p, .splash .sbar { animation: fadeUp .6s ease .35s both; }
-.splash small { color: var(--muted); font-size: 12px; opacity: .7; animation: fadeUp .6s ease .5s both; }
+.splash small { color: var(--muted); font-size: 12px; opacity: .7; }
 .splash.done .sbar i { width: 100%; transform: none; animation: none; transition: width .3s; }
 .splash.done p { color: var(--cyan); }
-.splash.hide { transform: scale(1.06); }
 @keyframes splashIn { from { opacity: 0; transform: scale(.7) translateY(10px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes splashGlow { 50% { filter: drop-shadow(0 0 22px rgba(91,75,255,.65)); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-
-/* ---------- Animations : uniquement sur l'accueil ---------- */
-#app.is-home .rv { opacity: 0; transform: translateY(26px); transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1); }
-#app.is-home .rv.in { opacity: 1; transform: none; }
-#app.is-home .section.rv.in .row > * { animation: cardIn .6s cubic-bezier(.2,.8,.2,1) both; }
-#app.is-home .section.rv.in .row > *:nth-child(2) { animation-delay: .06s; } #app.is-home .section.rv.in .row > *:nth-child(3) { animation-delay: .12s; }
-#app.is-home .section.rv.in .row > *:nth-child(4) { animation-delay: .18s; } #app.is-home .section.rv.in .row > *:nth-child(n+5) { animation-delay: .24s; }
-@keyframes cardIn { from { opacity: 0; transform: translateX(30px) scale(.96); } to { opacity: 1; transform: none; } }
-
-/* Entrée cinématographique (première ouverture de l'accueil) */
-#app.intro .homebar { animation: introFade 1s ease .2s both; }
-#app.intro .car-bg img { animation: introBg 2.4s cubic-bezier(.2,.8,.2,1) both; }
-#app.intro .carousel { animation: introCar 1.6s cubic-bezier(.16,1,.3,1) .15s both; }
-#app.intro .car-info { animation: introUp 1s cubic-bezier(.2,.8,.2,1) .9s both; }
-#app.intro .car-dots { animation: introFade .8s ease 1.2s both; }
-#app.intro #rows { animation: introUp 1s cubic-bezier(.2,.8,.2,1) 1.1s both; }
-#app.intro::after { content: ""; position: fixed; inset: 0; z-index: 400; pointer-events: none; background: #000; animation: introCurtain 1.4s ease both; }
-@keyframes introCurtain { 0% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes introBg { from { opacity: 0; transform: scale(1.25); filter: blur(30px) saturate(1.6); } to { opacity: 1; transform: scale(1.1); filter: blur(28px) saturate(1.3); } }
-@keyframes introCar { from { opacity: 0; transform: scale(1.18) translateY(30px); filter: blur(12px); } to { opacity: 1; transform: none; filter: none; } }
-@keyframes introUp { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
-@keyframes introFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Réglages repliables ---------- */
 details.sect { margin: 10px var(--pad) 0; border-radius: 18px; background: var(--surface); border: 1px solid rgba(255,255,255,.06); overflow: hidden; }
@@ -704,7 +679,7 @@ details.sect[open] .chev { transform: rotate(-135deg); }
 /* ---------- Carrousel ---------- */
 .car-wrap { position: relative; padding-bottom: 6px; overflow: hidden; }
 .car-bg { position: absolute; inset: -40px -40px 30%; z-index: 0; pointer-events: none; }
-.car-bg img { width: 100%; height: 100%; object-fit: cover; filter: blur(28px) saturate(1.3); transform: scale(1.1); opacity: .55; transition: opacity .6s; }
+.car-bg img { width: 100%; height: 100%; object-fit: cover; filter: blur(28px) saturate(1.3); transform: scale(1.1); opacity: .55; }
 .car-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(19,17,31,.2), var(--bg) 92%); }
 .car-wrap .carousel { position: relative; z-index: 1; padding-top: 14px; padding-bottom: 16px; }
 .cslide { transition: none !important; transform-origin: center; will-change: transform, opacity; box-shadow: 0 10px 30px rgba(0,0,0,.35); }

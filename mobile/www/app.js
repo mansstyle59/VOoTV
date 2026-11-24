@@ -1981,15 +1981,14 @@
       if (el.classList.contains("rv")) return; el.classList.add("rv"); revealIO.observe(el);
     });
   }
-  new MutationObserver(() => revealAll(app)).observe(app, { childList: true, subtree: true });
+
   let ticking = false;
   window.addEventListener("scroll", () => {
     if (ticking || reduceMotion || !app.classList.contains("is-home")) return; ticking = true;
     requestAnimationFrame(() => {
       const y = window.scrollY;
       document.body.classList.toggle("scrolled", y > 12);
-      const h = app.querySelector(".car-bg");
-      if (h) h.style.transform = `translate3d(0, ${Math.min(y * 0.4, 240)}px, 0)`;
+
       ticking = false;
     });
   }, { passive: true });
@@ -2055,7 +2054,6 @@
     if (msg) msg.textContent = "TVO est à jour ✓";
     if (sp) sp.classList.add("done");
     setTimeout(() => {
-      if (app.classList.contains("is-home") && !reduceMotion && !introDone) { introDone = true; app.classList.add("intro"); setTimeout(() => app.classList.remove("intro"), 2800); }
       if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); }
     }, 450);
   })();
