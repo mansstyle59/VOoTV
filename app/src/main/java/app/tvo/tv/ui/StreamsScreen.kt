@@ -131,7 +131,13 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
         return alive * 10_000_000L + (if (langOf(s).isNotEmpty()) 1_000_000L else 0L) + s.quality * 100_000L - (if (r != null && r.ok) r.ms.coerceAtMost(99_999) else 50_000) }
     var qFilter by remember(videoId) { mutableStateOf<Int?>(null) }
     var showLocked by remember(videoId) { mutableStateOf(false) }
-    val sorted = streams.filter { it.playable }.sortedByDescending { score(it) }
+    var reportFor by remember { mutableStateOf<StreamItem?>(null) }
+    val badMap by Tvo.store.badSources.collectAsState()
+    val qprefV by Tvo.store.qpref.collectAsState()
+    val usableAll = streams.filter { it.playable && !Tvo.store.isBad(it.url) }.sortedByDescending { score(it) }
+    val qOk = usableAll.filter { Tvo.store.qpass(it.quality) }
+    val qFallback = qprefV.v != "all" && qOk.isEmpty() && usableAll.isNotEmpty()
+    val sorted = if (qFallback) usableAll else qOk
     val all = sorted.filter { lockOf(it) == null }
     val locked = sorted.filter { lockOf(it) != null }
     val playable = all.filter { qFilter == null || it.quality == qFilter }
@@ -159,7 +165,8 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
                 done < total -> "Recherche en cours… ($done/$total add-ons)"
                 else -> "${all.size} source(s) utilisable(s)" + (if (locked.isNotEmpty()) " · ${locked.size} bloquée(s) 🔒" else "") + if (torrents > 0) " · $torrents torrent(s) non pris en charge" else ""
             }
-            Text(status, Modifier.padding(top = 4.dp, bottom = 16.dp), fontSize = 14.sp, color = TvoColors.Muted)
+            Text(status + (if (qprefV.v != "all") " · qualité : " + (mapOf("4k" to "4K", "1080" to "1080p", "720" to "720p et moins")[qprefV.v] ?: "") + (if (qFallback) " (aucune source, toutes affichées)" else "") else ""), Modifier.padding(top = 4.dp, bottom = 4.dp), fontSize = 14.sp, color = TvoColors.Muted)
+            Text("Appui long sur une source pour la signaler si elle ne marche pas", Modifier.padding(bottom = 12.dp), fontSize = 12.sp, color = TvoColors.Muted)
             if (starting) Text("Préparation de la lecture…", fontSize = 16.sp, color = TvoColors.Cyan)
             if (all.isNotEmpty()) {
                 val pending = tests.values.count { it.ms < 0 }
@@ -189,7 +196,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
                     val r = s.url?.let { tests[it] }
                     val badge = when { s.url == null -> "Lien externe"; r == null || r.ms < 0 -> "Test…"
                         r.ms < 1000 -> "⚡ ${r.ms} ms"; else -> "⚡ ${"%.1f".format(r.ms / 1000.0)} s" }
-                    StreamRow(s, badge, langOf(s), i == 0 && qFilter == null, Modifier) { start(s) }
+                    StreamRow(s, badge, langOf(s), i == 0 && qFilter == null, Modifier, onLongClick = { if (s.url != null) reportFor = s }) { start(s) }
                 }
                 if (locked.isNotEmpty()) item(key = "lockhead") {
                     Chip(if (showLocked) "🔒 Masquer les sources bloquées (${locked.size})" else "🔒 Sources bloquées (${locked.size}) · voir pourquoi", showLocked, { showLocked = !showLocked })
@@ -199,6 +206,21 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
                         android.widget.Toast.makeText(ctx, "Source bloquée : ${lockOf(s)}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
+            }
+        }
+    }
+    reportFor?.let { rs ->
+        androidx.compose.ui.window.Dialog(onDismissRequest = { reportFor = null }) {
+            Column(Modifier.width(480.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xF2161622)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Signaler cette source ?", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(rs.name.replace("\n", " "), fontSize = 14.sp, color = Color(0xCCFFFFFF), maxLines = 2)
+                Text("Elle disparaît de la liste (sur la télé et le téléphone) jusqu'à sa mise à jour.", fontSize = 14.sp, color = Color(0xCCFFFFFF))
+                val fr = remember { FocusRequester() }
+                LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+                TvoButton("Signaler", { rs.url?.let { Tvo.store.reportSource(it) }
+                    android.widget.Toast.makeText(ctx, "Source signalée : retirée de la liste", android.widget.Toast.LENGTH_SHORT).show(); reportFor = null },
+                    Modifier.focusRequester(fr).fillMaxWidth(), primary = true, wide = true)
+                TvoButton("Annuler", { reportFor = null }, Modifier.fillMaxWidth(), wide = true)
             }
         }
     }
@@ -268,9 +290,10 @@ fun openExternal(ctx: Context, uri: Uri, title: String?) {
 }
 
 @Composable
-private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean, modifier: Modifier, locked: Boolean = false, onClick: () -> Unit) {
+private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean, modifier: Modifier, locked: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
+        onLongClick = onLongClick,
         modifier = modifier.fillMaxWidth().then(if (locked) Modifier.alpha(0.55f) else Modifier),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),

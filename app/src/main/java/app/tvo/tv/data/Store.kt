@@ -61,6 +61,20 @@ class Store(ctx: Context) {
     fun setAfr(v: Boolean) { afr.value = v; prefs.edit().putBoolean("afr", v).apply() }
     val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
 
+    // ---- sources signalées (masquées sur tous les appareils pendant 14 jours) et qualité souhaitée ----
+    private val badTtl = 14L * 86_400_000
+    val badSources = MutableStateFlow(cleanBad(load<Map<String, Long>>("badsrc") ?: emptyMap()))
+    val qpref = MutableStateFlow(load<SyncQPref>("qpref") ?: SyncQPref())
+    private fun cleanBad(m: Map<String, Long>) = m.filterValues { System.currentTimeMillis() - it <= badTtl }
+    fun srcKey(url: String): String { var h = 5381; for (c in url.substringBefore("?")) h = (h shl 5) + h + c.code; return (h.toLong() and 0xFFFFFFFFL).toString(36) }
+    fun isBad(url: String?) = url != null && srcKey(url) in badSources.value
+    fun reportSource(url: String) {
+        badSources.value = cleanBad(badSources.value) + (srcKey(url) to System.currentTimeMillis()); save("badsrc", badSources.value); onChange()
+    }
+    fun setQpref(v: String) { qpref.value = SyncQPref(v, System.currentTimeMillis()); save("qpref", qpref.value); onChange() }
+    /** Qualité 0 = inconnue (toujours acceptée), 1 SD, 2 720p, 3 1080p, 4 4K. */
+    fun qpass(q: Int): Boolean = when (qpref.value.v) { "4k" -> q == 0 || q == 4; "1080" -> q == 0 || q == 3; "720" -> q <= 2; else -> true }
+
     /** Home page layout: hidden rows and custom order (row keys). */
     val home = MutableStateFlow(load<HomeLayout>("home") ?: HomeLayout())
 
@@ -223,7 +237,7 @@ class Store(ctx: Context) {
             lib[p.id] = m
             prog[p.id] = (load<List<Progress>>("progress_${p.id}") ?: emptyList()).associateBy { it.videoId }
         }
-        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0), home.value)
+        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0), home.value, cleanBad(badSources.value), qpref.value)
     }
 
     @Synchronized
@@ -245,6 +259,8 @@ class Store(ctx: Context) {
             addons.value = NoTv.clean(d.addons); save("addons", addons.value); prefs.edit().putLong("addons_t", d.addonsT).apply()
         }
         if (d.home != null && d.home.t > home.value.t) { home.value = d.home; save("home", d.home) }
+        badSources.value = cleanBad(d.bad); save("badsrc", badSources.value)
+        d.qpref?.let { if (it.t > qpref.value.t) { qpref.value = it; save("qpref", it) } }
         if (d.tmdbT > prefs.getLong("tmdb_t", 0)) {
             tmdbKey.value = d.tmdbKey; prefs.edit().putString("tmdb_key", d.tmdbKey).putLong("tmdb_t", d.tmdbT).apply()
         }

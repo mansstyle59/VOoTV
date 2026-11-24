@@ -420,6 +420,14 @@ fun SettingsSection(nav: Nav) {
                         }
                     }
                     item { Text("Automatique : lecteur rapide avec décodeur FFmpeg (DTS, TrueHD, AC3), qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, sous-titres stylés).", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { Heading("Qualité des films") }
+                    item {
+                        val qp by store.qpref.collectAsState()
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf("all" to "Toutes", "4k" to "4K", "1080" to "1080p", "720" to "720p et moins").forEach { (k, l) -> Chip(l, qp.v == k, { store.setQpref(k) }) }
+                        }
+                    }
+                    item { Text("Choisis la qualité proposée dans les sources : « 4K » ne montre que la 4K, « 1080p » bloque la 4K, « 720p et moins » pour une connexion lente. Si aucune source n'a cette qualité, toutes sont affichées. Synchronisé avec le téléphone.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { Heading("Fréquence d'image auto") }
                     item {
                         val afr by store.afr.collectAsState()

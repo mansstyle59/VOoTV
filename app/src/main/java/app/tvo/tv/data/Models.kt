@@ -192,7 +192,12 @@ data class SyncDoc(
     val tmdbKey: String? = null,
     val tmdbT: Long = 0,
     val home: HomeLayout? = null,
+    val bad: Map<String, Long> = emptyMap(),
+    val qpref: SyncQPref? = null,
 )
+
+@Serializable
+data class SyncQPref(val v: String = "all", val t: Long = 0)
 
 @Serializable
 data class HomeLayout(val order: List<String> = emptyList(), val hidden: List<String> = emptyList(), val t: Long = 0)
