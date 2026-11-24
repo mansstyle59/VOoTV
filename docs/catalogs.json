@@ -1,348 +1,76 @@
 {
  "v": 1,
- "hide": [],
+ "hide": [
+  "f_m_adventure",
+  "f_m_china",
+  "f_m_family",
+  "f_m_germany",
+  "f_m_history",
+  "f_m_india",
+  "f_m_italy",
+  "f_m_japan",
+  "f_m_korea",
+  "f_m_music",
+  "f_m_mystery",
+  "f_m_spain",
+  "f_m_turkey",
+  "f_m_uk",
+  "f_m_western",
+  "f_m_year22",
+  "f_m_year23",
+  "f_m_year24",
+  "f_m_year25",
+  "f_m_year26",
+  "f_s_adventure",
+  "f_s_apple",
+  "f_s_cancelled",
+  "f_s_ended",
+  "f_s_family",
+  "f_s_fantasy",
+  "f_s_kdrama",
+  "f_s_netflix",
+  "f_s_ongoing",
+  "f_s_prime",
+  "f_s_reality",
+  "f_s_war",
+  "f_s_western",
+  "now_playing",
+  "on_the_air",
+  "prov_119",
+  "prov_337",
+  "prov_350",
+  "prov_381",
+  "prov_8",
+  "r_m_action",
+  "r_m_anim",
+  "r_m_apple",
+  "r_m_comedy",
+  "r_m_crime",
+  "r_m_doc",
+  "r_m_drama",
+  "r_m_fantasy",
+  "r_m_french",
+  "r_m_horror",
+  "r_m_romance",
+  "r_m_scifi",
+  "r_m_thriller",
+  "r_m_toprated",
+  "r_m_war",
+  "r_s_action",
+  "r_s_anime",
+  "r_s_comedy",
+  "r_s_crime",
+  "r_s_disney",
+  "r_s_doc",
+  "r_s_drama",
+  "r_s_french",
+  "r_s_mystery",
+  "r_s_scifi",
+  "r_s_toprated",
+  "trending",
+  "upcoming"
+ ],
  "catalogs": [
-  {
-   "id": "r_m_action",
-   "type": "movie",
-   "name": "Films d'action récents",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "28",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_comedy",
-   "type": "movie",
-   "name": "Comédies récentes",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "35",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_scifi",
-   "type": "movie",
-   "name": "Science-fiction récente",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "878",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_thriller",
-   "type": "movie",
-   "name": "Thrillers récents",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "53",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_horror",
-   "type": "movie",
-   "name": "Films d'horreur récents",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "27",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_drama",
-   "type": "movie",
-   "name": "Drames récents",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "18",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_romance",
-   "type": "movie",
-   "name": "Romances récentes",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "10749",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_anim",
-   "type": "movie",
-   "name": "Animation récente",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "16",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_crime",
-   "type": "movie",
-   "name": "Films policiers récents",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "80",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_fantasy",
-   "type": "movie",
-   "name": "Fantastique et aventure",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "14|12",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "40"
-   }
-  },
-  {
-   "id": "r_m_doc",
-   "type": "movie",
-   "name": "Documentaires récents",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "99",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:24}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "15"
-   }
-  },
-  {
-   "id": "r_m_war",
-   "type": "movie",
-   "name": "Guerre et histoire",
-   "path": "discover/movie",
-   "params": {
-    "with_genres": "10752|36",
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:30}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "30"
-   }
-  },
-  {
-   "id": "r_m_toprated",
-   "type": "movie",
-   "name": "Les mieux notés de l'année",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "vote_average.desc",
-    "primary_release_date.gte": "{m:12}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "400"
-   }
-  },
-  {
-   "id": "r_m_french",
-   "type": "movie",
-   "name": "Films français récents",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:18}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "20",
-    "with_original_language": "fr"
-   }
-  },
-  {
-   "id": "r_m_apple",
-   "type": "movie",
-   "name": "Films sur Apple TV+",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "primary_release_date.gte": "{m:36}",
-    "primary_release_date.lte": "{today}",
-    "vote_count.gte": "20",
-    "watch_region": "FR",
-    "with_watch_monetization_types": "flatrate",
-    "with_watch_providers": "350"
-   }
-  },
-  {
-   "id": "r_s_crime",
-   "type": "series",
-   "name": "Séries policières",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "25",
-    "with_genres": "80"
-   }
-  },
-  {
-   "id": "r_s_scifi",
-   "type": "series",
-   "name": "Séries SF et fantastique",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "25",
-    "with_genres": "10765"
-   }
-  },
-  {
-   "id": "r_s_drama",
-   "type": "series",
-   "name": "Séries dramatiques",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "25",
-    "with_genres": "18"
-   }
-  },
-  {
-   "id": "r_s_comedy",
-   "type": "series",
-   "name": "Séries comiques",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "25",
-    "with_genres": "35"
-   }
-  },
-  {
-   "id": "r_s_action",
-   "type": "series",
-   "name": "Séries action et aventure",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "25",
-    "with_genres": "10759"
-   }
-  },
-  {
-   "id": "r_s_mystery",
-   "type": "series",
-   "name": "Séries mystère",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "25",
-    "with_genres": "9648"
-   }
-  },
-  {
-   "id": "r_s_anime",
-   "type": "series",
-   "name": "Animés",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:36}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "20",
-    "with_genres": "16",
-    "with_original_language": "ja"
-   }
-  },
-  {
-   "id": "r_s_doc",
-   "type": "series",
-   "name": "Séries documentaires",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:36}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "10",
-    "with_genres": "99"
-   }
-  },
-  {
-   "id": "r_s_disney",
-   "type": "series",
-   "name": "Séries sur Disney+",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:36}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "15",
-    "watch_region": "FR",
-    "with_watch_monetization_types": "flatrate",
-    "with_watch_providers": "337"
-   }
-  },
-  {
-   "id": "r_s_french",
-   "type": "series",
-   "name": "Séries françaises",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "first_air_date.gte": "{m:30}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "8",
-    "with_original_language": "fr"
-   }
-  },
-  {
-   "id": "r_s_toprated",
-   "type": "series",
-   "name": "Séries les mieux notées",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "vote_average.desc",
-    "first_air_date.gte": "{m:24}",
-    "first_air_date.lte": "{today}",
-    "vote_count.gte": "300"
-   }
-  },
   {
    "id": "kids_r_tv_disney",
    "type": "series",
@@ -449,455 +177,27 @@
    }
   },
   {
-   "id": "f_m_adventure",
-   "type": "movie",
-   "name": "Films d'aventure",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_genres": "12"
-   }
-  },
-  {
-   "id": "f_m_family",
-   "type": "movie",
-   "name": "Films en famille",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_genres": "10751",
-    "without_genres": "27,53"
-   }
-  },
-  {
-   "id": "f_m_history",
-   "type": "movie",
-   "name": "Films historiques",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_genres": "36"
-   }
-  },
-  {
-   "id": "f_m_western",
-   "type": "movie",
-   "name": "Westerns",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_genres": "37"
-   }
-  },
-  {
-   "id": "f_m_mystery",
-   "type": "movie",
-   "name": "Films à mystère",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_genres": "9648"
-   }
-  },
-  {
-   "id": "f_m_music",
-   "type": "movie",
-   "name": "Films musicaux",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_genres": "10402"
-   }
-  },
-  {
-   "id": "f_m_year26",
-   "type": "movie",
-   "name": "Films 2026",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "20",
-    "primary_release_date.gte": "2026-01-01",
-    "primary_release_date.lte": "{today}"
-   }
-  },
-  {
-   "id": "f_m_year25",
-   "type": "movie",
-   "name": "Films 2025",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "primary_release_date.gte": "2025-01-01",
-    "primary_release_date.lte": "2025-12-31"
-   }
-  },
-  {
-   "id": "f_m_year24",
-   "type": "movie",
-   "name": "Films 2024",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "primary_release_date.gte": "2024-01-01",
-    "primary_release_date.lte": "2024-12-31"
-   }
-  },
-  {
-   "id": "f_m_year23",
-   "type": "movie",
-   "name": "Films 2023",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "primary_release_date.gte": "2023-01-01",
-    "primary_release_date.lte": "2023-12-31"
-   }
-  },
-  {
-   "id": "f_m_year22",
-   "type": "movie",
-   "name": "Films 2022",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "primary_release_date.gte": "2022-01-01",
-    "primary_release_date.lte": "2022-12-31"
-   }
-  },
-  {
-   "id": "f_m_japan",
-   "type": "movie",
-   "name": "Films japonais",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "ja"
-   }
-  },
-  {
-   "id": "f_m_korea",
-   "type": "movie",
-   "name": "Films coréens",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "ko"
-   }
-  },
-  {
-   "id": "f_m_spain",
-   "type": "movie",
-   "name": "Films espagnols",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "es"
-   }
-  },
-  {
-   "id": "f_m_italy",
-   "type": "movie",
-   "name": "Films italiens",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "it"
-   }
-  },
-  {
-   "id": "f_m_germany",
-   "type": "movie",
-   "name": "Films allemands",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "de"
-   }
-  },
-  {
-   "id": "f_m_india",
-   "type": "movie",
-   "name": "Films indiens",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "hi"
-   }
-  },
-  {
-   "id": "f_m_china",
-   "type": "movie",
-   "name": "Films chinois",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "zh"
-   }
-  },
-  {
-   "id": "f_m_turkey",
-   "type": "movie",
-   "name": "Films turcs",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "20",
-    "with_original_language": "tr"
-   }
-  },
-  {
-   "id": "f_m_uk",
-   "type": "movie",
-   "name": "Films britanniques",
-   "path": "discover/movie",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "60",
-    "with_origin_country": "GB",
-    "with_original_language": "en"
-   }
-  },
-  {
-   "id": "f_s_netflix",
+   "id": "f_s_mini",
    "type": "series",
-   "name": "Séries Netflix",
+   "name": "Mini-séries",
    "path": "discover/tv",
    "params": {
+    "with_type": "2",
     "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_watch_providers": "8",
-    "watch_region": "FR"
-   }
-  },
-  {
-   "id": "f_s_prime",
-   "type": "series",
-   "name": "Séries Prime Video",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_watch_providers": "119",
-    "watch_region": "FR"
-   }
-  },
-  {
-   "id": "f_s_apple",
-   "type": "series",
-   "name": "Séries Apple TV+",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_watch_providers": "350",
-    "watch_region": "FR"
-   }
-  },
-  {
-   "id": "f_s_kdrama",
-   "type": "series",
-   "name": "K-Drama",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_original_language": "ko",
-    "with_genres": "18"
-   }
-  },
-  {
-   "id": "f_s_reality",
-   "type": "series",
-   "name": "Télé-réalité",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "10",
-    "with_genres": "10764"
-   }
-  },
-  {
-   "id": "f_s_family",
-   "type": "series",
-   "name": "Séries en famille",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_genres": "10751"
-   }
-  },
-  {
-   "id": "f_s_fantasy",
-   "type": "series",
-   "name": "Séries fantastiques",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_genres": "10765"
-   }
-  },
-  {
-   "id": "f_s_war",
-   "type": "series",
-   "name": "Séries historiques et guerre",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_genres": "10768"
-   }
-  },
-  {
-   "id": "f_s_ongoing",
-   "type": "series",
-   "name": "Séries en cours",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_status": "0"
-   }
-  },
-  {
-   "id": "f_s_ended",
-   "type": "series",
-   "name": "Séries terminées",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "200",
-    "with_status": "3"
-   }
-  },
-  {
-   "id": "f_s_cancelled",
-   "type": "series",
-   "name": "Séries annulées",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "200",
-    "with_status": "4"
-   }
-  },
-  {
-   "id": "f_s_adventure",
-   "type": "series",
-   "name": "Séries d'aventure",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "30",
-    "with_genres": "10759"
-   }
-  },
-  {
-   "id": "f_s_western",
-   "type": "series",
-   "name": "Séries western",
-   "path": "discover/tv",
-   "params": {
-    "sort_by": "popularity.desc",
-    "vote_count.gte": "10",
-    "with_genres": "37"
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "20"
    }
   }
  ],
  "order": [
   "ev:new",
-  "now_playing",
-  "recent_pop",
-  "trending",
-  "series:trending",
-  "latest",
-  "latest_tv",
-  "prov_8",
-  "prov_119",
-  "prov_337",
-  "r_m_toprated",
-  "on_the_air",
-  "r_s_toprated",
-  "r_m_action",
-  "r_s_action",
-  "r_m_comedy",
-  "r_s_comedy",
-  "r_m_scifi",
-  "r_s_scifi",
-  "r_m_thriller",
-  "r_s_crime",
-  "r_m_crime",
-  "r_m_drama",
-  "r_s_drama",
-  "r_m_romance",
-  "r_m_fantasy",
-  "r_m_anim",
-  "r_s_anime",
-  "r_m_horror",
-  "r_m_french",
-  "f_m_adventure",
-  "f_m_family",
-  "f_m_history",
-  "f_m_western",
-  "f_m_mystery",
-  "f_m_music",
-  "f_m_year26",
-  "f_m_year25",
-  "f_m_year24",
-  "f_m_year23",
-  "f_m_year22",
-  "f_m_japan",
-  "f_m_korea",
-  "f_m_spain",
-  "f_m_italy",
-  "f_m_germany",
-  "f_m_india",
-  "f_m_china",
-  "f_m_turkey",
-  "f_m_uk",
-  "f_s_netflix",
-  "f_s_prime",
-  "f_s_apple",
-  "f_s_kdrama",
-  "f_s_reality",
-  "f_s_family",
-  "f_s_fantasy",
-  "f_s_war",
-  "f_s_ongoing",
-  "f_s_ended",
-  "f_s_cancelled",
-  "f_s_adventure",
-  "f_s_western",
-  "r_s_french",
-  "r_m_apple",
-  "prov_381",
-  "prov_350",
-  "r_s_disney",
-  "r_m_doc",
-  "r_s_doc",
-  "r_s_mystery",
-  "r_m_war",
-  "popular",
+  "ev:tv",
   "ev:old",
+  "latest",
+  "recent_pop",
+  "latest_tv",
+  "f_s_mini",
   "movie:kids_new",
   "movie:kids",
   "movie:kids_anim",

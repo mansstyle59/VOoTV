@@ -1681,3 +1681,13 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 #rows .lcard { flex-basis: clamp(190px, 56vw, 280px); }
 
 .homebar .brandmark { flex: 1; font-size: 0; }
+
+/* Découvrir : tuiles régulières, Top 10 aligné */
+.dx-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+.dx, .dx.big { aspect-ratio: 16/10; border-radius: 8px; }
+.dx-txt b, .dx.big .dx-txt b { font-size: 17px; }
+.top10 { gap: 6px; padding-left: var(--pad); align-items: flex-end; }
+.t10 { flex: none; width: 138px; height: 160px; position: relative; }
+.t10n { font-size: 112px; left: 0; bottom: -12px; }
+.t10 img { width: 100px; border-radius: 5px; box-shadow: none; }
+.catTiles { margin-top: 2px; }
