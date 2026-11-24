@@ -62,6 +62,10 @@ import app.tvo.tv.data.Progress
 import app.tvo.tv.data.StreamItem
 import app.tvo.tv.data.USER_AGENT
 import app.tvo.tv.ui.TvoButton
+import app.tvo.tv.ui.Chip
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import app.tvo.tv.ui.TvoColors
 import app.tvo.tv.ui.TvoTheme
 import app.tvo.tv.ui.langLabel
@@ -98,6 +102,12 @@ class PlayerActivity : ComponentActivity() {
     private var error by mutableStateOf<String?>(null)
     private var nextUp by mutableStateOf<NextUp?>(null)
     private var nextDismissed = false
+    private var options by mutableStateOf(false)
+    private var seekFlash by mutableStateOf<String?>(null)
+    private var seekFlashId by mutableIntStateOf(0)
+    private var resizeIdx by mutableIntStateOf(0)
+    private var speed by mutableStateOf(1f)
+    private var tracksVersion by mutableIntStateOf(0)
     private var progressJob: Job? = null
 
     data class NextUp(val label: String, val loading: Boolean = false)
@@ -121,6 +131,7 @@ class PlayerActivity : ComponentActivity() {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_ENDED) onEnded()
             }
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) { tracksVersion++ }
             override fun onPlayerError(e: PlaybackException) {
                 error = when (e.errorCode) {
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
@@ -159,6 +170,7 @@ class PlayerActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
+                    options -> closeOptions()
                     nextUp != null -> { nextUp = null; nextDismissed = true; playerView.requestFocus() }
                     playerView.isControllerFullyVisible && error == null -> playerView.hideController()
                     else -> finish()
@@ -293,12 +305,124 @@ class PlayerActivity : ComponentActivity() {
                             val end = SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date(System.currentTimeMillis() + remaining))
                             Text("Se termine à $end", fontSize = 14.sp, color = TvoColors.Cyan, modifier = Modifier.padding(top = 4.dp))
                         }
+                        Text("▲ Options (audio, sous-titres, format, vitesse)   ◀ ▶ reculer / avancer de 10 s", fontSize = 12.sp,
+                            color = Color(0xB3FFFFFF), modifier = Modifier.padding(top = 6.dp))
                     }
                 }
             }
+            seekFlash?.let { f ->
+                LaunchedEffect(seekFlashId) { delay(900); seekFlash = null }
+                Box(Modifier.align(Alignment.Center).clip(RoundedCornerShape(16.dp)).background(Color(0xAA000000)).padding(horizontal = 26.dp, vertical = 14.dp)) {
+                    Text(f, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+            if (options) OptionsPanel()
             nextUp?.let { n -> NextUpCard(n) }
             error?.let { ErrorCard(it) }
         }
+    }
+
+    // ------------------------------------------------------------ options (audio, sous-titres, format, vitesse)
+
+    private data class TrackChoice(val label: String, val group: androidx.media3.common.TrackGroup?, val index: Int, val selected: Boolean)
+
+    private fun trackChoices(type: Int): List<TrackChoice> {
+        val out = mutableListOf<TrackChoice>()
+        player.currentTracks.groups.filter { it.type == type }.forEach { g ->
+            for (i in 0 until g.length) {
+                if (!g.isTrackSupported(i)) continue
+                val f = g.getTrackFormat(i)
+                val lang = f.language?.let { langLabel(it) }
+                val extra = when {
+                    type == C.TRACK_TYPE_AUDIO && f.channelCount >= 6 -> " · 5.1"
+                    type == C.TRACK_TYPE_AUDIO && f.channelCount == 2 -> " · Stéréo"
+                    else -> ""
+                }
+                val label = listOfNotNull(f.label?.takeIf { it.isNotBlank() }, lang).distinct().joinToString(" – ").ifBlank { "Piste ${out.size + 1}" } + extra
+                out += TrackChoice(label, g.mediaTrackGroup, i, g.isTrackSelected(i))
+            }
+        }
+        return out
+    }
+
+    private fun selectTrack(type: Int, c: TrackChoice?) {
+        val b = player.trackSelectionParameters.buildUpon()
+        if (c?.group == null) b.setTrackTypeDisabled(type, true)
+        else b.setTrackTypeDisabled(type, false).setOverrideForType(androidx.media3.common.TrackSelectionOverride(c.group, c.index))
+        player.trackSelectionParameters = b.build()
+    }
+
+    private val resizeModes = listOf(
+        "Ajuster" to androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT,
+        "Remplir l'écran" to androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+        "Étirer" to androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL,
+    )
+
+    private fun openOptions() { playerView.hideController(); options = true; overlayView.requestFocus() }
+    private fun closeOptions() { options = false; playerView.requestFocus() }
+
+    @Composable
+    private fun OptionsPanel() {
+        val fr = remember { FocusRequester() }
+        @Suppress("UNUSED_VARIABLE") val v = tracksVersion
+        val audio = trackChoices(C.TRACK_TYPE_AUDIO)
+        val text = trackChoices(C.TRACK_TYPE_TEXT)
+        val textOff = player.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || text.none { it.selected }
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.45f to Color.Transparent, 1f to Color(0xEE000000)))) {
+            androidx.compose.foundation.lazy.LazyColumn(
+                Modifier.align(Alignment.CenterEnd).width(520.dp).fillMaxHeight().padding(end = 40.dp, top = 40.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item { Text("Options de lecture", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                item { OptTitle("Audio") }
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (audio.isEmpty()) item { Text("Piste unique", color = TvoColors.Muted, fontSize = 14.sp) }
+                        items(audio.size) { i ->
+                            val c = audio[i]
+                            Chip(c.label, c.selected, { selectTrack(C.TRACK_TYPE_AUDIO, c); tracksVersion++ },
+                                if (i == 0) Modifier.focusRequester(fr) else Modifier)
+                        }
+                    }
+                }
+                item { OptTitle("Sous-titres") }
+                item {
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item { Chip("Désactivés", textOff, { selectTrack(C.TRACK_TYPE_TEXT, null); tracksVersion++ },
+                            if (audio.isEmpty()) Modifier.focusRequester(fr) else Modifier) }
+                        items(text.size) { i -> val c = text[i]; Chip(c.label, c.selected && !textOff, { selectTrack(C.TRACK_TYPE_TEXT, c); tracksVersion++ }) }
+                    }
+                }
+                item { OptTitle("Format de l'image") }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        resizeModes.forEachIndexed { i, (label, mode) ->
+                            Chip(label, resizeIdx == i, { resizeIdx = i; playerView.resizeMode = mode })
+                        }
+                    }
+                }
+                item { OptTitle("Vitesse") }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { sp ->
+                            Chip(if (sp == 1f) "Normale" else "x${sp.toString().removeSuffix(".0")}", speed == sp, { speed = sp; player.setPlaybackSpeed(sp) })
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(8.dp)); TvoButton("Fermer", { closeOptions() }, primary = true) }
+            }
+        }
+        LaunchedEffect(Unit) { delay(120); runCatching { fr.requestFocus() } }
+    }
+
+    @Composable
+    private fun OptTitle(t: String) = Text(t, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Cyan, modifier = Modifier.padding(top = 8.dp))
+
+    private fun seekBy(ms: Long) {
+        val dur = player.duration.takeIf { it > 0 } ?: return
+        player.seekTo((player.currentPosition + ms).coerceIn(0, dur))
+        seekFlash = (if (ms > 0) "+" else "−") + "${kotlin.math.abs(ms) / 1000} s"
+        seekFlashId++
     }
 
     @Composable
@@ -342,6 +466,20 @@ class PlayerActivity : ComponentActivity() {
     // ------------------------------------------------------------ lifecycle
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Netflix-like remote: ◀ ▶ seek without opening the controls, ▲ or Menu opens options.
+        if (event.action == KeyEvent.ACTION_DOWN && !options && nextUp == null && error == null && !playerView.isControllerFullyVisible) {
+            val step = if (event.repeatCount > 2) 30_000L else 10_000L
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step); return true }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(step); return true }
+                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> { openOptions(); return true }
+                KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                    if (player.isPlaying) player.pause() else player.play()
+                    playerView.showController(); return true
+                }
+            }
+        }
+        if (event.action == KeyEvent.ACTION_DOWN && options && event.keyCode == KeyEvent.KEYCODE_MENU) { closeOptions(); return true }
         // Media keys always go to the player, even when an overlayView has focus.
         if (event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY ||
             event.keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE) {

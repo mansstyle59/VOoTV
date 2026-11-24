@@ -242,7 +242,19 @@
   FREETV.addon = { url: FREETV.URL, manifest: { id: "tvo.freetv.fr", name: "Chaînes TV gratuites (France)", version: "1",
     description: "Chaînes gratuites et légales en direct (liste Free-TV/IPTV).", types: ["tv"], idPrefixes: ["freetv:"],
     resources: [{ name: "catalog" }, { name: "meta" }, { name: "stream" }],
-    catalogs: [{ type: "tv", id: "fr", name: "Chaînes TV en direct", extra: [{ name: "search", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }] } };
+    catalogs: [] } };
+  FREETV.CATS = [["gen", "Chaînes généralistes"], ["info", "Chaînes d'info"], ["sport", "Sport"], ["kids", "Jeunesse"], ["local", "Chaînes régionales et locales"], ["other", "Autres chaînes"]];
+  FREETV.addon.manifest.catalogs = [...FREETV.CATS.map(([id, name]) => ({ type: "tv", id, name, extra: [], extraRequired: [], extraSupported: [] })),
+    { type: "tv", id: "search", name: "Chaînes TV", extra: [{ name: "search", isRequired: true, options: [] }], extraRequired: [], extraSupported: [] }];
+  function chanCategory(name) {
+    const n = name.toLowerCase();
+    if (/info|news|24|bfm|lci|cnews|lcp|sénat|senat|cgtn|euronews|africanews|inter/.test(n)) return "info";
+    if (/sport|équipe|equipe/.test(n)) return "sport";
+    if (/gulli|kids|junior|toon|enfant/.test(n)) return "kids";
+    if (/^(tf1|france [2-5]|m6|arte|tmc|tfx|w9|6ter|cstar|c8|nrj|rmc|tv5|chérie|cherie)/.test(n)) return "gen";
+    if (/tv |alsace|mulhouse|bretagne|provence|lyon|paris|azur|normandie|corse|antilles|réunion|reunion/.test(n)) return "local";
+    return "other";
+  }
   async function freeChannels() {
     if (FREETV.list) return FREETV.list;
     const txt = await (await fetch(FREETV.PLAYLIST)).text();
@@ -254,17 +266,18 @@
         const name = info.slice(info.lastIndexOf(",") + 1).replace(/[ⒼⓎⒹⓉⓈ]/g, "").trim();
         const logo = (info.match(/tvg-logo="([^"]*)"/) || [])[1] || null;
         const id = "freetv:" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo, url: l }); }
+        const chno = parseInt((info.match(/tvg-chno="(\d+)"/) || [])[1], 10) || 999;
+        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo, url: l, chno, cat: chanCategory(name) }); }
         info = null;
       }
     });
-    return (FREETV.list = out);
+    return (FREETV.list = out.sort((a, b) => a.chno - b.chno || a.name.localeCompare(b.name)));
   }
-  const freePreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: c.logo, background: null, logo: c.logo, description: "Chaîne en direct, gratuite.", releaseInfo: null, imdbRating: null, genres: ["En direct"] });
-  async function freeCatalog(extra) {
+  const freePreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: c.logo, background: null, logo: c.logo, description: "Chaîne en direct, gratuite.", releaseInfo: c.chno < 999 ? "Canal " + c.chno : null, imdbRating: null, genres: ["En direct"] });
+  async function freeCatalog(catId, extra) {
     if (Number(extra.skip) > 0) return [];
     const q = (extra.search || "").toLowerCase();
-    return (await freeChannels()).filter((c) => !q || c.name.toLowerCase().includes(q)).map(freePreview);
+    return (await freeChannels()).filter((c) => (q ? c.name.toLowerCase().includes(q) : catId === "fr" || c.cat === catId)).map(freePreview);
   }
   async function freeMeta(id) {
     const c = (await freeChannels()).find((x) => x.id === id); if (!c) return null;
@@ -348,7 +361,7 @@
   }
   async function catalog(a, c, extra = {}) {
     if (a.url === TMDB.URL) return tmdbCatalog(c, extra);
-    if (a.url === FREETV.URL) return freeCatalog(extra);
+    if (a.url === FREETV.URL) return freeCatalog(c.id, extra);
     const keys = Object.keys(extra);
     const ex = keys.length ? "/" + keys.map((k) => `${k}=${enc(extra[k])}`).join("&") : "";
     const url = `${a.url}/catalog/${c.type}/${enc(c.id)}${ex}.json`;
@@ -789,7 +802,7 @@
       const cats = [];
       catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => catSupports(c, "search") && catOnlyRequires(c, "search")).forEach((c) => cats.push({ a, c })));
       const out = await Promise.all(cats.map(async ({ a, c }) => {
-        try { return { title: ["com.linvo.cinemeta", "tmdb"].includes(a.manifest.id) ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
+        try { return { title: a.manifest.id === "tvo.freetv.fr" ? c.name : ["com.linvo.cinemeta", "tmdb"].includes(a.manifest.id) ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
         catch { return { list: [] }; }
       }));
       if (my !== seq) return;
@@ -1121,9 +1134,36 @@
     el.hidden = false; document.body.style.overflow = "hidden";
     el.innerHTML = `<div class="bar"><button class="icon-btn" id="pClose" aria-label="Fermer">${ICON.close}</button>
         <div class="t"><b>${esc(m.name)}</b><span>${v && v.season != null ? `S${v.season} : É${v.episode} · ${esc(v.title)}` : esc(s.addonName)}</span></div></div>
+      <div class="pctl">
+        <button class="pbtn" id="pBack" aria-label="Reculer de 10 secondes">−10 s</button>
+        <button class="pbtn" id="pFwd" aria-label="Avancer de 10 secondes">+10 s</button>
+        <button class="pbtn" id="pSpeed" aria-label="Vitesse">x1</button>
+        <button class="pbtn" id="pFit" aria-label="Format de l'image">Ajuster</button>
+        ${document.pictureInPictureEnabled || isIOS ? '<button class="pbtn" id="pPip" aria-label="Image dans l\'image">PiP</button>' : ""}
+      </div>
+      <div class="pflash" id="pFlash" hidden></div>
       <video id="vid" controls playsinline autoplay preload="auto"></video>`;
     const video = $("#vid");
     $("#pClose").addEventListener("click", closePlayer);
+    const flash = (t) => { const f = $("#pFlash"); f.textContent = t; f.hidden = false; clearTimeout(flash._t); flash._t = setTimeout(() => (f.hidden = true), 800); };
+    const seek = (d) => { if (!isFinite(video.duration)) return; video.currentTime = Math.max(0, Math.min(video.duration - 1, video.currentTime + d)); flash((d > 0 ? "+" : "−") + Math.abs(d) + " s"); };
+    $("#pBack").addEventListener("click", () => seek(-10));
+    $("#pFwd").addEventListener("click", () => seek(10));
+    const speeds = [1, 1.25, 1.5, 2, 0.75];
+    $("#pSpeed").addEventListener("click", (e) => { const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.textContent = "x" + speeds[i]; flash("Vitesse x" + speeds[i]); });
+    $("#pFit").addEventListener("click", (e) => { const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.textContent = cover ? "Remplir" : "Ajuster"; });
+    const pip = $("#pPip");
+    if (pip) pip.addEventListener("click", async () => {
+      try { if (video.webkitSetPresentationMode) video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
+        else if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await video.requestPictureInPicture(); } catch { toast("Image dans l'image indisponible"); }
+    });
+    // Double-tap à gauche / à droite : −10 s / +10 s
+    let lastTap = 0;
+    video.addEventListener("touchend", (e) => {
+      const now = Date.now(); const t = e.changedTouches[0];
+      if (now - lastTap < 300) { seek(t.clientX < window.innerWidth / 2 ? -10 : 10); e.preventDefault(); }
+      lastTap = now;
+    });
 
     // Sous-titres (convertis en WebVTT)
     ctx.subs.slice(0, 20).forEach(async (sub, i) => {

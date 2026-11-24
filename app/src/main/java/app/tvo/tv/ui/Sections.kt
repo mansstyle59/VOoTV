@@ -145,7 +145,7 @@ fun SearchSection(nav: Nav) {
         addons.forEach { a ->
             a.manifest.catalogs.filter { it.supports("search") && it.onlyRequires("search") }.forEach { c ->
                 val list = runCatching { Tvo.client.catalog(a, c, mapOf("search" to query.trim())) }.getOrDefault(emptyList())
-                if (list.isNotEmpty()) out += (if (a.manifest.id == "com.linvo.cinemeta" || a.manifest.id == "tmdb") typeLabel(c.type) else "${c.name} · ${a.manifest.name}") to list
+                if (list.isNotEmpty()) out += (if (a.manifest.id == "com.linvo.cinemeta" || a.manifest.id == "tmdb") typeLabel(c.type) else if (a.manifest.id == "tvo.freetv.fr") c.name else "${c.name} · ${a.manifest.name}") to list
             }
         }
         value = out

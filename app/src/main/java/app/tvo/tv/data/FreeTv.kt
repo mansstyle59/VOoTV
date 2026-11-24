@@ -18,11 +18,28 @@ object FreeTv {
         description = "Chaînes gratuites et légales en direct (liste Free-TV/IPTV).",
         types = listOf("tv"),
         resources = listOf(AddonResource("catalog"), AddonResource("meta"), AddonResource("stream")),
-        catalogs = listOf(CatalogDef("tv", "fr", "Chaînes TV en direct")),
+        catalogs = CATEGORIES.map { (id, name) -> CatalogDef("tv", id, name) } +
+            CatalogDef("tv", "search", "Chaînes TV", listOf(ExtraDef("search", isRequired = true))),
         idPrefixes = listOf("freetv:"),
     ))
 
-    data class Channel(val id: String, val name: String, val logo: String?, val url: String)
+    val CATEGORIES = listOf("gen" to "Chaînes généralistes", "info" to "Chaînes d'info", "sport" to "Sport",
+        "kids" to "Jeunesse", "local" to "Chaînes régionales et locales", "other" to "Autres chaînes")
+
+    /** Sorts a channel into a category from its name (the playlist has no useful groups). */
+    fun categoryOf(name: String): String {
+        val n = name.lowercase()
+        return when {
+            Regex("info|news|24|bfm|lci|cnews|lcp|sénat|senat|cgtn|euronews|africanews|inter").containsMatchIn(n) -> "info"
+            Regex("sport|équipe|equipe").containsMatchIn(n) -> "sport"
+            Regex("gulli|kids|junior|toon|enfant").containsMatchIn(n) -> "kids"
+            Regex("^(tf1|france [2-5]|m6|arte|tmc|tfx|w9|6ter|cstar|c8|nrj|rmc|tv5|chérie|cherie)").containsMatchIn(n) -> "gen"
+            Regex("tv |alsace|mulhouse|bretagne|provence|lyon|paris|azur|normandie|corse|antilles|réunion|reunion").containsMatchIn(n) -> "local"
+            else -> "other"
+        }
+    }
+
+    data class Channel(val id: String, val name: String, val logo: String?, val url: String, val chno: Int = 999, val cat: String = "other")
     @Volatile private var channels: List<Channel>? = null
 
     suspend fun list(): List<Channel> = channels ?: withContext(Dispatchers.IO) {
@@ -37,21 +54,23 @@ object FreeTv {
                     val i = info!!
                     val name = i.substringAfterLast(",").replace(Regex("[ⒼⓎⒹⓉⓈⒼ]"), "").trim()
                     val logo = Regex("tvg-logo=\"([^\"]*)\"").find(i)?.groupValues?.get(1)?.ifBlank { null }
-                    out += Channel("freetv:" + name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-'), name, logo, line)
+                    val chno = Regex("tvg-chno=\"(\\d+)\"").find(i)?.groupValues?.get(1)?.toIntOrNull() ?: 999
+                    out += Channel("freetv:" + name.lowercase().replace(Regex("[^a-z0-9]+"), "-").trim('-'), name, logo, line, chno, categoryOf(name))
                     info = null
                 }
             }
         }
-        out.distinctBy { it.id }.also { channels = it }
+        out.distinctBy { it.id }.sortedWith(compareBy({ it.chno }, { it.name })).also { channels = it }
     }
 
     private fun preview(c: Channel) = MetaPreview(c.id, "tv", c.name, poster = c.logo, logo = c.logo,
-        description = "Chaîne en direct, gratuite.", genres = listOf("En direct"))
+        description = "Chaîne en direct, gratuite.", genres = listOf("En direct"),
+        releaseInfo = if (c.chno < 999) "Canal ${c.chno}" else null)
 
-    suspend fun catalog(extra: Map<String, String>): List<MetaPreview> {
+    suspend fun catalog(catId: String, extra: Map<String, String>): List<MetaPreview> {
         if ((extra["skip"]?.toIntOrNull() ?: 0) > 0) return emptyList()
         val q = extra["search"]?.lowercase()
-        return list().filter { q == null || it.name.lowercase().contains(q) }.map(::preview)
+        return list().filter { if (q != null) it.name.lowercase().contains(q) else (catId == "fr" || it.cat == catId) }.map(::preview)
     }
 
     suspend fun meta(id: String): MetaDetail? = list().firstOrNull { it.id == id }?.let {

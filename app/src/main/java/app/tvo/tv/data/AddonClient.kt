@@ -78,7 +78,7 @@ class AddonClient(private val http: OkHttpClient) {
 
     suspend fun catalog(addon: Addon, cat: CatalogDef, extra: Map<String, String> = emptyMap()): List<MetaPreview> {
         if (addon.url == Tmdb.URL) return Tmdb.catalog(cat, extra)
-        if (addon.url == FreeTv.URL) return FreeTv.catalog(extra)
+        if (addon.url == FreeTv.URL) return FreeTv.catalog(cat.id, extra)
         val ex = if (extra.isEmpty()) "" else "/" + extra.entries.joinToString("&") { "${it.key}=${enc(it.value)}" }
         val url = "${addon.url}/catalog/${cat.type}/${enc(cat.id)}$ex.json"
         catalogCache[url]?.let { return it }
