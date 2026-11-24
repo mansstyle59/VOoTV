@@ -2647,13 +2647,25 @@ var qrcode = function() {
       : await tget(`/${k}/${c.id}`, { page });
     return (d.results || []).map((o) => tpreview(o, c.type)).filter(Boolean);
   }
+  const FR_MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  const frDate = (d) => { const p = String(d || "").split("-").map(Number); return p.length === 3 && p[1] >= 1 && p[1] <= 12 ? `${p[2] === 1 ? "1er" : p[2]} ${FR_MONTHS[p[1] - 1]} ${p[0]}` : null; };
   async function tmdbPerson(id) {
     const d = await tget(`/person/${id}`, { append_to_response: "combined_credits" });
     const cc = d.combined_credits || {}; const seen = new Set();
-    const works = [...(cc.cast || []), ...(cc.crew || [])].filter((o) => o.media_type === "movie" || (o.media_type === "tv" && !(o.episode_count < 2) && !/self/i.test(o.character || "")))
+    const ok = (o) => o.media_type === "movie" || (o.media_type === "tv" && !(o.episode_count < 2) && !/self/i.test(o.character || ""));
+    const kind = (o) => (o.media_type === "tv" ? "series" : "movie");
+    const directed = new Set((cc.crew || []).filter((o) => ok(o) && ["Director", "Writer", "Screenplay", "Creator"].includes(o.job)).map((o) => `tmdb:${kind(o)}:${o.id}`));
+    const works = [...(cc.cast || []), ...(cc.crew || [])].filter(ok)
       .sort((x, y) => (y.popularity || 0) - (x.popularity || 0))
-      .map((o) => tpreview(o, o.media_type === "tv" ? "series" : "movie")).filter((m) => m && m.poster && !seen.has(m.id) && seen.add(m.id));
-    return { name: d.name, photo: timg(d.profile_path, "w342"), bio: d.biography || "", works };
+      .map((o) => tpreview(o, kind(o))).filter((m) => m && m.poster && !seen.has(m.id) && seen.add(m.id));
+    const kseen = new Set();
+    const knownFor = (cc.cast || []).filter((o) => ok(o) && o.vote_average > 0).sort((x, y) => (y.popularity || 0) - (x.popularity || 0))
+      .map((o) => tpreview(o, kind(o))).filter((m) => m && m.poster && !kseen.has(m.id) && kseen.add(m.id)).slice(0, 12);
+    let bio = d.biography || "";
+    if (!bio) { try { bio = (await tget(`/person/${id}`, { language: "en-US" })).biography || ""; } catch {} }
+    const birth = frDate(d.birthday), death = frDate(d.deathday), y = Number(String(d.birthday || "").slice(0, 4));
+    const born = [birth && `Né(e) le ${birth}`, birth && y && !death && `${new Date().getFullYear() - y} ans`, death && `décédé(e) le ${death}`, d.place_of_birth].filter(Boolean).join(" · ");
+    return { name: d.name, photo: timg(d.profile_path, "w342"), bio, works, born, knownFor, directed };
   }
   async function tmdbImdb(id) {
     const [, type, tid] = id.split(":");
@@ -4183,16 +4195,17 @@ var qrcode = function() {
     if (!p) { app.querySelector(".empty").textContent = "Acteur introuvable (clé TMDB nécessaire)."; return; }
     app.innerHTML = header("", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `
       <div class="person-head pad"><span class="ph big">${p.photo ? `<img src="${esc(p.photo)}" alt="">` : ""}</span>
-        <div><h1>${esc(p.name)}</h1><div class="small" style="color:var(--cyan)">${p.works.length} films et séries</div></div></div>
+        <div><h1>${esc(p.name)}</h1><div class="small" style="color:var(--cyan)">${p.works.length} films et séries</div>${p.born ? `<div class="small" style="margin-top:2px">${esc(p.born)}</div>` : ""}</div></div>
       ${p.bio ? `<p class="pad desc clamp" id="bio" style="margin-top:12px">${esc(p.bio)}</p>` : ""}
+      ${p.knownFor.length >= 3 ? `<h2 class="section-title section"><span class="st">Connu pour</span></h2><div class="row">${p.knownFor.map(portraitHTML).join("")}</div>` : ""}
       <h2 class="section-title section"><span class="st">${ICON.movie}Filmographie</span></h2>
-      <div class="chips" id="fkind">${[["all", `Tout (${p.works.length})`], ["movie", `Films (${p.works.filter((w) => w.type === "movie").length})`], ["series", `Séries (${p.works.filter((w) => w.type === "series").length})`]].map(([k, l]) => `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}">${l}</button>`).join("")}</div>
+      <div class="chips" id="fkind">${[["all", `Tout (${p.works.length})`], ["movie", `Films (${p.works.filter((w) => w.type === "movie").length})`], ["series", `Séries (${p.works.filter((w) => w.type === "series").length})`], ...(p.directed.size ? [["dir", `Réalisation (${p.works.filter((w) => p.directed.has(w.id)).length})`]] : [])].map(([k, l]) => `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}">${l}</button>`).join("")}</div>
       <div class="chips" id="fsort" style="margin-top:6px">${[["new", "Plus récents"], ["old", "Plus anciens"], ["pop", "Populaires"]].map(([k, l]) => `<button class="chip ${k === "new" ? "on" : ""}" data-s="${k}">${l}</button>`).join("")}</div>
       <div class="grid" id="fgrid"></div>`;
     const st = { k: "all", s: "new" };
     const yr = (w) => Number(String(w.releaseInfo || "").slice(0, 4)) || 0;
     const drawF = () => {
-      let l = p.works.filter((w) => st.k === "all" || w.type === st.k);
+      let l = p.works.filter((w) => st.k === "all" || w.type === st.k || (st.k === "dir" && p.directed.has(w.id)));
       if (st.s === "new") l = [...l].sort((a, b) => yr(b) - yr(a));
       if (st.s === "old") l = [...l.filter(yr).sort((a, b) => yr(a) - yr(b)), ...l.filter((w) => !yr(w))];
       $("#fgrid").innerHTML = l.map(portraitHTML).join("") || `<div class="empty">Rien dans cette catégorie.</div>`;

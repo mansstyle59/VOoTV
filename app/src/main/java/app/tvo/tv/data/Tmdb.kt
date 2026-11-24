@@ -432,18 +432,37 @@ object Tmdb {
             base?.director ?: emptyList(), base?.defaultVideoId, people)
     }.getOrElse { base }
 
-    data class PersonPage(val name: String, val photo: String?, val bio: String?, val known: String?, val works: List<MetaPreview>)
+    data class PersonPage(val name: String, val photo: String?, val bio: String?, val known: String?, val works: List<MetaPreview>,
+        val born: String? = null, val knownFor: List<MetaPreview> = emptyList(), val directed: Set<String> = emptySet())
+
+    private val MONTHS = listOf("janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre")
+    private fun frDate(d: String?): String? {
+        val p = d?.split("-")?.mapNotNull { it.toIntOrNull() } ?: return null
+        if (p.size < 3 || p[1] !in 1..12) return null
+        return "${if (p[2] == 1) "1er" else p[2].toString()} ${MONTHS[p[1] - 1]} ${p[0]}"
+    }
 
     /** Filmographie d'un acteur (films et séries), en français. */
     suspend fun person(id: String): PersonPage? = runCatching {
         val d = get("/person/$id", mapOf("append_to_response" to "combined_credits"))
         val cc = d.obj("combined_credits")
-        val all = ((cc?.arr("cast") ?: emptyList()) + (cc?.arr("crew") ?: emptyList())).mapNotNull { it as? JsonObject }
-        val works = all.mapNotNull { o ->
-            val t = when (o.s("media_type")) { "tv" -> "series"; "movie" -> "movie"; else -> null } ?: return@mapNotNull null
-            if (t == "series" && (o.s("character")?.contains("Self", true) == true || o.i("episode_count")?.let { it < 2 } == true)) return@mapNotNull null
-            preview(o, t)?.let { it to (o.s("popularity")?.toDoubleOrNull() ?: 0.0) }
-        }.distinctBy { it.first.id }.sortedByDescending { it.second }.map { it.first }.filter { it.poster != null }
-        PersonPage(d.s("name") ?: "", img(d.s("profile_path"), "w342"), d.s("biography"), d.s("known_for_department"), works)
+        val cast = (cc?.arr("cast") ?: emptyList()).mapNotNull { it as? JsonObject }
+        val crew = (cc?.arr("crew") ?: emptyList()).mapNotNull { it as? JsonObject }
+        fun conv(o: JsonObject): Pair<MetaPreview, Double>? {
+            val t = when (o.s("media_type")) { "tv" -> "series"; "movie" -> "movie"; else -> null } ?: return null
+            if (t == "series" && (o.s("character")?.contains("Self", true) == true || o.i("episode_count")?.let { it < 2 } == true)) return null
+            return preview(o, t)?.let { it to (o.s("popularity")?.toDoubleOrNull() ?: 0.0) }
+        }
+        val directed = crew.filter { it.s("job") in setOf("Director", "Writer", "Screenplay", "Creator") }.mapNotNull { conv(it)?.first?.id }.toSet()
+        val works = (cast + crew).mapNotNull { conv(it) }.distinctBy { it.first.id }.sortedByDescending { it.second }.map { it.first }.filter { it.poster != null }
+        val knownFor = cast.mapNotNull { conv(it) }.filter { it.first.poster != null && (it.first.imdbRating?.toDoubleOrNull() ?: 0.0) > 0 }
+            .distinctBy { it.first.id }.sortedByDescending { it.second }.take(12).map { it.first }
+        var bio = d.s("biography")
+        if (bio.isNullOrBlank()) bio = runCatching { get("/person/$id", mapOf("language" to "en-US")).s("biography") }.getOrNull()
+        val death = frDate(d.s("deathday")); val birth = frDate(d.s("birthday"))
+        val year = d.s("birthday")?.take(4)?.toIntOrNull()
+        val age = if (birth != null && year != null) (java.time.LocalDate.now().year - year).let { if (death != null) null else "$it ans" } else null
+        val born = listOfNotNull(birth?.let { "Né(e) le $it" }, age, death?.let { "décédé(e) le $it" }, d.s("place_of_birth")).joinToString(" · ").ifBlank { null }
+        PersonPage(d.s("name") ?: "", img(d.s("profile_path"), "w342"), bio, d.s("known_for_department"), works, born, knownFor, directed)
     }.getOrNull()
 }

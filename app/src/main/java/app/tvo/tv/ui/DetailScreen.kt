@@ -298,7 +298,7 @@ fun PersonScreen(id: String, nav: Nav) {
     var kind by remember { mutableStateOf("all") }
     var sort by remember { mutableStateOf("new") }
     val works = remember(p, kind, sort) {
-        val f = p.works.filter { kind == "all" || it.type == kind }
+        val f = p.works.filter { (kind == "all" || it.type == kind || (kind == "dir" && it.id in p.directed)) }
         val y = { m: app.tvo.tv.data.MetaPreview -> m.releaseInfo?.take(4)?.toIntOrNull() ?: 0 }
         when (sort) { "new" -> f.sortedByDescending(y); "old" -> f.filter { y(it) > 0 }.sortedBy(y) + f.filter { y(it) == 0 }; else -> f }
     }
@@ -315,7 +315,16 @@ fun PersonScreen(id: String, nav: Nav) {
                 Column(Modifier.width(720.dp)) {
                     Text(p.name, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = TvoColors.Text)
                     Text("${p.works.size} films et séries", fontSize = 15.sp, color = TvoColors.Cyan)
+                    p.born?.let { Text(it, Modifier.padding(top = 2.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                     if (!p.bio.isNullOrBlank()) Text(p.bio, Modifier.padding(top = 8.dp), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+        if (p.knownFor.size >= 3) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Connu pour", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    items(p.knownFor.size, key = { p.knownFor[it].id }) { i -> val m = p.knownFor[i]; PortraitCard(m, { nav.openMeta(m) }) }
                 }
             }
         }
@@ -324,6 +333,7 @@ fun PersonScreen(id: String, nav: Nav) {
                 Chip("Tout (${p.works.size})", kind == "all", { kind = "all" }, Modifier.focusRequester(first))
                 Chip("Films (${p.works.count { it.type == "movie" }})", kind == "movie", { kind = "movie" })
                 Chip("Séries (${p.works.count { it.type == "series" }})", kind == "series", { kind = "series" })
+                if (p.directed.isNotEmpty()) Chip("Réalisation (${p.works.count { it.id in p.directed }})", kind == "dir", { kind = "dir" })
                 Spacer(Modifier.width(24.dp))
                 Chip("Plus récents", sort == "new", { sort = "new" })
                 Chip("Plus anciens", sort == "old", { sort = "old" })
