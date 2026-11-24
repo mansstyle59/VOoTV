@@ -3805,7 +3805,7 @@ var qrcode = function() {
   function rowShell(row) {
     const sec = document.createElement("section");
     sec.className = "section";
-    sec.innerHTML = `<h2 class="section-title"><span class="st">${rowIcon(row.title)}${esc(row.title)}</span><a href="#/catalog/${enc(row.key)}">Voir tout →</a></h2>
+    sec.innerHTML = `<h2 class="section-title"><span class="st plain">${esc(row.title)}</span><a href="#/catalog/${enc(row.key)}" aria-label="Voir tout">Voir tout ›</a></h2>
       <div class="row">${Array.from({ length: 4 }, () => isLandRow(row.title) && !isDesk() ? '<div class="lcard"><span class="limg skeleton"></span></div>' : '<div class="pcard"><span class="pimg skeleton"></span></div>').join("")}</div>`;
     return sec;
   }
@@ -3932,7 +3932,7 @@ var qrcode = function() {
     if (!type && Date.now() - (window.__homePull || 0) > 20000) { window.__homePull = Date.now(); syncNow().then((ch) => { if (ch && $("#player").hidden && /^#\/(home)?$/.test(location.hash || "#/")) route(); }); }
     app.innerHTML = (type ? topBar(typeLabel(type)) : `<header class="header homebar">
         <button data-go="#/profiles" aria-label="Changer de profil">${avatar(p, "sm")}</button>
-        <h1>Tendances pour toi</h1>
+        <h1 class="brandmark">TVO</h1>
         <button class="icon-btn round" data-go="#/discover" aria-label="Rechercher">${ICON.search}</button>
         <button class="icon-btn round" data-go="#/settings" aria-label="Réglages">${ICON.settings}</button></header>`)
       + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
@@ -3942,7 +3942,7 @@ var qrcode = function() {
     const cont = continueWatching().filter((x) => !type || x.type === type);
     if (cont.length && !hidden.includes("continue")) {
       const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span class="st plain">Continuer à regarder</span><span class="small muted">Appui long : options</span></h2><div class="row">${cont.map((x) => `
+      sec.innerHTML = `<h2 class="section-title"><span class="st plain">Continuer à regarder</span></h2><div class="row">${cont.map((x) => `
         <button class="ccard" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}" data-menu="cont|${esc(x.videoId)}">
           <span class="cimg">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}</span><span class="cshade"></span>
           <span class="cplay">${ICON.play}</span>
