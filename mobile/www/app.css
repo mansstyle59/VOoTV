@@ -1004,27 +1004,6 @@ input.selectable, .field { -webkit-user-select: text; user-select: text; }
 /* =====================  Ordinateur (Mac, grands écrans) : mise en page dédiée  ===================== */
 html.mac body::before { content: ""; position: fixed; top: 0; left: 0; right: 0; height: 30px; z-index: 700; -webkit-app-region: drag; }
 html.mac .header, html.mac .topbar, html.mac .homebar { padding-top: 34px; }
-@media (min-width: 1024px) {
-  :root { --pad: 36px; }
-  /* La barre du bas devient une barre latérale fixe à gauche */
-  .tabs { left: 16px; right: auto; top: 50%; bottom: auto; transform: translateY(-50%); width: 92px; padding: 10px 8px;
-    grid-template-columns: 1fr; grid-auto-rows: auto; gap: 6px; border-radius: 26px; }
-  .tab { min-height: 66px; font-size: 11.5px; }
-  body:not(.no-tabs) #app { padding-left: 124px; padding-bottom: 40px; }
-  #app { max-width: 1680px; margin: 0 auto; }
-  .tab:hover, .btn:hover, .chip:hover, .card.source:hover, .as-btn:hover { filter: brightness(1.12); }
-  .gtile:hover, .ptile:hover, .colcard:hover, .ccard:hover, .ltile:hover .llogo, .pcard:hover .pimg { box-shadow: 0 0 0 2px var(--blue-2), 0 12px 30px rgba(0,0,0,.45); }
-  button, a, .card { cursor: pointer; }
-  .cslide { flex-basis: 300px; }
-  .car-info b { font-size: 28px; }
-  .ccard { width: 380px; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-  .sect-group, .settings-wrap { max-width: 860px; margin-left: auto; margin-right: auto; }
-  .auth-card { width: 440px; }
-  .as-sheet, .wn-sheet { place-items: center; }
-  .pin-card { width: 380px; }
-  .lsugg { grid-auto-columns: 320px; }
-}
 @media (min-width: 1600px) { .cslide { flex-basis: 340px; } .ccard { width: 440px; } }
 
 /* ---------- Bannière de mise à jour ---------- */
@@ -1040,3 +1019,66 @@ html.mac .upd-banner { top: 40px; }
 .tvo-logo { display: block; width: 100%; height: auto; }
 .logo { display: inline-flex; align-items: center; height: 30px; } .logo .tvo-logo { height: 100%; width: auto; }
 .splash-logo { width: min(62vw, 300px); } .auth-logo { display: block; width: min(52vw, 230px); }
+
+/* =====================  Ordinateur / Mac : interface façon plateforme de streaming  ===================== */
+.tlogo, .tright, .tab.desk-only { display: none; }
+@media (min-width: 1024px) {
+  :root { --pad: 48px; }
+  /* Barre de navigation en haut : logo, rubriques, recherche et profil */
+  .tabs { inset: 0 0 auto 0; transform: none; width: auto; height: 68px; padding: 0 var(--pad); border-radius: 0; border: 0;
+    display: flex; align-items: center; gap: 6px; grid-template-columns: none;
+    background: linear-gradient(180deg, rgba(6,10,24,.92) 0%, rgba(6,10,24,.55) 70%, rgba(6,10,24,0) 100%);
+    -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+  html.mac .tabs { padding-left: 96px; height: 72px; padding-top: 6px; }
+  .tlogo { display: block; height: 30px; margin-right: 22px; cursor: pointer; } .tlogo .tvo-logo { height: 100%; width: auto; }
+  .tab, .tab.desk-only { display: flex; flex-direction: row; min-height: 0; padding: 8px 12px; border-radius: 10px; font-size: 14.5px; font-weight: 600; color: #c9d3ee; background: none !important; box-shadow: none !important; }
+  .tab .ico { display: none; }
+  .tab.active { color: #fff; font-weight: 800; }
+  .tab:hover { color: #fff; }
+  .tab[data-tab="discover"], .tab[data-tab="settings"] { display: none; }
+  .tright { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+  .tright .icon-btn { background: none; width: 40px; height: 40px; }
+  .tav .avatar { width: 34px; height: 34px; font-size: 15px; border-radius: 8px; }
+  body:not(.no-tabs) #app { padding: 0 0 60px; }
+  #app { max-width: none; }
+  .header.homebar { display: none; }
+  .header.topbar { padding-top: 84px; }
+  /* Grand visuel d'accueil */
+  .hero3 { height: 86vh; min-height: 540px; max-height: 940px; margin: 0; border-radius: 0; aspect-ratio: auto; width: 100%; border: 0; box-shadow: none; }
+  .hero3 .shade { background: linear-gradient(90deg, rgba(6,10,24,.92) 0%, rgba(6,10,24,.55) 35%, rgba(6,10,24,0) 65%), linear-gradient(0deg, var(--bg) 0%, rgba(6,10,24,0) 35%); }
+  .hero3 .info { right: auto; width: 560px; padding: 0; }
+  .hero3 .dots { justify-content: flex-start; }
+  .hero3 .info { left: var(--pad); bottom: 18%; max-width: 560px; }
+  .hero3 .info h2 { font-size: 54px; } .hero3 .info p { font-size: 17px; -webkit-line-clamp: 3; }
+  .hero3 .hlogo { max-width: 460px; max-height: 180px; }
+  #rows { margin-top: -10vh; position: relative; z-index: 2; }
+  .section-title { font-size: 21px; }
+  /* Rangées : grandes images horizontales qui s'agrandissent au survol */
+  .row { gap: 10px; padding: 18px var(--pad) 26px; overflow-y: visible; }
+  .ncard { position: relative; flex: none; width: 300px; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; padding: 0; border: 0; background: var(--surface-2); color: #fff; text-align: left;
+    transition: transform .25s ease, box-shadow .25s ease; transform-origin: center; }
+  .ncard .nimg, .ncard .nimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ncard .nshade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(4,8,20,.95) 0%, rgba(4,8,20,.2) 55%, transparent 75%); opacity: .85; transition: opacity .25s; }
+  .ncard .ninfo { position: absolute; left: 12px; right: 12px; bottom: 10px; display: grid; gap: 2px; }
+  .ncard .ninfo b { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ncard .ninfo span { font-size: 12px; color: #cbd6f3; max-height: 0; overflow: hidden; transition: max-height .25s; }
+  .ncard:hover, .ncard:focus-visible { transform: scale(1.12); z-index: 5; box-shadow: 0 18px 40px rgba(0,0,0,.6), 0 0 0 2px rgba(110,168,255,.7); }
+  .ncard:hover .nshade { opacity: 1; } .ncard:hover .ninfo span { max-height: 40px; }
+  .ccard { width: 360px; }
+  /* Fiche : grand visuel + bande-annonce VF */
+  .dt-hero { height: 80vh; max-height: 860px; }
+  .dt-trailer { position: absolute; inset: 0; overflow: hidden; opacity: 0; transition: opacity 1s; pointer-events: none; }
+  .dt-hero.playing .dt-trailer { opacity: 1; } .dt-hero.playing > img { opacity: 0; transition: opacity 1s; }
+  .dt-trailer iframe { position: absolute; top: 50%; left: 50%; width: 177.78vh; min-width: 100%; height: 56.25vw; min-height: 100%; transform: translate(-50%, -50%); border: 0; }
+  .dt-hero .shade { z-index: 1; } .dt-hero .floating-back { z-index: 3; top: 84px; }
+  .dt-body { max-width: 900px; margin: -32vh 0 0; padding: 0 var(--pad); position: relative; z-index: 2; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); padding: 0 var(--pad); }
+  .sect-group, .auth-card { max-width: 860px; }
+  .settings-wrap, .list { max-width: 980px; }
+  button, a, .card { cursor: pointer; }
+  .gtile:hover, .ptile:hover, .colcard:hover, .ccard:hover, .ltile:hover .llogo, .pcard:hover .pimg { box-shadow: 0 0 0 2px var(--blue-2), 0 12px 30px rgba(0,0,0,.45); }
+  .as-sheet, .wn-sheet { place-items: center; }
+  .lsugg { grid-auto-columns: 320px; }
+  .upd-banner { top: 80px; }
+}
+@media (min-width: 1600px) { .ncard { width: 340px; } }

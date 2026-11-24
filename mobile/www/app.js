@@ -1182,6 +1182,11 @@
   const landCard = (m) => `<button class="lcard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
       <span class="limg">${m.background || m.poster ? `<img src="${esc(m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${m.imdbRating ? `<span class="rate">★ ${esc(m.imdbRating)}</span>` : ""}</span>
       <span class="pname">${esc(m.name)}</span></button>`;
+  const isDesk = () => matchMedia("(min-width: 1024px)").matches;
+  /** Ordinateur et TV : grandes images horizontales, qui s'agrandissent au survol (titre, année, note). */
+  const netCard = (m) => (m.type === "tv" || m.type === "channel") ? landCard(m) : `<button class="ncard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+      <span class="nimg">${m.background || m.poster ? `<img src="${esc(m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</span>
+      <span class="nshade"></span><span class="ninfo"><b>${esc(m.name)}</b><span>${[m.releaseInfo, m.imdbRating ? "★ " + m.imdbRating : "", (m.genres || []).slice(0, 2).map(genreLabel).join(" · ")].filter(Boolean).map(esc).join("  ·  ")}</span></span></button>`;
   const isLandRow = (title) => /^(Nouv|Dernier|Actuellement|Bientôt)/.test(title);
   const rowIcon = (title) => /tendance|populaire/i.test(title) ? ICON.trend : /^(Nouv|Dernier|Actuellement|Bientôt)/.test(title) ? ICON.doc : /chaîne|sport|jeunesse/i.test(title) ? ICON.live : ICON.movie;
   const header = (title, extra = "") => `<header class="header">${title ? `<h1>${esc(title)}</h1>` : LOGO + '<span class="spacer"></span>'}${extra}</header>`;
@@ -1203,8 +1208,9 @@
     if (!active) { tabs.hidden = true; document.body.classList.add("no-tabs"); return; }
     document.body.classList.remove("no-tabs");
     tabs.hidden = false;
-    const items = [["home", "Accueil", ICON.home], ["discover", "Découvrir", ICON.search], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings]];
-    tabs.innerHTML = items.map(([k, l, i]) => `<button class="tab ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("");
+    const items = [["home", "Accueil", ICON.home], ["series", "Séries", ICON.series, 1], ["movies", "Films", ICON.movie, 1], ["discover", "Découvrir", ICON.search], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings]];
+    tabs.innerHTML = `<span class="tlogo" data-tab="home">${LOGO_SVG}</span>` + items.map(([k, l, i, desk]) => `<button class="tab ${desk ? "desk-only" : ""} ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("")
+      + (S.profile ? `<span class="tright"><button class="icon-btn" data-tab="search" aria-label="Rechercher">${ICON.search}</button><button class="tav" data-tab="profiles" aria-label="Changer de profil">${avatar(S.profile, "sm")}</button></span>` : "");
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
       if (location.hash === "#/" + b.dataset.tab) window.scrollTo({ top: 0, behavior: "smooth" }); else go("#/" + b.dataset.tab);
     }));
@@ -1269,7 +1275,7 @@
       try {
         const list = await catalog(row.a, row.c, row.extra);
         if (!list.length) { en.target.remove(); return; }
-        en.target.querySelector(".row").innerHTML = list.map(isLandRow(row.title) ? landCard : portraitHTML).join("");
+        en.target.querySelector(".row").innerHTML = list.map(isDesk() ? netCard : isLandRow(row.title) ? landCard : portraitHTML).join("");
         onFirst && onFirst(list);
       } catch { en.target.remove(); }
     }), { rootMargin: "400px 0px" });
@@ -1420,7 +1426,7 @@
     let heroDone = false;
     lazyRows(rowsEl, rows, (list) => {
       if (heroDone) return; heroDone = true;
-      if (list.length) (type ? renderHero : renderCarousel)($("#hero"), list);
+      if (list.length) (type || isDesk() ? renderHero : renderCarousel)($("#hero"), list);
     });
     if (!type && tmdbOn() && !hidden.includes("collections")) {
       const cs = document.createElement("section"); cs.className = "section";
@@ -1432,15 +1438,19 @@
 
 
   // ------------------------------------------------------------------ bandes-annonces (TMDB → YouTube), en français si possible
-  async function playTrailer(m) {
+  /** Bande-annonce en version française uniquement (aucune lecture si elle n'existe pas en VF). */
+  async function trailerVF(m) {
+    if (!m.tmdbId) return null;
     const kind = m.tmdbKind || (m.type === "series" ? "tv" : "movie");
     let vids = [];
-    for (const lang of ["fr-FR", "en-US"]) {
-      try { vids = ((await tget(`/${kind}/${m.tmdbId}/videos`, { language: lang })).results || []).filter((v) => v.site === "YouTube"); } catch { vids = []; }
-      if (vids.length) break;
-    }
-    const pick = vids.find((v) => v.type === "Trailer" && v.official) || vids.find((v) => v.type === "Trailer") || vids.find((v) => v.type === "Teaser") || vids[0];
-    if (!pick) return toast("Pas de bande-annonce disponible pour ce titre.");
+    try { vids = ((await tget(`/${kind}/${m.tmdbId}/videos`, { language: "fr-FR", include_video_language: "fr" })).results || []); } catch { return null; }
+    vids = vids.filter((v) => v.site === "YouTube" && v.iso_639_1 === "fr" && !/vost|sous-titr|subtitled|\bvo\b/i.test(v.name || ""));
+    return vids.find((v) => v.type === "Trailer" && v.official) || vids.find((v) => v.type === "Trailer") || vids.find((v) => v.type === "Teaser") || null;
+  }
+  async function playTrailer(m) {
+    const kind = m.tmdbKind || (m.type === "series" ? "tv" : "movie");
+    const pick = await trailerVF(m);
+    if (!pick) return toast("Pas de bande-annonce en français pour ce titre.");
     const box = document.createElement("div"); box.className = "tr-sheet";
     box.innerHTML = `<div class="tr-card"><div class="tr-top"><b>${esc(pick.name || "Bande-annonce")}</b><button class="icon-btn" data-x aria-label="Fermer">✕</button></div>
       <div class="tr-frame"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(pick.key)}?autoplay=1&playsinline=1&rel=0&modestbranding=1&hl=fr&cc_lang_pref=fr"
@@ -1971,6 +1981,13 @@
       <div id="dtPane"></div>`;
 
     const tr = $("#trailer"); if (tr) tr.addEventListener("click", () => playTrailer(m));
+    // Ordinateur : la bande-annonce VF démarre toute seule dans le grand visuel (rien si pas de VF)
+    if (isDesk() && m.tmdbId) trailerVF(m).then((v) => {
+      const h = app.querySelector(".dt-hero"); if (!v || !h || !document.body.contains(h)) return;
+      h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.key)}?autoplay=1&mute=0&controls=0&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${encodeURIComponent(v.key)}&hl=fr"
+        allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1"></iframe></div>`);
+      setTimeout(() => h.classList.add("playing"), 2500);
+    });
     const drawTabs = () => {
       $("#dtTabs").innerHTML = tabsDef.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-t="${k}">${l}</button>`).join("");
       $("#dtTabs").querySelectorAll("[data-t]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.t; drawTabs(); drawPane(); }));

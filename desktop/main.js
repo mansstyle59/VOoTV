@@ -3,6 +3,8 @@ const { app, BrowserWindow, session, shell, ipcMain, Menu, nativeTheme } = requi
 const path = require("path");
 
 let win = null;
+// Bande-annonce VF lancée toute seule sur la fiche d'un film (comme sur une plateforme de streaming)
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 let pendingLink = null;
 
 // Une seule fenêtre TVO à la fois ; les liens tvo:// (connexion d'une TV par QR, etc.) arrivent ici
