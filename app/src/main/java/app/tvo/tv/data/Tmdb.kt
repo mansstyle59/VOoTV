@@ -51,6 +51,11 @@ object Tmdb {
             cat("series", "prov_350", "Nouveautés Apple TV+"),
             cat("movie", "top_rated", "Films les mieux notés"),
             cat("series", "top_rated", "Séries les mieux notées"),
+            cat("series", "tvtype_2", "Mini-séries"),
+            cat("series", "tvtype_3", "Téléréalité"),
+            cat("series", "tvtype_0", "Séries documentaires"),
+            cat("series", "tvtype_5", "Talk-shows"),
+            cat("series", "anime", "Animés et mangas"),
             cat("series", "latest_tv", "Nouvelles séries"),
             cat("series", "on_the_air", "Séries en cours de diffusion"),
             cat("series", "prov_337", "Séries Disney+"),
@@ -155,6 +160,8 @@ object Tmdb {
             cat.id == "upcoming" -> get("/movie/upcoming", mapOf("page" to page, "region" to "FR"))
             cat.id == "kids" -> get("/discover/$k", if (k == "tv") mapOf("page" to page, "with_genres" to "10762", "sort_by" to "popularity.desc")
                 else mapOf("page" to page, "with_genres" to "10751", "without_genres" to "27,53,80", "certification_country" to "FR", "certification.lte" to "U", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
+            cat.id.startsWith("tvtype_") -> get("/discover/tv", mapOf("page" to page, "with_type" to cat.id.removePrefix("tvtype_"), "sort_by" to "popularity.desc", "vote_count.gte" to "20"))
+            cat.id == "anime" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16", "with_original_language" to "ja", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
             cat.id.startsWith("ev_") -> {
                 val parts = cat.id.split("_"); val id = keywordId(parts[1])
                 if (id == null) JsonObject(emptyMap()) else get("/discover/movie", mapOf("page" to page, "with_keywords" to id,
@@ -260,6 +267,24 @@ object Tmdb {
         val cid = (get("/movie/$tid")["belongs_to_collection"] as? JsonObject)?.i("id")?.toString() ?: return@runCatching null
         collection(cid)?.takeIf { it.second.size >= 2 }
     }.getOrNull()
+
+    /** Acteurs et actrices du moment (avec photo). */
+    suspend fun popularPeople(): List<Person> = runCatching {
+        (get("/person/popular", mapOf("page" to "1")).arr("results").orEmpty() + get("/person/popular", mapOf("page" to "2")).arr("results").orEmpty())
+            .mapNotNull { it as? JsonObject }.filter { !it.s("profile_path").isNullOrBlank() }
+            .mapNotNull { o -> o.i("id")?.let { id ->
+                val kf = (o.arr("known_for")?.firstOrNull() as? JsonObject)?.let { it.s("title") ?: it.s("name") }
+                Person(id.toString(), o.s("name") ?: "", img(o.s("profile_path"), "w185"), kf) } }.distinctBy { it.id }
+    }.getOrDefault(emptyList())
+
+    /** Image de fond fraîche de chaque plateforme : un titre très populaire chez elle, au hasard parmi les premiers. */
+    suspend fun providerBackdrops(ids: List<String>): Map<String, String> = coroutineScope {
+        ids.map { pid -> async { runCatching {
+            val r = get("/discover/tv", mapOf("watch_region" to "FR", "with_watch_providers" to pid, "with_watch_monetization_types" to "flatrate", "sort_by" to "popularity.desc"))
+                .arr("results")?.mapNotNull { it as? JsonObject }?.filter { !it.s("backdrop_path").isNullOrBlank() }?.take(8).orEmpty()
+            r.randomOrNull()?.s("backdrop_path")?.let { pid to it }
+        }.getOrNull() } }.awaitAll().filterNotNull().toMap()
+    }
 
     suspend fun trending(type: String): List<MetaPreview> = runCatching {
         get("/trending/${kind(type)}/week").arr("results")?.mapNotNull { (it as? JsonObject)?.let { o -> preview(o, type) } }

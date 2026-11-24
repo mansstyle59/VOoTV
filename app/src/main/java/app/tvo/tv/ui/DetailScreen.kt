@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -122,11 +123,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var heroFocused by remember { mutableStateOf(true) }
+    val mainState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val heroFocused by remember { derivedStateOf { mainState.firstVisibleItemIndex == 0 && mainState.firstVisibleItemScrollOffset < 120 } }
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
-    val heroFull = (screenH - 190).coerceIn(250, 400).dp
-    val heroH by androidx.compose.animation.core.animateDpAsState(if (heroFocused) heroFull else 150.dp, label = "heroH")
+    val heroFull = (screenH - 100).coerceIn(300, 480).dp
     Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Visuel plein écran (image puis bande-annonce au même endroit), voilé à gauche et en bas pour garder le texte lisible
@@ -141,14 +142,14 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         // Quand on parcourt les rangées : fond sombre progressif pour que visages et affiches restent nets
         val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, label = "scrim")
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
-        // Bloc d'infos fixe : le titre reste toujours visible, la liste ne défile que dessous
-        Box(Modifier.fillMaxWidth().padding(top = 36.dp).onFocusChanged { heroFocused = it.hasFocus }) {
+        LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            item(key = "hero") {
+        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 36.dp)) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
-                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(if (heroFocused) 84.dp else 56.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
-                        else Text(p.name, fontSize = if (heroFocused) 38.sp else 28.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
+                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                        else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
                         Spacer(Modifier.height(10.dp))
                         MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
-                        if (heroFocused) {
                         if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 12.dp), fontSize = 15.sp,
                             color = Color.White.copy(alpha = 0.92f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 22.sp)
                         if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
@@ -171,11 +172,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
                             Text("Il reste $left min", Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted)
                         }
-                        }
                     }
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            item { Spacer(Modifier.height(heroH + 30.dp)) }
+        }
             if (meta.people.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)

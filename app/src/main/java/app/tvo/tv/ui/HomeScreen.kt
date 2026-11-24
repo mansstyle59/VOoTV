@@ -434,6 +434,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         if (type == null) item(key = "platforms") { PlatformTiles(nav) }
         if (type == null || type == "movie") item(key = "sagas") { SagaTiles(nav) }
+        if (type == null) item(key = "actors") { ActorRow(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
@@ -563,6 +564,18 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
 }
 
 @Composable
+private fun ActorRow(nav: Nav) {
+    val people by produceState<List<app.tvo.tv.data.Person>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.popularPeople() else emptyList() }
+    if (people.isEmpty()) return
+    PanelSection("Acteurs et actrices du moment") {
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            itemsIndexed(people, key = { _, pp -> pp.id }) { i, pp -> RowItem(rf, i) { PersonBubble(pp) { nav.openPerson(pp.id) } } }
+        }
+    }
+}
+
+@Composable
 private fun SagaTiles(nav: Nav) {
     val sagas by produceState<List<app.tvo.tv.data.Tmdb.Saga>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagas() else emptyList() }
     if (sagas.isEmpty()) return
@@ -577,6 +590,7 @@ private fun SagaTiles(nav: Nav) {
 @Composable
 private fun PlatformTiles(nav: Nav) {
     val select = LocalSelect.current
+    val fresh by produceState<Map<String, String>>(emptyMap()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.providerBackdrops(PLATFORMS.map { it.first.first }) else emptyMap() }
     PanelSection("Plateformes") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -586,7 +600,7 @@ private fun PlatformTiles(nav: Nav) {
                 Surface(
                     onClick = { nav.openGenre("all", "prov:$id") },
                     modifier = Modifier.width(250.dp).height(124.dp).onFocused {
-                        select(MetaPreview("platform:$id", "platform", name, null, PROV_BG[id]?.let { TMDB_IMG + "w1280" + it }, TMDB_IMG + "w300" + logo,
+                        select(MetaPreview("platform:$id", "platform", name, null, (fresh[id] ?: PROV_BG[id])?.let { TMDB_IMG + "w1280" + it }, TMDB_IMG + "w300" + logo,
                             "Les nouveautés films et séries disponibles sur $name, en France."))
                     },
                     shape = ClickableSurfaceDefaults.shape(shape),
@@ -597,7 +611,7 @@ private fun PlatformTiles(nav: Nav) {
                     // Carte de marque : dégradé de la couleur de la plateforme, grand logo officiel, nom
                     val bc = Color(color)
                     Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to bc, 1f to bc.copy(alpha = 0.55f).compositeOver(Color(0xFF0A0F1E))))) {
-                        PROV_BG[id]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.28f) }
+                        (fresh[id] ?: PROV_BG[id])?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.45f) }
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color(0x99000000))))
                         Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                             AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)).border(2.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
