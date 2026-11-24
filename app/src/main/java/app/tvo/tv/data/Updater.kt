@@ -19,6 +19,21 @@ import java.io.IOException
 object Updater {
     data class Release(val versionCode: Int, val versionName: String, val apkUrl: String, val notes: String)
 
+    fun cleanNotes(b: String): String = b.lines().map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("- TVO-") && !it.startsWith("Co-Authored-By") && !it.startsWith("Claude-Session") && !it.startsWith("http") }
+        .joinToString("\n")
+
+    /** Nouveautés des versions publiées entre [from] (exclu) et [to] (inclus), la plus récente d'abord. */
+    suspend fun notesSince(from: Int, to: Int): List<Pair<String, String>> = runCatching {
+        val arr = Tvo.client.getJsonArray("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases?per_page=30")
+        arr.mapNotNull { it as? JsonObject }.mapNotNull { o ->
+            val tag = o.s("tag_name") ?: return@mapNotNull null
+            val code = tag.substringAfterLast('.').filter { it.isDigit() }.toIntOrNull() ?: return@mapNotNull null
+            val n = cleanNotes(o.s("body") ?: "")
+            if (code in (from + 1)..to && n.isNotBlank()) Triple(code, tag.removePrefix("v"), n) else null
+        }.sortedByDescending { it.first }.map { it.second to it.third }
+    }.getOrDefault(emptyList())
+
     suspend fun check(): Release? = runCatching {
         val o = Tvo.client.getJson("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases/latest")
         val tag = o.s("tag_name") ?: return@runCatching null

@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonArray
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -52,6 +53,14 @@ class AddonClient(private val http: OkHttpClient) {
         http.newCall(req).execute().use { r ->
             if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
             json.parseToJsonElement(r.body?.string() ?: "{}").jsonObject
+        }
+    }
+
+    suspend fun getJsonArray(url: String): kotlinx.serialization.json.JsonArray = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+        http.newCall(req).execute().use { r ->
+            if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
+            json.parseToJsonElement(r.body?.string() ?: "[]").jsonArray
         }
     }
 

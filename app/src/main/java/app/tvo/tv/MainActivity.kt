@@ -1,5 +1,7 @@
 package app.tvo.tv
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.lifecycle.lifecycleScope
 import android.net.Uri
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.draw.clip
@@ -55,9 +57,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var lastCheck = System.currentTimeMillis()
     override fun onResume() {
         super.onResume()
         app.tvo.tv.data.Sync.syncInBackground()
+        // Retour dans l'appli : nouvelle recherche de mise à jour (au plus une fois toutes les 20 minutes)
+        if (System.currentTimeMillis() - lastCheck > 20 * 60_000 && PendingUpdate.release.value == null) {
+            lastCheck = System.currentTimeMillis()
+            lifecycleScope.launch { Updater.check()?.let { PendingUpdate.release.value = it } }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +76,7 @@ class MainActivity : ComponentActivity() {
                 Surface(Modifier.fillMaxSize(), colors = SurfaceDefaults.colors(containerColor = TvoColors.Bg, contentColor = TvoColors.Text)) {
                     AppNav()
                     UpdatePrompt()
+                    WhatsNew()
                 }
             }
         }
@@ -152,6 +161,7 @@ private fun UpdatePrompt() {
             Column(Modifier.width(460.dp).padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Mise à jour de TVO ${r.versionName}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Text("Ta liste, ta progression et tes réglages sont conservés.", fontSize = 15.sp, color = TvoColors.Muted)
+                Updater.cleanNotes(r.notes).takeIf { it.isNotBlank() }?.let { Text("Nouveautés : $it", fontSize = 14.sp, color = TvoColors.Text, maxLines = 6) }
                 msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TvoButton("Installer", { if (file != null) install() }, Modifier.focusRequester(fr), primary = true)
@@ -165,6 +175,36 @@ private fun UpdatePrompt() {
 }
 
 
+/** Après une mise à jour : la liste des nouveautés s'affiche une fois. */
+@Composable
+private fun WhatsNew() {
+    val ctx = LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE) }
+    var notes by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        val seen = prefs.getInt("seen_code", -1)
+        val cur = app.tvo.tv.BuildConfig.VERSION_CODE
+        prefs.edit().putInt("seen_code", cur).apply()
+        if (seen in 0 until cur) { delay(3000); notes = Updater.notesSince(seen, cur) }
+    }
+    if (notes.isEmpty()) return
+    val fr = remember { FocusRequester() }
+    Dialog(onDismissRequest = { notes = emptyList() }) {
+        Surface(shape = RoundedCornerShape(20.dp), colors = SurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text)) {
+            Column(Modifier.width(620.dp).padding(30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Nouveautés de TVO ${app.tvo.tv.BuildConfig.VERSION_NAME}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                Text("Ce qui a changé depuis ta dernière ouverture", fontSize = 14.sp, color = TvoColors.Muted)
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(notes.size) { i -> val (v, n) = notes[i]
+                        Column { Text("Version $v", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan); Text(n, fontSize = 15.sp) } }
+                }
+                TvoButton("Super, on y va !", { notes = emptyList() }, Modifier.focusRequester(fr), primary = true)
+            }
+        }
+    }
+    LaunchedEffect(notes) { delay(150); runCatching { fr.requestFocus() } }
+}
+
 object PendingUpdate { val release = mutableStateOf<Updater.Release?>(null) }
 
 /** Écran d'accueil : logo + recherche de mise à jour (4 s maximum). */
@@ -172,17 +212,20 @@ object PendingUpdate { val release = mutableStateOf<Updater.Release?>(null) }
 private fun SplashScreen(onDone: () -> Unit) {
     var status by remember { mutableStateOf("Recherche de mise à jour…") }
     LaunchedEffect(Unit) {
-        val r = kotlinx.coroutines.withTimeoutOrNull(4000) { Updater.check() }
-        if (r != null) { status = "Nouvelle version ${r.versionName} trouvée"; PendingUpdate.release.value = r; delay(600) }
-        else { status = "TVO est à jour"; delay(400) }
+        val t0 = System.currentTimeMillis()
+        val r = kotlinx.coroutines.withTimeoutOrNull(5000) { Updater.check() }
+        if (r != null) { status = "Nouvelle version ${r.versionName} trouvée"; PendingUpdate.release.value = r }
+        else status = "TVO est à jour ✓"
+        delay((2400 - (System.currentTimeMillis() - t0)).coerceAtLeast(500))
         onDone()
     }
     androidx.compose.foundation.layout.Box(
-        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF13245F), TvoColors.Bg), radius = 1100f)),
+        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF17357F), TvoColors.Bg), radius = 1100f)),
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(90.dp))
+            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(110.dp))
+            androidx.tv.material3.Text("Films, séries et TV en direct", fontSize = 18.sp, color = androidx.compose.ui.graphics.Color(0xFFC9D8FF))
             androidx.tv.material3.Text(status, fontSize = 16.sp, color = TvoColors.Muted)
             androidx.compose.foundation.layout.Box(Modifier.width(180.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(TvoColors.Surface2)) {
                 val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "s")

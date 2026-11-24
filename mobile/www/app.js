@@ -2263,6 +2263,25 @@
 
   // ------------------------------------------------------------------ mises à jour (automatiques, sans réinstaller)
   let updateInfo = null;
+  const cleanNotes = (b) => String(b || "").split("\n").map((l) => l.trim())
+    .filter((l) => l && !/^- TVO-|^Co-Authored-By|^Claude-Session|^https?:\/\//i.test(l)).join("\n");
+  /** Nouveautés de toutes les versions publiées depuis `fromCode` (exclu) jusqu'à `toCode` (inclus). */
+  async function releaseNotes(fromCode, toCode) {
+    try {
+      const list = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases?per_page=30`, 10000);
+      return list.map((r) => ({ code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, name: String(r.tag_name || "").replace(/^v/, ""), notes: cleanNotes(r.body) }))
+        .filter((r) => r.code > fromCode && r.code <= toCode && r.notes).sort((a, b) => b.code - a.code);
+    } catch { return []; }
+  }
+  function showWhatsNew(list, name) {
+    if (!list.length) return;
+    const box = document.createElement("div"); box.className = "wn-sheet";
+    box.innerHTML = `<div class="wn-card"><div class="wn-head"><img src="logo-mark.png" alt=""><div><b>Nouveautés de TVO ${esc(name)}</b><span class="small muted">Ce qui a changé depuis ta dernière ouverture</span></div></div>
+      <div class="wn-list">${list.map((r) => `<div class="wn-item"><span class="tag">${esc(r.name)}</span><p>${esc(r.notes).replace(/\n/g, "<br>")}</p></div>`).join("")}</div>
+      <button class="btn primary block" data-x>Super, on y va !</button></div>`;
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) box.remove(); });
+  }
   async function latestRelease() {
     const r = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases/latest`, 10000);
     return { code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, "") };
@@ -2373,11 +2392,14 @@
   (async () => {
     const sp = $("#splash"), msg = $("#splashMsg"), t0 = Date.now();
     const sv = $("#splashVer"); if (sv) sv.textContent = "Version " + VERSION.name;
-    const ok = await Promise.race([autoUpdate(), sleep(4000).then(() => false)]);
-    await sleep(Math.max(0, 1600 - (Date.now() - t0)));
+    const ok = await Promise.race([autoUpdate(), sleep(5000).then(() => false)]);
+    await sleep(Math.max(0, 2400 - (Date.now() - t0)));
     if (ok && $("#player").hidden) { if (msg) msg.textContent = `Installation de TVO ${updateInfo.name}…`; setTimeout(() => location.reload(), 500); return; }
     if (msg) msg.textContent = "TVO est à jour ✓";
     if (sp) sp.classList.add("done");
+    // Nouveautés : affichées une fois, à la première ouverture après une mise à jour (code ou appli réinstallée)
+    const seen = LS.get("seen_code", null);
+    if (VERSION.code) { if (seen !== null && VERSION.code > seen) releaseNotes(seen, VERSION.code).then((l) => showWhatsNew(l, VERSION.name)); LS.set("seen_code", VERSION.code); }
     setTimeout(() => {
       if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); }
     }, 450);
