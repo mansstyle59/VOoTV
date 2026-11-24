@@ -433,6 +433,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { PortraitPanel("Ma liste", lib.map { it.toPreview() }, nav) }
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         if (type == null) item(key = "platforms") { PlatformTiles(nav) }
+        if (type == null || type == "movie") item(key = "sagas") { SagaTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
@@ -557,6 +558,18 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                     }
                 }
             } }
+        }
+    }
+}
+
+@Composable
+private fun SagaTiles(nav: Nav) {
+    val sagas by produceState<List<app.tvo.tv.data.Tmdb.Saga>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagas() else emptyList() }
+    if (sagas.isEmpty()) return
+    PanelSection("Sagas et collections") {
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            itemsIndexed(sagas, key = { _, sg -> sg.id }) { i, sg -> RowItem(rf, i) { SagaTile(sg) { nav.openGenre("movie", "col:${sg.id}") } } }
         }
     }
 }

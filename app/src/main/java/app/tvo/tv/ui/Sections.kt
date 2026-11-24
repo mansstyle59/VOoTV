@@ -122,7 +122,7 @@ val PLATFORMS = listOf(
 @Composable
 private fun UniversePage(
     title: String, subtitle: String, logo: String?, bg: String?, brand: Color,
-    type: String, onType: (String) -> Unit, items: List<MetaPreview>, loading: Boolean, nav: Nav, onNearEnd: () -> Unit,
+    type: String, onType: (String) -> Unit, items: List<MetaPreview>, loading: Boolean, nav: Nav, onNearEnd: () -> Unit, tabs: Boolean = true,
 ) {
     val tabFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(120); runCatching { tabFocus.requestFocus() } }
@@ -147,7 +147,7 @@ private fun UniversePage(
                 }
             }
             Spacer(Modifier.weight(0.25f))
-            Row(Modifier.padding(start = 56.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (tabs) Row(Modifier.padding(start = 56.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 TvoButton("Films", { onType("movie") }, Modifier.focusRequester(tabFocus).onFocusChanged { if (it.isFocused) onType("movie") }, primary = type == "movie")
                 TvoButton("Séries", { onType("series") }, Modifier.onFocusChanged { if (it.isFocused) onType("series") }, primary = type == "series")
                 Text("◀ ▶  pour changer", Modifier.padding(start = 10.dp), fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
@@ -199,8 +199,17 @@ private fun ProviderGrid(id: String, nav: Nav) {
 }
 
 @Composable
+private fun CollectionScreen(id: String, nav: Nav) {
+    val data by produceState<Pair<app.tvo.tv.data.Tmdb.Saga, List<MetaPreview>>?>(null, id) { value = app.tvo.tv.data.Tmdb.collection(id) }
+    UniversePage(data?.first?.name ?: "Saga", "Tous les films de la saga, dans l'ordre de sortie", null, data?.first?.backdrop,
+        Color(0xFFF59E0B), "movie", {}, data?.second ?: emptyList(), data == null, nav, {}, tabs = false)
+    LaunchedEffect(data) { if (data != null) delay(150) }
+}
+
+@Composable
 fun GenreScreen(type: String, genre: String, nav: Nav) {
     if (genre.startsWith("prov:")) return ProviderGrid(genre.removePrefix("prov:"), nav)
+    if (genre.startsWith("col:")) return CollectionScreen(genre.removePrefix("col:"), nav)
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()
     val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, Tvo.store.currentProfile.value?.kids == true) }
@@ -256,11 +265,19 @@ fun SearchSection(nav: Nav) {
     val people by produceState<List<app.tvo.tv.data.Person>>(emptyList(), query) {
         value = if (query.trim().length < 2 || !app.tvo.tv.data.Tmdb.enabled) emptyList() else { delay(450); app.tvo.tv.data.Tmdb.searchPeople(query.trim()) }
     }
-    Row(Modifier.fillMaxSize()) {
-        Column(Modifier.width(380.dp).padding(start = 40.dp, top = 36.dp)) {
+    val sagas by produceState<List<app.tvo.tv.data.Tmdb.Saga>>(emptyList(), query) {
+        value = if (query.trim().length < 2 || !app.tvo.tv.data.Tmdb.enabled) emptyList() else { delay(450); app.tvo.tv.data.Tmdb.searchSagas(query.trim()) }
+    }
+    val trendMovies by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("movie") else emptyList() }
+    val trendSeries by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("series") else emptyList() }
+    Row(Modifier.fillMaxSize().background(tvoBrush(Color(0xFF2F5BFF)))) {
+        Column(Modifier.width(500.dp).padding(start = 40.dp, top = 28.dp)) {
             Text("Recherche", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-            Box(Modifier.padding(vertical = 16.dp).width(330.dp).clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
-                Text(query.ifEmpty { "Film, série ou acteur" }, fontSize = 19.sp,
+            Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x66101A36))
+                .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("🔍", fontSize = 18.sp)
+                Spacer(Modifier.width(10.dp))
+                Text(query.ifEmpty { "Film, série, saga ou acteur" }, fontSize = 19.sp,
                     color = if (query.isEmpty()) TvoColors.Muted else TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             TvKeyboard(onKey = { query += it }, onBackspace = { query = query.dropLast(1) }, onClear = { query = "" }, firstKey = firstKey)
@@ -269,14 +286,26 @@ fun SearchSection(nav: Nav) {
             val r = results
             when {
                 r == null -> CenterMessage("Recherche…")
-                query.trim().length < 2 -> CenterMessage("Que veux-tu regarder ?", "Tape au moins deux lettres.")
-                r.isEmpty() && people.isEmpty() -> CenterMessage("Aucun résultat", "Essaie un autre titre, en anglais ou en français.")
+                query.trim().length < 2 -> LazyColumn(contentPadding = PaddingValues(top = 36.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    item { Text("Que veux-tu regarder ?", Modifier.padding(start = 48.dp), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text) }
+                    if (trendMovies.isNotEmpty()) item { PosterRow("Films tendance", trendMovies, nav.openMeta, {}) }
+                    if (trendSeries.isNotEmpty()) item { PosterRow("Séries tendance", trendSeries, nav.openMeta, {}) }
+                }
+                r.isEmpty() && people.isEmpty() && sagas.isEmpty() -> CenterMessage("Aucun résultat", "Essaie un autre titre, en anglais ou en français.")
                 else -> LazyColumn(contentPadding = PaddingValues(top = 36.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                     if (people.isNotEmpty()) item(key = "people") {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             SectionTitle("Acteurs et actrices")
                             androidx.compose.foundation.lazy.LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                                 items(people, key = { it.id }) { pp -> PersonBubble(pp) { nav.openPerson(pp.id) } }
+                            }
+                        }
+                    }
+                    if (sagas.isNotEmpty()) item(key = "sagas") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SectionTitle("Sagas et collections")
+                            androidx.compose.foundation.lazy.LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                items(sagas, key = { it.id }) { sg -> SagaTile(sg) { nav.openGenre("movie", "col:${sg.id}") } }
                             }
                         }
                     }
@@ -314,7 +343,8 @@ fun SettingsSection(nav: Nav) {
     )
     var page by rememberSaveable { mutableStateOf("profil") }
 
-    Row(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
+    val pageColor = Color(pages.first { it.key == page }.color)
+    Row(Modifier.fillMaxSize().background(tvoBrush(pageColor, Color(0xFF2F5BFF))).padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
         // Menu
         Column(Modifier.width(330.dp).fillMaxHeight()) {
             Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(bottom = 14.dp))

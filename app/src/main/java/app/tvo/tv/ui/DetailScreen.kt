@@ -117,6 +117,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val trailerWin = trailerMode == 2
     androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = if (trailerMode == 2) 1 else 0 }
     val similar by produceState(emptyList<MetaPreview>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.similar(p.type, p.id) else emptyList() }
+    val saga by produceState<Pair<app.tvo.tv.data.Tmdb.Saga, List<MetaPreview>>?>(null, p.id) {
+        value = if (p.type == "movie" && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagaOf(p.type, p.id) else null
+    }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var heroFocused by remember { mutableStateOf(true) }
@@ -199,6 +202,14 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
+            saga?.let { sg -> item(key = "saga") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Saga : " + sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim(), Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        items(sg.second, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
+                    }
+                }
+            } }
             if (similar.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)

@@ -274,7 +274,7 @@ fun TvKeyboard(
     val keys = if (url) "abcdefghijklmnopqrstuvwxyz0123456789.:/-_?=&%~".map { it.toString() } + listOf(".com", "https://", "/manifest.json")
     else "abcdefghijklmnopqrstuvwxyz0123456789".map { it.toString() } + listOf("'", "-")
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val singles = keys.filter { it.length == 1 }.chunked(if (url) 8 else 6)
+        val singles = keys.filter { it.length == 1 }.chunked(if (url) 8 else 9)
         singles.forEachIndexed { r, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEachIndexed { c, k ->
@@ -443,6 +443,31 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
                 AsyncImage(item.poster ?: item.background, item.name, if (tv) Modifier.fillMaxSize().padding(16.dp) else Modifier.fillMaxSize(),
                     contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
                 if (item.poster == null || tv) Text(item.name, Modifier.align(Alignment.BottomStart).padding(8.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2)
+            }
+        }
+    }
+}
+
+
+/** Carte d'une saga / collection : fond de la saga, voile et nom. */
+@Composable
+fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.width(240.dp).height(135.dp),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1E2A4F), focusedContainerColor = Color(0xFF1E2A4F)),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            (sg.backdrop ?: sg.poster)?.let { AsyncImage(it.replace("/w1280/", "/w500/"), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 1f to Color(0xF2000000))))
+            Column(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 10.dp)) {
+                Box(Modifier.width(28.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFF59E0B)))
+                Spacer(Modifier.height(6.dp))
+                Text(sg.name.replace(" - Saga", "").replace(" Collection", "").replace("— Saga", "").trim(), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
             }
         }
     }

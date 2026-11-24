@@ -223,6 +223,49 @@ object Tmdb {
             .filter { it.poster != null }.distinctBy { it.id }.take(20)
     }.getOrDefault(emptyList())
 
+    data class Saga(val id: String, val name: String, val poster: String?, val backdrop: String?)
+    private val SAGA_IDS = listOf(1241, 10, 86311, 645, 9485, 119, 328, 10194, 87359, 295, 2344, 131635, 2150, 404609, 8091, 748, 263, 87096, 86055)
+
+    private fun saga(o: JsonObject, id: String) = Saga(id, o.s("name") ?: "", img(o.s("poster_path"), "w342"), img(o.s("backdrop_path"), "w1280"))
+
+    /** Grandes sagas du cinéma (Harry Potter, Star Wars, James Bond…). */
+    suspend fun sagas(): List<Saga> = coroutineScope {
+        SAGA_IDS.map { cid -> async { runCatching { saga(get("/collection/$cid"), cid.toString()).takeIf { it.name.isNotBlank() } }.getOrNull() } }
+            .awaitAll().filterNotNull()
+    }
+
+    suspend fun searchSagas(q: String): List<Saga> = runCatching {
+        get("/search/collection", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject }
+            ?.filter { !it.s("poster_path").isNullOrBlank() }?.take(10)
+            ?.mapNotNull { o -> o.i("id")?.let { saga(o, it.toString()) } } ?: emptyList()
+    }.getOrDefault(emptyList())
+
+    /** Une saga et ses films, dans l'ordre de sortie. */
+    suspend fun collection(cid: String): Pair<Saga, List<MetaPreview>>? = runCatching {
+        val o = get("/collection/$cid")
+        val parts = o.arr("parts")?.mapNotNull { it as? JsonObject }?.sortedBy { it.s("release_date") ?: "9999" }
+            ?.mapNotNull { preview(it, "movie") }?.filter { it.poster != null } ?: emptyList()
+        saga(o, cid) to parts
+    }.getOrNull()
+
+    /** La saga à laquelle appartient un film (s'il y en a une avec au moins 2 films). */
+    suspend fun sagaOf(type: String, id: String): Pair<Saga, List<MetaPreview>>? = runCatching {
+        if (type != "movie") return@runCatching null
+        val tid = when {
+            id.startsWith("tmdb:") -> id.split(":").getOrNull(2)
+            id.startsWith("tt") -> (get("/find/${id.substringBefore(":")}", mapOf("external_source" to "imdb_id"))
+                .arr("movie_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
+            else -> null
+        } ?: return@runCatching null
+        val cid = (get("/movie/$tid")["belongs_to_collection"] as? JsonObject)?.i("id")?.toString() ?: return@runCatching null
+        collection(cid)?.takeIf { it.second.size >= 2 }
+    }.getOrNull()
+
+    suspend fun trending(type: String): List<MetaPreview> = runCatching {
+        get("/trending/${kind(type)}/week").arr("results")?.mapNotNull { (it as? JsonObject)?.let { o -> preview(o, type) } }
+            ?.filter { it.poster != null } ?: emptyList()
+    }.getOrDefault(emptyList())
+
     /** Clé YouTube de la bande-annonce en français (VF uniquement), ou null s'il n'y en a pas. */
     suspend fun trailerVF(type: String, id: String): String? = runCatching {
         val k = kind(type)
