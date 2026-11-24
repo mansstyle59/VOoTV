@@ -162,7 +162,7 @@ class Store(ctx: Context) {
     /** One entry per title, most recent first, only unfinished. */
     fun continueWatching(list: List<Progress>): List<Progress> =
         list.sortedByDescending { it.updatedAt }.distinctBy { it.metaId }
-            .filter { it.fraction in 0.02f..0.92f }.take(20)
+            .filter { (it.position >= 30_000 || it.fraction >= 0.02f) && it.fraction <= 0.92f }.take(20)
 
     // ---- addons ----
     fun setAddons(list: List<Addon>, userChange: Boolean = true) {

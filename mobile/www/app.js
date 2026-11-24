@@ -2469,7 +2469,7 @@ var qrcode = function() {
     const seen = new Set();
     return [...S.prog].sort((a, b) => b.updatedAt - a.updatedAt)
       .filter((p) => (seen.has(p.metaId) ? false : seen.add(p.metaId)))
-      .filter((p) => fraction(p) > 0.02 && fraction(p) < 0.92).slice(0, 20);
+      .filter((p) => (p.position >= 30000 || fraction(p) > 0.02) && fraction(p) < 0.92).slice(0, 20);
   }
 
   // ------------------------------------------------------------------ add-ons (protocole Stremio)
