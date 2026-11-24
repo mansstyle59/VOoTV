@@ -4,6 +4,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 
 import androidx.tv.material3.Surface
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.fillMaxHeight
 
 import androidx.compose.ui.graphics.Color
@@ -317,7 +318,7 @@ fun SettingsSection(nav: Nav) {
         // Menu
         Column(Modifier.width(330.dp).fillMaxHeight()) {
             Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(bottom = 14.dp))
-            Column(Modifier.clip(RoundedCornerShape(18.dp)).background(TvoColors.Surface)) {
+            Column(Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp)).padding(vertical = 6.dp)) {
                 pages.forEach { pg ->
                     val on = pg.key == page
                     Surface(
@@ -345,8 +346,8 @@ fun SettingsSection(nav: Nav) {
             }
         }
         Spacer(Modifier.width(32.dp))
-        // Contenu
-        LazyColumn(Modifier.weight(1f).fillMaxHeight(), contentPadding = PaddingValues(top = 56.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Contenu : panneau translucide pour que le fond coloré transparaisse
+        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(Color(0x4D0A0F1E)).border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(24.dp)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 56.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when (page) {
                 "profil" -> {
                     item { Heading("Profil") }
@@ -490,7 +491,7 @@ fun AddonAddScreen(onDone: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    Row(Modifier.fillMaxSize().background(tvoBrush(Color(0xFF2F5BFF))).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Ajouter un add-on", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
@@ -641,7 +642,7 @@ fun TmdbKeyScreen(onDone: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    Row(Modifier.fillMaxSize().background(tvoBrush(Color(0xFF2F5BFF))).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Clé API TMDB", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Text("Sur themoviedb.org : Paramètres › API. La « clé d'API » ou le « jeton d'accès en lecture » fonctionnent.",

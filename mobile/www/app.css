@@ -1370,3 +1370,11 @@ body.scrolled-bg::after { background: linear-gradient(180deg, rgba(10,15,30,.9) 
 .car-act .btn.primary { background: linear-gradient(180deg, #fff, #e9e9f2); color: #0b0a12; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .car-act .btn:not(.primary) { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.2);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+
+/* ---------- Page plateforme : transparence totale en haut (l'image remonte sous l'heure et la batterie) ---------- */
+body:has(#app .pv2)::after { background: transparent; }
+#app:has(.pv2) { position: relative; }
+#app:has(.pv2) .header.topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 30; background: transparent !important; border-bottom: 0; }
+#app:has(.pv2) .pv-hero.pv2 { height: calc(44vh + var(--safe-top, 0px) + 72px); min-height: 0; max-height: none; padding-top: 0; }
+@media (min-width: 900px) { #app:has(.pv2) .pv-hero.pv2 { height: calc(52vh + var(--safe-top, 0px) + 72px); } }
+#app:has(.pv2) .pv-hero.pv2 .shade { background: linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,0) 22%, rgba(19,17,31,0) 45%, rgba(19,17,31,.55) 72%, var(--bg) 100%); }

@@ -128,37 +128,39 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 56.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            item {
-                Column(Modifier.padding(start = 56.dp).width(640.dp).heightIn(min = 400.dp), verticalArrangement = Arrangement.Bottom) {
-                    if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(100.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
-                    else Text(p.name, fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    Spacer(Modifier.height(14.dp))
-                    MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
-                    if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 14.dp), fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.9f), maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp)
-                    if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
-                    if (meta.cast.isNotEmpty() && meta.people.isEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
-                        fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1)
-                    Spacer(Modifier.height(22.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        TvoButton(playLabel, {
-                            if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
-                            else nav.openStreams(p.type, p.id, target)
-                        }, Modifier.focusRequester(playFr), Icons.Default.PlayArrow, primary = true)
-                        TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
-                            store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
-                        }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
-                        if (trailer != null) TvoButton(when (trailerMode) { 0 -> "Bande-annonce"; else -> "Agrandir" },
-                            { trailerMode = if (trailerMode == 0) 1 else 2 }, icon = if (trailerMode == 0) Icons.Default.PlayArrow else null)
+        // Bloc d'infos fixe : le titre reste toujours visible, la liste ne défile que dessous
+        Box(Modifier.fillMaxWidth().padding(top = 56.dp)) {
+                    Column(Modifier.padding(start = 56.dp).width(640.dp)) {
+                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(100.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                        else Text(p.name, fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                        Spacer(Modifier.height(14.dp))
+                        MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
+                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 14.dp), fontSize = 16.sp,
+                            color = Color.White.copy(alpha = 0.9f), maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp)
+                        if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
+                        if (meta.cast.isNotEmpty() && meta.people.isEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
+                            fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1)
+                        Spacer(Modifier.height(22.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TvoButton(playLabel, {
+                                if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
+                                else nav.openStreams(p.type, p.id, target)
+                            }, Modifier.focusRequester(playFr), Icons.Default.PlayArrow, primary = true)
+                            TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
+                                store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
+                            }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
+                            if (trailer != null) TvoButton(when (trailerMode) { 0 -> "Bande-annonce"; else -> "Agrandir" },
+                                { trailerMode = if (trailerMode == 0) 1 else 2 }, icon = if (trailerMode == 0) Icons.Default.PlayArrow else null)
+                        }
+                        if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
+                            val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
+                            Text("Il reste $left min", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Muted)
+                        }
                     }
-                    if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
-                        val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
-                        Text("Il reste $left min", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Muted)
-                    }
-                }
-            }
+        }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+            item { Spacer(Modifier.height(500.dp)) }
             if (meta.people.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -259,7 +261,7 @@ fun PersonScreen(id: String, nav: Nav) {
     }
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
-        modifier = Modifier.fillMaxSize().background(TvoColors.Bg),
+        modifier = Modifier.fillMaxSize().background(tvoBrush(Color(0xFF8B5CF6))),
         contentPadding = PaddingValues(48.dp),
         horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),

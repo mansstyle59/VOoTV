@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -179,6 +180,12 @@ fun LoadingRow(title: String) {
     }
 }
 
+/** Fond coloré commun aux pages (plus de navy plat) : teinte d'accent en haut à gauche, lueur opposée en bas à droite. */
+fun tvoBrush(accent: Color, accent2: Color = Color(0xFF0EA5E9)): androidx.compose.ui.graphics.Brush =
+    androidx.compose.ui.graphics.Brush.linearGradient(
+        colors = listOf(accent.copy(alpha = 0.5f), Color(0xFF0A0F1E), accent2.copy(alpha = 0.32f)),
+        start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(1600f, 1000f))
+
 @Composable
 fun TvoButton(
     text: String,
@@ -207,8 +214,11 @@ fun TvoButton(
         ),
         contentPadding = PaddingValues(start = if (icon != null) 20.dp else 26.dp, end = 26.dp),
     ) {
-        if (icon != null) { Icon(icon, null, Modifier.size(22.dp)); Spacer(Modifier.width(10.dp)) }
-        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, maxLines = 1)
+        // Contenu toujours centré (même quand le bouton est plus large que son texte)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) { Icon(icon, null, Modifier.size(22.dp)); Spacer(Modifier.width(10.dp)) }
+            Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
     }
 }
 
