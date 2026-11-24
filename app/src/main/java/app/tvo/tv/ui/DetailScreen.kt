@@ -128,9 +128,18 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val mainState = androidx.compose.foundation.lazy.rememberLazyListState()
     // Tant que le focus est sur les boutons du haut, la page reste calée tout en haut (titre jamais coupé)
     var heroHasFocus by remember { mutableStateOf(true) }
+    // Retour sur les boutons depuis les rangées : un seul retour en haut, en douceur (plus de « combat » de défilement)
     LaunchedEffect(heroHasFocus) {
-        if (heroHasFocus) androidx.compose.runtime.snapshotFlow { mainState.firstVisibleItemIndex to mainState.firstVisibleItemScrollOffset }
-            .collect { (i, o) -> if (i > 0 || o > 0) mainState.scrollToItem(0) }
+        if (heroHasFocus && (mainState.firstVisibleItemIndex > 0 || mainState.firstVisibleItemScrollOffset > 0)) mainState.animateScrollToItem(0)
+    }
+    // Défilement de la page : quand le focus est sur les boutons du haut, la page ne bouge JAMAIS (cause du clignotement).
+    val parentSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
+    val heroFocusNow = androidx.compose.runtime.rememberUpdatedState(heroHasFocus)
+    val pageSpec = remember(parentSpec) {
+        object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
+                if (heroFocusNow.value) 0f else parentSpec.calculateScrollDistance(offset, size, containerSize)
+        }
     }
     // Basé sur le focus (et non sur le défilement) : plus de clignotement du voile quand on passe d'un bouton à l'autre
     val heroFocused = heroHasFocus
@@ -151,10 +160,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         // Quand on parcourt les rangées : fond sombre progressif pour que visages et affiches restent nets
         val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, label = "scrim")
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             item(key = "hero") {
-        // Les boutons du haut ne font jamais défiler la page (sinon : petit saut puis retour = clignotement)
-        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides NoScrollSpec) {
         Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
                         if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
@@ -185,7 +193,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             Text("Il reste $left min", Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted)
                         }
                     }
-        }
         }
         }
             if (meta.people.isNotEmpty()) item {
@@ -230,6 +237,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
                 }
             }
+        }
         }
     }
     // Fenêtre de bande-annonce : vidéo entière au centre, fond assombri. Retour pour fermer.
