@@ -842,3 +842,19 @@ details.qgroup .list { padding: 0 10px 10px; }
 .sw.mini { padding: 0; } .sw.mini i { width: 42px; height: 26px; } .sw.mini i::after { width: 20px; height: 20px; } .sw.mini input:checked + i::after { transform: translateX(16px); }
 details.hoff summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 2px 0 6px; } details.hoff summary::-webkit-details-marker { display: none; }
 details.hoff summary .small { flex: 1; } details.hoff[open] .chev { transform: rotate(-135deg); }
+
+/* ---------- Barre du bas « verre liquide » (dosé) : flottante, légèrement translucide, texte toujours net ---------- */
+.tabs {
+  left: calc(var(--safe-left) + 12px); right: calc(var(--safe-right) + 12px); bottom: calc(var(--safe-bottom) + 8px);
+  padding: 6px; border-radius: 26px; border: 1px solid rgba(255,255,255,.14); border-top: 1px solid rgba(255,255,255,.22);
+  background: linear-gradient(180deg, rgba(52,46,92,.72), rgba(24,21,44,.78));
+  -webkit-backdrop-filter: blur(16px) saturate(150%); backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 12px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(0,0,0,.25);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .tabs { background: rgba(30,27,56,.97); } }
+.tab { min-height: 52px; border-radius: 20px; color: #a9a4c8; }
+.tab .ico { height: 28px; }
+.tab.active { color: #fff; background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06)); box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
+.tab.active svg { color: #fff; filter: drop-shadow(0 0 8px rgba(124,108,255,.8)); }
+.tab:active { background: rgba(255,255,255,.08); }
+#app { padding-bottom: calc(var(--tabs-h) + var(--safe-bottom) + 40px); }
