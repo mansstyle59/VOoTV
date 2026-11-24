@@ -473,6 +473,7 @@ internal fun titleIcon(t: String): ImageVector? = when {
     else -> Icons.Default.PlayArrow
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PanelSection(title: String, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
