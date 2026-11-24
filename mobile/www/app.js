@@ -4696,7 +4696,9 @@ var qrcode = function() {
             <input class="field" id="pOld" type="password" autocomplete="current-password" placeholder="Mot de passe actuel">
             <input class="field" id="pNew" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe">
             <div class="pmeter" id="pNewM"><i></i></div>
-            <button class="btn primary block" id="pGo">Changer</button>
+            <input class="field" id="pNew2" type="password" autocomplete="new-password" placeholder="Confirme le nouveau mot de passe">
+            <label class="small muted showpw"><input type="checkbox" id="pShow"> Afficher les mots de passe</label>
+            <button class="btn primary block" id="pGo">Changer le mot de passe</button>
             <div class="small muted">Changer le mot de passe déconnecte aussi tes autres appareils.</div></div></details>
           <details class="card"><summary class="small">Déconnecter tous mes appareils</summary><div class="list" style="padding:10px 0 0">
             <div class="small muted">Si tu penses que quelqu'un utilise ton compte : tous les autres appareils sont déconnectés immédiatement.</div>
@@ -4864,13 +4866,16 @@ var qrcode = function() {
           LS.set("acct", null); LS.del("sync_id"); toast("Compte supprimé"); route(); } catch (e) { toast(e.message, 4000); }
       });
       const ao = $("#acctOut"); if (ao) ao.addEventListener("click", () => { if (confirm("Se déconnecter du compte TVO sur ce téléphone ?")) { acctLogout(); draw(); } });
+      const pShow = $("#pShow"); if (pShow) pShow.addEventListener("change", () => ["pOld", "pNew", "pNew2"].forEach((k) => ($("#" + k).type = pShow.checked ? "text" : "password")));
       const pGo = $("#pGo"); if (pGo) pGo.addEventListener("click", async () => {
         try {
+          if (!$("#pOld").value) return toast("Tape ton mot de passe actuel");
+          if ($("#pNew").value !== $("#pNew2").value) return toast("Les deux nouveaux mots de passe ne sont pas identiques", 3500);
           await checkNewPass(acct().user, $("#pNew").value);
           const r = await rpc("tvo_change_password", { p_user: acct().user, p_old: $("#pOld").value, p_new: $("#pNew").value });
           if (!r) return toast("Mot de passe actuel incorrect");
           if (typeof r === "string") { LS.set("sync_id", r); try { await acctLogin(acct().user, $("#pNew").value); } catch {} }
-          $("#pOld").value = $("#pNew").value = ""; toast("Mot de passe changé ✓ Les autres appareils sont déconnectés.", 4000);
+          $("#pOld").value = $("#pNew").value = $("#pNew2").value = ""; toast("Mot de passe changé ✓ Les autres appareils sont déconnectés.", 4000);
         } catch (e) { toast(e.message, 4000); }
       });
       const rGo = $("#rGo"); if (rGo) rGo.addEventListener("click", async () => {
