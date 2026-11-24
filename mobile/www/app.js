@@ -3932,7 +3932,7 @@ var qrcode = function() {
     if (!type && Date.now() - (window.__homePull || 0) > 20000) { window.__homePull = Date.now(); syncNow().then((ch) => { if (ch && $("#player").hidden && /^#\/(home)?$/.test(location.hash || "#/")) route(); }); }
     app.innerHTML = (type ? topBar(typeLabel(type)) : `<header class="header homebar">
         <button data-go="#/profiles" aria-label="Changer de profil">${avatar(p, "sm")}</button>
-        <h1 class="brandmark">TVO</h1>
+        <span class="brandmark" aria-hidden="true"></span>
         <button class="icon-btn round" data-go="#/discover" aria-label="Rechercher">${ICON.search}</button>
         <button class="icon-btn round" data-go="#/settings" aria-label="Réglages">${ICON.settings}</button></header>`)
       + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;

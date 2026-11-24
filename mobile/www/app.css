@@ -1679,3 +1679,5 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 #rows .rate, #rows .pname { display: none; }
 #rows .pcard { --pcard-w: clamp(108px, 31vw, 150px); }
 #rows .lcard { flex-basis: clamp(190px, 56vw, 280px); }
+
+.homebar .brandmark { flex: 1; font-size: 0; }
