@@ -334,3 +334,78 @@ html { overflow-x: hidden; }
 .addon .top > div { min-width: 0; flex: 1; }
 .addon .top .small.muted { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .toast { left: 16px; right: 16px; transform: none; width: fit-content; margin: 0 auto; text-align: center; }
+
+/* =====================  Refonte 1.1 : thème noir & bleu  ===================== */
+:root {
+  --bg: #0e0e10; --panel: #151518; --surface: #1d1d21; --surface-2: #2a2a30; --line: #2e2e35;
+  --text: #f4f4f6; --muted: #9a9aa6; --blue: #2f5bff; --blue-2: #5a7dff;
+  --violet: #2f5bff; --cyan: #7d97ff;
+  --accent: linear-gradient(90deg, #2f5bff, #4f78ff);
+  --pcard-w: clamp(118px, 34vw, 160px);
+}
+.header { background: var(--bg); gap: 10px; }
+.header .mark { height: 34px; width: auto; flex: none; }
+.search-pill { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.header .icon-btn { border-radius: 14px; background: var(--surface) !important; }
+.header .avatar.sm { width: 40px; height: 40px; border-radius: 14px; }
+
+/* Bannière */
+.hero2 { position: relative; margin: 8px var(--pad) 0; border-radius: 22px; overflow: hidden; background: var(--surface); min-height: 230px; }
+.hero2 .art { position: absolute; right: 0; top: 0; height: 100%; width: 78%; object-fit: cover; }
+.hero2 .shade { position: absolute; inset: 0; background: linear-gradient(90deg, var(--surface) 0%, var(--surface) 26%, rgba(29,29,33,.75) 55%, rgba(29,29,33,.15) 100%); }
+.hero2 .info { position: relative; z-index: 1; padding: 20px 18px 34px; display: grid; gap: 10px; max-width: 78%; }
+.hero2 .ttl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hero2 h2 { margin: 0; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; }
+.hero2 p { margin: 0; color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pill { display: inline-block; background: #e8e8ee; color: #000; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 8px; white-space: nowrap; }
+.hero2 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.hero2 .dots { position: absolute; right: 14px; bottom: 12px; display: flex; gap: 6px; z-index: 1; }
+.hero2 .dots button { width: 7px; height: 7px; border-radius: 4px; background: rgba(255,255,255,.4); }
+.hero2 .dots button.on { width: 20px; background: var(--blue); }
+.btn.blue { background: var(--blue); color: #fff; box-shadow: 0 6px 24px rgba(47,91,255,.45); }
+.btn.outline { background: transparent; color: #fff; border: 1.5px solid var(--blue); }
+.btn.blue, .btn.outline { min-height: 42px; border-radius: 12px; }
+
+/* Panneaux */
+.section.panel { margin: 18px var(--pad) 0; background: var(--panel); border-radius: 22px; padding: 16px 0 8px; }
+.section.panel .section-title { padding: 0 16px; font-size: 18px; font-weight: 600; }
+.section.panel .row { padding: 4px 16px 8px; gap: 14px; scroll-padding: 0 16px; }
+.section-title .arrow { font-style: normal; margin-left: 6px; }
+.genres { padding: 0 16px; }
+
+/* Cartes portrait */
+.pcard { flex: 0 0 var(--pcard-w); width: var(--pcard-w); text-align: left; scroll-snap-align: start; }
+.pcard .pimg { position: relative; display: block; aspect-ratio: .78; border-radius: 14px; overflow: hidden; background: var(--surface); }
+.pcard .pimg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.pcard .pimg.channel { background: #24242a; }
+.pcard .pimg.channel img { object-fit: contain; padding: 20%; }
+.pcard .pimg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,.88)); }
+.pcard .pplay { position: absolute; z-index: 1; left: 50%; top: 45%; transform: translate(-50%, -50%); width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.28); display: grid; place-items: center; color: #fff; }
+.pcard .pplay svg { width: 18px; height: 18px; }
+.pcard .ptitle { position: absolute; z-index: 1; left: 9px; right: 9px; bottom: 8px; font-size: 13px; font-weight: 700; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pcard .pmeta { display: flex; justify-content: space-between; gap: 6px; padding: 7px 3px 0; font-size: 12px; }
+.pcard .pmeta b { color: var(--cyan); font-weight: 700; }
+.pcard .pmeta span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard:active .pimg { transform: scale(.97); }
+.grid .pcard { width: auto; flex: none; }
+
+/* Barre d'onglets : icône dans un carré bleu */
+.tabs { background: var(--panel); }
+.tab .ico { width: 42px; height: 32px; border-radius: 11px; display: grid; place-items: center; }
+.tab.active .ico { background: var(--blue); color: #fff; }
+.tab.active svg { color: #fff; }
+.tab span:last-child { font-size: 10.5px; }
+
+/* Fiche : style panneau */
+.detail-top .backdrop { border-radius: 0 0 22px 22px; }
+.detail-body h1 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; }
+.badge { background: var(--blue); border-radius: 8px; }
+.detail-actions .btn.primary { background: var(--blue); color: #fff; box-shadow: 0 6px 24px rgba(47,91,255,.45); }
+.chip.on { background: var(--blue); }
+.card { background: var(--panel); }
+.btn.accent { background: var(--blue); }
+.update-banner { border-color: var(--blue); }
+
+.hero2 .actions .btn { padding: 0 14px; font-size: 14px; }
+.genre { background: linear-gradient(135deg, #1d2a66, #2f5bff) !important; }
+.genre:nth-child(even) { background: linear-gradient(135deg, #15151a, #24306e) !important; border: 1px solid #2f3a7a; }

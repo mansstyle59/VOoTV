@@ -342,3 +342,38 @@ fun LandscapeRow(
     }
     if (requestFocus) LaunchedEffect(Unit) { delay(80); runCatching { fr.requestFocus() } }
 }
+
+
+/** Portrait card (poster, play icon, title) with note and year underneath. */
+@Composable
+fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 150.dp, onFocus: () -> Unit = {}) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(modifier.width(width)) {
+        Card(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().aspectRatio(0.78f).onFocused(onFocus),
+            shape = CardDefaults.shape(shape),
+            scale = CardDefaults.scale(focusedScale = 1.06f),
+            border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, TvoColors.Blue), shape = shape)),
+            colors = CardDefaults.colors(containerColor = TvoColors.Surface),
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                val tv = item.type == "tv" || item.type == "channel"
+                AsyncImage(item.poster ?: item.background, item.name,
+                    if (tv) Modifier.fillMaxSize().padding(22.dp) else Modifier.fillMaxSize(),
+                    contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color(0xE6000000))))
+                Box(Modifier.align(Alignment.Center).size(40.dp).clip(RoundedCornerShape(11.dp)).background(Color(0x55FFFFFF)), contentAlignment = Alignment.Center) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null, Modifier.size(22.dp), tint = Color.White)
+                }
+                Text(item.name, Modifier.align(Alignment.BottomStart).padding(10.dp), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 16.sp)
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp, start = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(item.imdbRating?.let { "★ $it" } ?: "—", fontSize = 12.sp, color = TvoColors.Cyan, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text(item.releaseInfo ?: typeLabel(item.type, plural = false), fontSize = 12.sp, color = TvoColors.Muted, maxLines = 1)
+        }
+    }
+}

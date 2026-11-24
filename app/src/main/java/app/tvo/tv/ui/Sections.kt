@@ -273,8 +273,13 @@ private fun AddonRow(a: Addon, index: Int) {
             Text("${m.name}  ${m.version}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
             Text(kinds.joinToString(" · ").ifEmpty { "—" }, fontSize = 13.sp, color = TvoColors.Cyan)
             if (m.description.isNotBlank()) Text(m.description, fontSize = 13.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (m.configurable && a.url.startsWith("http")) Text("Configurer depuis le téléphone : ${a.url}/configure", fontSize = 12.sp, color = TvoColors.Cyan, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (index > 0) TvoButton("Monter", { store.moveAddon(a.url, -1) }, icon = Icons.Default.KeyboardArrowUp)
+        if (a.url.startsWith("http")) {
+            val scope = rememberCoroutineScope()
+            TvoButton("Actualiser", { scope.launch { runCatching { Tvo.client.install(a.url) }.onSuccess { store.addAddon(it); Tvo.client.clearCaches() } } }, icon = Icons.Default.Refresh)
+        }
         TvoButton("Retirer", { store.removeAddon(a.url) }, icon = Icons.Default.Delete)
     }
 }

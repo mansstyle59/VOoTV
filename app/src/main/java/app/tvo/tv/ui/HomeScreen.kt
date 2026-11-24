@@ -52,6 +52,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -94,130 +95,178 @@ class Nav(
     val tmdbKey: () -> Unit,
 )
 
+/** Item shown in the right-hand detail panel (follows the focused card). */
+val LocalSelect = androidx.compose.runtime.staticCompositionLocalOf<(MetaPreview) -> Unit> { {} }
+
 @Composable
 fun HomeScreen(nav: Nav) {
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     val profile by Tvo.store.currentProfile.collectAsState()
+    var selected by remember { mutableStateOf<MetaPreview?>(null) }
+    var shown by remember { mutableStateOf<MetaPreview?>(null) }
+    LaunchedEffect(selected) { delay(220); shown = selected }
     BackHandler(enabled = section != Section.HOME) { section = Section.HOME }
+    val browse = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES
 
-    Row(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        Sidebar(section, onSelect = { section = it }, nav = nav)
-        Column(Modifier.fillMaxSize()) {
-            TopBar(profile, onSearch = { section = Section.SEARCH }, onProfile = nav.switchProfile)
+    Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(14.dp)) {
+        IconRail(section, onSelect = { section = it; selected = null; shown = null })
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f).fillMaxHeight()) {
+            TopBar(profile, onSearch = { section = Section.SEARCH }, onSettings = { section = Section.SETTINGS }, onProfile = nav.switchProfile)
             Box(Modifier.fillMaxSize()) {
-                when (section) {
-                    Section.HOME -> BrowseSection(null, nav)
-                    Section.MOVIES -> BrowseSection("movie", nav)
-                    Section.SERIES -> BrowseSection("series", nav)
-                    Section.LIST -> LibrarySection(nav)
-                    Section.SEARCH -> SearchSection(nav)
-                    Section.SETTINGS -> SettingsSection(nav)
+                androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }) {
+                    when (section) {
+                        Section.HOME -> BrowseSection(null, nav)
+                        Section.MOVIES -> BrowseSection("movie", nav)
+                        Section.SERIES -> BrowseSection("series", nav)
+                        Section.LIST -> LibrarySection(nav)
+                        Section.SEARCH -> SearchSection(nav)
+                        Section.SETTINGS -> SettingsSection(nav)
+                    }
                 }
             }
+        }
+        if (browse && shown != null) {
+            Spacer(Modifier.width(14.dp))
+            DetailPanel(shown!!, nav, onClose = { selected = null; shown = null })
         }
     }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun Sidebar(current: Section, onSelect: (Section) -> Unit, nav: Nav) {
+private fun IconRail(current: Section, onSelect: (Section) -> Unit) {
     val selected = remember { FocusRequester() }
-    val rawAddons by Tvo.store.addons.collectAsState()
-    val tmdbKey by Tvo.store.tmdbKey.collectAsState()
-    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(rawAddons, tmdbKey) }
-    val src = remember(addons) { buildRows(addons, "series").firstOrNull() ?: buildRows(addons, null).getOrNull(1) }
-    val news by produceState<List<MetaPreview>>(emptyList(), src?.key) {
-        value = src?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(3) ?: emptyList()
-    }
     Column(
-        Modifier.fillMaxHeight().width(248.dp).background(TvoColors.Panel)
-            .padding(start = 22.dp, end = 22.dp, top = 28.dp)
-            .focusProperties { enter = { selected } },
+        Modifier.fillMaxHeight().width(76.dp).clip(RoundedCornerShape(22.dp)).background(TvoColors.Panel)
+            .padding(vertical = 22.dp).focusProperties { enter = { selected } },
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.padding(start = 6.dp, bottom = 26.dp).height(30.dp))
-        Section.entries.forEach { s ->
-            RailItem(s == current, s.label,
-                modifier = if (s == current) Modifier.focusRequester(selected) else Modifier,
-                onClick = { onSelect(s) }) { Icon(s.icon, s.label, Modifier.size(20.dp)) }
-        }
-        if (news.isNotEmpty()) {
-            Text("Nouveautés", Modifier.padding(start = 6.dp, top = 22.dp, bottom = 10.dp), fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                news.forEach { m ->
-                    WideCard(m.background ?: m.poster, m.name, null, null, { nav.openMeta(m) }, width = 204.dp, showPlay = false)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RailItem(
-    selected: Boolean,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-    leading: @Composable () -> Unit,
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().padding(vertical = 2.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) TvoColors.Surface else Color.Transparent,
-            contentColor = if (selected) TvoColors.Text else TvoColors.Muted,
-            focusedContainerColor = Color.White,
-            focusedContentColor = Color.Black,
-        ),
-    ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (selected) Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(TvoColors.Accent))
-            else Spacer(Modifier.size(8.dp))
-            Spacer(Modifier.width(10.dp))
-            leading()
-            Spacer(Modifier.width(12.dp))
-            Text(label, fontSize = 15.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun TopBar(profile: Profile?, onSearch: () -> Unit, onProfile: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 22.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(
-            onClick = onSearch,
-            modifier = Modifier.width(360.dp).height(44.dp),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
-            colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Muted,
-                focusedContainerColor = Color.White, focusedContentColor = Color.Black),
-        ) {
-            Row(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Search, null, Modifier.size(20.dp)); Spacer(Modifier.width(10.dp))
-                Text("Rechercher un film, une série…", fontSize = 14.sp)
+        Image(painterResource(R.drawable.logo_mark), "TVO", Modifier.height(40.dp))
+        Spacer(Modifier.weight(1f))
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Section.entries.forEach { s ->
+                val on = s == current
+                Surface(
+                    onClick = { onSelect(s) },
+                    modifier = Modifier.size(50.dp).let { if (on) it.focusRequester(selected) else it },
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (on) TvoColors.Blue else Color.Transparent,
+                        contentColor = if (on) Color.White else TvoColors.Muted,
+                        focusedContainerColor = if (on) TvoColors.Blue else Color.White,
+                        focusedContentColor = if (on) Color.White else Color.Black,
+                    ),
+                    border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(14.dp))),
+                ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(s.icon, s.label, Modifier.size(22.dp)) } }
             }
         }
         Spacer(Modifier.weight(1f))
-        if (profile != null) Surface(
-            onClick = onProfile,
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.03f),
-            colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text,
+        Text(current.label, fontSize = 11.sp, color = TvoColors.Muted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun RoundIconButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick, modifier = Modifier.size(44.dp),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text,
+            focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+    ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Icon(icon, label, Modifier.size(20.dp)) } }
+}
+
+@Composable
+private fun TopBar(profile: Profile?, onSearch: () -> Unit, onSettings: () -> Unit, onProfile: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 4.dp, top = 6.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            onClick = onSearch,
+            modifier = Modifier.width(340.dp).height(44.dp),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+            colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Muted,
                 focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+            border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.dp, TvoColors.Line), shape = RoundedCornerShape(14.dp))),
         ) {
-            Row(Modifier.padding(start = 6.dp, end = 18.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(profile.name, profile.color, 34.dp); Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(profile.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Changer de profil", fontSize = 11.sp, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.65f))
-                }
+            Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Search, null, Modifier.size(18.dp)); Spacer(Modifier.width(10.dp))
+                Text("Rechercher…", fontSize = 14.sp)
             }
+        }
+        Spacer(Modifier.weight(1f))
+        RoundIconButton(Icons.Default.Settings, "Réglages", onSettings)
+        Spacer(Modifier.width(12.dp))
+        if (profile != null) Surface(
+            onClick = onProfile, modifier = Modifier.size(44.dp),
+            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(14.dp)),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(14.dp))),
+        ) { Avatar(profile.name, profile.color, 44.dp) }
+    }
+}
+
+/** Right-hand panel: details of the focused title. */
+@Composable
+private fun DetailPanel(m: MetaPreview, nav: Nav, onClose: () -> Unit) {
+    val library by Tvo.store.library.collectAsState()
+    val inList = library.any { it.id == m.id }
+    Column(Modifier.fillMaxHeight().width(330.dp).clip(RoundedCornerShape(22.dp)).background(TvoColors.Panel).padding(18.dp)) {
+        Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).clip(RoundedCornerShape(14.dp)).background(TvoColors.Surface)) {
+            AsyncImage(m.background ?: m.poster, m.name, Modifier.fillMaxSize(),
+                contentScale = if (m.type == "tv") ContentScale.Fit else ContentScale.Crop)
+            Box(Modifier.align(Alignment.Center).size(46.dp).clip(RoundedCornerShape(12.dp)).background(Color(0x66FFFFFF)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.PlayArrow, null, Modifier.size(24.dp), tint = Color.White)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text(m.name, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = TvoColors.Text, lineHeight = 31.sp,
+            maxLines = 3, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(12.dp))
+        val chips = (listOf(typeLabel(m.type, plural = false)) + m.genres.take(2).map { genreLabel(it) })
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            chips.forEachIndexed { i, c ->
+                Text(c, Modifier.clip(RoundedCornerShape(8.dp)).background(if (i == 0) TvoColors.Blue else Color(0xFFE8E8EE))
+                    .padding(horizontal = 9.dp, vertical = 3.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    color = if (i == 0) Color.White else Color.Black, maxLines = 1)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (m.imdbRating != null) Text("★ ${m.imdbRating}", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            if (m.releaseInfo != null) Text(m.releaseInfo, fontSize = 16.sp, color = TvoColors.Muted)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(m.description ?: "", Modifier.weight(1f), fontSize = 13.sp, color = TvoColors.Muted, lineHeight = 19.sp, overflow = TextOverflow.Ellipsis)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            BlueButton("Regarder", { nav.openMeta(m) }, filled = true)
+            BlueButton(if (inList) "Dans ma liste" else "Ma liste", {
+                Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(m.id, m.type, m.name, m.poster, m.background))
+            }, filled = false)
         }
     }
 }
 
-// ---------------------------------------------------------------- Browse
+@Composable
+fun BlueButton(text: String, onClick: () -> Unit, filled: Boolean, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    androidx.tv.material3.Button(
+        onClick = onClick, modifier = modifier,
+        shape = androidx.tv.material3.ButtonDefaults.shape(shape),
+        colors = androidx.tv.material3.ButtonDefaults.colors(
+            containerColor = if (filled) TvoColors.Blue else Color.Transparent,
+            contentColor = Color.White,
+            focusedContainerColor = if (filled) Color(0xFF5A7DFF) else Color.White,
+            focusedContentColor = if (filled) Color.White else Color.Black,
+        ),
+        border = androidx.tv.material3.ButtonDefaults.border(
+            border = Border(BorderStroke(1.5.dp, if (filled) Color.Transparent else TvoColors.Blue), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = shape)),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 9.dp),
+    ) { Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+}
 
 fun applyHome(rows: List<RowSource>, h: app.tvo.tv.data.HomeLayout): List<RowSource> =
     rows.filter { it.key !in h.hidden }.sortedBy { r -> h.order.indexOf(r.key).let { if (it < 0) Int.MAX_VALUE else it } }
@@ -270,18 +319,18 @@ fun BrowseSection(type: String?, nav: Nav) {
         value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(5) ?: emptyList()
     }
 
+    val select = LocalSelect.current
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 6.dp, bottom = 60.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(bottom = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         if (heroItems.isNotEmpty()) item(key = "hero") {
             HeroBanner(heroItems, nav, requestFocus = !focusGiven) { focusGiven = true }
         }
         if (cont.isNotEmpty() && "continue" !in hidden) item(key = "continue") {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionTitle("Continuer à regarder")
-                LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            PanelSection("Continuer à regarder") {
+                LazyRow(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     items(cont, key = { it.metaId }) { p ->
                         WideCard(
                             image = p.background ?: p.poster,
@@ -292,12 +341,13 @@ fun BrowseSection(type: String?, nav: Nav) {
                             onLongClick = { store.removeFromContinue(p.metaId) },
                             width = 232.dp,
                             showPlay = true,
+                            onFocus = { select(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) },
                         )
                     }
                 }
             }
         }
-        if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { LandscapeRow("Ma liste", lib.map { it.toPreview() }, nav.openMeta) }
+        if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { PortraitPanel("Ma liste", lib.map { it.toPreview() }, nav) }
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
@@ -305,46 +355,60 @@ fun BrowseSection(type: String?, nav: Nav) {
 }
 
 @Composable
+fun PanelSection(title: String, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(TvoColors.Panel).padding(vertical = 16.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+            Text("  →", fontSize = 18.sp, color = TvoColors.Text)
+            Spacer(Modifier.weight(1f))
+            action?.invoke()
+        }
+        content()
+    }
+}
+
+@Composable
+fun PortraitPanel(title: String, items: List<MetaPreview>, nav: Nav) {
+    val select = LocalSelect.current
+    PanelSection(title) {
+        LazyRow(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(items, key = { it.id }) { m -> PortraitCard(m, { nav.openMeta(m) }, onFocus = { select(m) }) }
+        }
+    }
+}
+
+@Composable
 private fun HeroBanner(items: List<MetaPreview>, nav: Nav, requestFocus: Boolean, onFocusTaken: () -> Unit) {
     var index by remember(items) { mutableStateOf(0) }
     val item = items[index.coerceIn(items.indices)]
-    val inList by remember(item.id) { derivedStateOf { Tvo.store.library.value.any { it.id == item.id } } }
+    val select = LocalSelect.current
+    val library by Tvo.store.library.collectAsState()
+    val inList = library.any { it.id == item.id }
     val watchFr = remember { FocusRequester() }
-    val shape = RoundedCornerShape(18.dp)
-    Box(Modifier.padding(horizontal = 32.dp).fillMaxWidth().height(270.dp).clip(shape).background(TvoColors.Surface)) {
-        AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xF2141619), 0.45f to Color(0x99141619), 0.75f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color(0xAA000000))))
-        Column(Modifier.align(Alignment.CenterStart).padding(start = 32.dp).width(440.dp)) {
-            if (item.logo != null) AsyncImage(item.logo, item.name, Modifier.height(78.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
-            else Text(item.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(8.dp))
-            val meta = listOfNotNull(item.releaseInfo, item.genres.firstOrNull()?.let { genreLabel(it) }, item.imdbRating?.let { "★ $it" }).joinToString("  ·  ")
-            Text(meta, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFD5DADE))
+    var heroFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(items) { while (true) { delay(9000); if (!heroFocused) index = (index + 1) % items.size } }
+    Box(Modifier.fillMaxWidth().height(236.dp).onFocusChanged { heroFocused = it.hasFocus }.clip(RoundedCornerShape(22.dp)).background(TvoColors.Surface)) {
+        AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxHeight().fillMaxWidth(0.72f).align(Alignment.CenterEnd), contentScale = ContentScale.Crop)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to TvoColors.Surface, 0.34f to TvoColors.Surface, 0.62f to Color(0x881D1D21), 1f to Color.Transparent)))
+        Column(Modifier.align(Alignment.CenterStart).padding(start = 30.dp).width(430.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(item.name, Modifier.weight(1f, fill = false), fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val badge = item.imdbRating?.let { "★ $it" } ?: item.releaseInfo
+                if (badge != null) Text(badge, Modifier.padding(start = 12.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFE8E8EE))
+                    .padding(horizontal = 9.dp, vertical = 3.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
             if (!item.description.isNullOrBlank()) Text(item.description, Modifier.padding(top = 8.dp), fontSize = 13.sp,
-                color = Color(0xFFC2C8CD), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                TvoButton("Regarder", { nav.openMeta(item) }, Modifier.focusRequester(watchFr), Icons.Default.PlayArrow, primary = true)
-                TvoButton(if (inList) "✓" else "+", {
+                color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                BlueButton("Regarder", { nav.openMeta(item) }, filled = true, modifier = Modifier.focusRequester(watchFr).onFocused { select(item) })
+                BlueButton(if (inList) "Dans ma liste" else "Ma liste", {
                     Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(item.id, item.type, item.name, item.poster, item.background))
-                })
+                }, filled = false)
             }
         }
-        Row(Modifier.align(Alignment.BottomEnd).padding(18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items.forEachIndexed { i, m ->
-                val s = RoundedCornerShape(8.dp)
-                Surface(
-                    onClick = { nav.openMeta(m) },
-                    modifier = Modifier.width(92.dp).aspectRatio(16f / 10f).onFocused { index = i },
-                    shape = ClickableSurfaceDefaults.shape(s),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
-                    border = ClickableSurfaceDefaults.border(
-                        border = Border(BorderStroke(2.dp, if (i == index) TvoColors.Cyan else Color(0x55FFFFFF)), shape = s),
-                        focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = s)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface2, focusedContainerColor = TvoColors.Surface2),
-                ) { AsyncImage(m.background ?: m.poster, m.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-            }
+        Row(Modifier.align(Alignment.BottomEnd).padding(14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items.indices.forEach { i -> Box(Modifier.size(width = if (i == index) 20.dp else 7.dp, height = 7.dp).clip(RoundedCornerShape(4.dp)).background(if (i == index) TvoColors.Blue else Color(0x66FFFFFF))) }
         }
     }
     if (requestFocus) LaunchedEffect(Unit) { onFocusTaken(); delay(120); runCatching { watchFr.requestFocus() } }
@@ -358,7 +422,7 @@ private fun CatalogRow(row: RowSource, nav: Nav) {
     when {
         state == null -> LoadingRow(row.title)
         state!!.isEmpty() -> Spacer(Modifier.height(0.dp))
-        else -> LandscapeRow(row.title, state!!, nav.openMeta)
+        else -> PortraitPanel(row.title, state!!, nav)
     }
 }
 

@@ -45,6 +45,7 @@ data class AddonManifest(
     val resources: List<AddonResource> = emptyList(),
     val catalogs: List<CatalogDef> = emptyList(),
     val idPrefixes: List<String>? = null,
+    val configurable: Boolean = false,
 )
 
 @Serializable

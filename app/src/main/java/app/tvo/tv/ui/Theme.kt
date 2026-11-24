@@ -7,18 +7,19 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 
 object TvoColors {
-    val Bg = Color(0xFF141619)
-    val Panel = Color(0xFF1B1E21)
-    val Surface = Color(0xFF23272B)
-    val Surface2 = Color(0xFF2E3337)
-    val Line = Color(0xFF33393E)
-    val Violet = Color(0xFF8B5CF6)
-    val Cyan = Color(0xFF22D3EE)
-    val Text = Color(0xFFF5F5FA)
-    val Muted = Color(0xFFA3AAB0)
+    val Bg = Color(0xFF0E0E10)
+    val Panel = Color(0xFF151518)
+    val Surface = Color(0xFF1D1D21)
+    val Surface2 = Color(0xFF2A2A30)
+    val Line = Color(0xFF2E2E35)
+    val Blue = Color(0xFF2F5BFF)
+    val Violet = Blue
+    val Cyan = Color(0xFF7D97FF)
+    val Text = Color(0xFFF4F4F6)
+    val Muted = Color(0xFF9A9AA6)
     val Success = Color(0xFF34D399)
     val Danger = Color(0xFFF87171)
-    val Accent = Brush.horizontalGradient(listOf(Violet, Cyan))
+    val Accent = Brush.horizontalGradient(listOf(Color(0xFF2F5BFF), Color(0xFF4F78FF)))
 }
 
 @Composable

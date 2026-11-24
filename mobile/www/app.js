@@ -28,7 +28,8 @@
     up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
   };
-  const LOGO = `<img class="logo" src="${isIOS ? "logo-ios.png" : "logo-android.png"}" alt="TVO">`;
+  const LOGO = `<img class="logo" src="logo-tv.png" alt="TVO">`;
+  const MARK = `<img class="mark" src="logo-mark.png" alt="TVO">`;
 
   // ------------------------------------------------------------------ storage
   const LS = {
@@ -313,6 +314,7 @@
         extraRequired: arr(c.extraRequired), extraSupported: arr(c.extraSupported),
       })),
       idPrefixes: o.idPrefixes && o.idPrefixes.length ? o.idPrefixes : null,
+      configurable: !!(o.behaviorHints && (o.behaviorHints.configurable || o.behaviorHints.configurationRequired)),
     };
   }
   async function installAddon(input) {
@@ -534,6 +536,13 @@
   const landHTML = (m) => `<button class="land ${m.type === "tv" || m.type === "channel" ? "channel" : ""}" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
       ${m.background || m.poster ? `<img src="${esc(m.type === "tv" || m.type === "channel" ? m.poster : m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
       <span class="cap"><b>${esc(m.name)}</b><span>${[m.releaseInfo, typeLabel(m.type, false), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</span></span></button>`;
+  const portraitHTML = (m) => {
+    const tv = m.type === "tv" || m.type === "channel";
+    return `<button class="pcard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+      <span class="pimg ${tv ? "channel" : ""}">${m.poster || m.background ? `<img src="${esc(m.poster || m.background)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+        <span class="pplay">${ICON.play}</span><span class="ptitle">${esc(m.name)}</span></span>
+      <span class="pmeta"><b>${m.imdbRating ? "★ " + esc(m.imdbRating) : ""}</b><span>${esc(m.releaseInfo || typeLabel(m.type, false))}</span></span></button>`;
+  };
   const header = (title, extra = "") => `<header class="header">${title ? `<h1>${esc(title)}</h1>` : LOGO + '<span class="spacer"></span>'}${extra}</header>`;
   const metaLine = (m) => `<div class="meta-line"><span class="badge">${typeLabel(m.type, false)}</span>
       ${m.releaseInfo ? `<span>${esc(m.releaseInfo)}</span>` : ""}
@@ -554,7 +563,7 @@
     document.body.classList.remove("no-tabs");
     tabs.hidden = false;
     const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.movie], ["series", "Séries", ICON.series], ["search", "Recherche", ICON.search], ["list", "Ma liste", ICON.list]];
-    tabs.innerHTML = items.map(([k, l, i]) => `<button class="tab ${k === active ? "active" : ""}" data-tab="${k}">${i}<span>${l}</span></button>`).join("");
+    tabs.innerHTML = items.map(([k, l, i]) => `<button class="tab ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("");
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
       if (location.hash === "#/" + b.dataset.tab) window.scrollTo({ top: 0, behavior: "smooth" }); else go("#/" + b.dataset.tab);
     }));
@@ -592,9 +601,9 @@
 
   function rowShell(row) {
     const sec = document.createElement("section");
-    sec.className = "section";
-    sec.innerHTML = `<h2 class="section-title"><span>${esc(row.title)}</span></h2>
-      <div class="row">${Array.from({ length: 4 }, () => '<div class="land skeleton"></div>').join("")}</div>`;
+    sec.className = "section panel";
+    sec.innerHTML = `<h2 class="section-title"><span>${esc(row.title)} <i class="arrow">→</i></span></h2>
+      <div class="row">${Array.from({ length: 4 }, () => '<div class="pcard"><span class="pimg skeleton"></span></div>').join("")}</div>`;
     return sec;
   }
   function lazyRows(container, rows, onFirst) {
@@ -605,7 +614,7 @@
       try {
         const list = await catalog(row.a, row.c, row.extra);
         if (!list.length) { en.target.remove(); return; }
-        en.target.querySelector(".row").innerHTML = list.map(landHTML).join("");
+        en.target.querySelector(".row").innerHTML = list.map(portraitHTML).join("");
         onFirst && onFirst(list);
       } catch { en.target.remove(); }
     }), { rootMargin: "400px 0px" });
@@ -680,7 +689,7 @@
   function screenBrowse(type) {
     setTabs(type === "movie" ? "movies" : type === "series" ? "series" : "home");
     const p = S.profile;
-    app.innerHTML = `<header class="header">${LOGO}
+    app.innerHTML = `<header class="header">${MARK}
       <button class="search-pill" id="pill">${ICON.search}<span>Rechercher${type ? " des " + typeLabel(type).toLowerCase() : ""}…</span></button>
       <button class="icon-btn" id="settings" aria-label="Réglages" style="background:var(--surface)">${ICON.settings}</button>
       <button id="who" aria-label="Changer de profil">${avatar(p, "sm")}</button></header>
@@ -694,8 +703,8 @@
     const hidden = type ? [] : homeLayout().hidden;
     const cont = continueWatching().filter((x) => !type || x.type === type);
     if (cont.length && !hidden.includes("continue")) {
-      const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span>Continuer à regarder</span></h2><div class="row">${cont.map((x) => `
+      const sec = document.createElement("section"); sec.className = "section panel";
+      sec.innerHTML = `<h2 class="section-title"><span>Continuer à regarder <i class="arrow">→</i></span></h2><div class="row">${cont.map((x) => `
         <button class="wide" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}">
           <div class="thumb">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}<span class="playdot">${ICON.play}</span><div class="bar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></div></div>
           <div class="title">${esc(x.name)}</div>
@@ -708,8 +717,8 @@
     }
     const lib = S.lib.filter((x) => !type || x.type === type);
     if (lib.length && !hidden.includes("library")) {
-      const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span>Ma liste</span><a href="#/list">Tout voir</a></h2><div class="row">${lib.map(landHTML).join("")}</div>`;
+      const sec = document.createElement("section"); sec.className = "section panel";
+      sec.innerHTML = `<h2 class="section-title"><span>Ma liste <i class="arrow">→</i></span><a href="#/list">Tout voir</a></h2><div class="row">${lib.map(portraitHTML).join("")}</div>`;
       rowsEl.appendChild(sec);
     }
     if (!type && !hidden.includes("genres")) {
@@ -731,28 +740,30 @@
 
   function renderHero(el, list) {
     const items = list.slice(0, 5);
-    let i = 0;
+    let i = 0, timer;
     const draw = () => {
       const m = items[i];
-      el.innerHTML = `<div class="hero">
+      const badge = m.imdbRating ? "★ " + m.imdbRating : m.releaseInfo;
+      el.innerHTML = `<div class="hero2">
         <img class="art" src="${esc(m.background || m.poster)}" alt="">
         <div class="shade"></div>
         <div class="info">
-          ${m.logo ? `<img class="logo-img" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h2>${esc(m.name)}</h2>`}
-          <div class="meta-line">${[m.releaseInfo, m.genres && m.genres[0] ? genreLabel(m.genres[0]) : "", m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</div>
+          <div class="ttl"><h2>${esc(m.name)}</h2>${badge ? `<span class="pill">${esc(badge)}</span>` : ""}</div>
+          ${m.description ? `<p>${esc(m.description)}</p>` : ""}
           <div class="actions">
-            <button class="btn accent" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play} Regarder</button>
-            <button class="btn icon-only" id="heroList" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button>
+            <button class="btn blue" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play} Regarder</button>
+            <button class="btn outline" id="heroList">${inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste"}</button>
           </div>
-          <div class="strip">${items.map((x, k) => `<button class="${k === i ? "on" : ""}" data-k="${k}" aria-label="${esc(x.name)}">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="">` : ""}</button>`).join("")}</div>
-        </div></div>`;
+        </div>
+        <div class="dots">${items.map((x, k) => `<button class="${k === i ? "on" : ""}" data-k="${k}" aria-label="${esc(x.name)}"></button>`).join("")}</div></div>`;
       $("#heroList").addEventListener("click", (e) => {
-        toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check : ICON.plus;
+        toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste";
         toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste");
       });
-      el.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { i = Number(b.dataset.k); draw(); }));
+      el.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { i = Number(b.dataset.k); restart(); draw(); }));
     };
-    draw();
+    const restart = () => { clearInterval(timer); timer = setInterval(() => { if (!document.body.contains(el)) return clearInterval(timer); i = (i + 1) % items.length; draw(); }, 8000); };
+    draw(); restart();
   }
 
   function screenList() {
@@ -858,7 +869,7 @@
           <div class="two"><button class="btn" id="lib">${inLib(m.id) ? ICON.check + " Dans ma liste" : ICON.plus + " Ma liste"}</button>
           <button class="btn" id="share">Partager</button></div>
         </div>
-        ${m.description ? `<div class="desc clamp" id="desc">${esc(m.description)}</div><button class="more" id="moreDesc">Lire la suite</button>` : ""}
+        ${m.description ? `<div class="desc ${m.description.length > 180 ? "clamp" : ""}" id="desc">${esc(m.description)}</div>${m.description.length > 180 ? '<button class="more" id="moreDesc">Lire la suite</button>' : ""}` : ""}
         ${m.cast.length ? `<div class="people">Avec : ${m.cast.map(esc).join(", ")}</div>` : ""}
         ${m.director.length ? `<div class="people">Réalisation : ${m.director.map(esc).join(", ")}</div>` : ""}
       </div>
@@ -958,7 +969,7 @@
           <div style="min-width:0"><b>${esc(a.manifest.name)}</b> <span class="small muted">${esc(a.manifest.version)}</span>
           <div class="small" style="color:var(--cyan)">${kinds.join(" · ") || "—"}</div>
           ${a.manifest.description ? `<div class="small muted">${esc(a.manifest.description)}</div>` : ""}</div></div>
-          <div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div></div>`;
+          <div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}${a.manifest.configurable && /^https?:/.test(a.url) ? `<a class="btn" href="${esc(a.url)}/configure" target="_blank" rel="noopener">Configurer</a>` : ""}${/^https?:/.test(a.url) ? `<button class="btn" data-rf="${i}">Actualiser</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div></div>`;
       }).join("")).join("")}
         <button class="btn accent block" id="addA">${ICON.plus} Ajouter un add-on</button></div>
       <h2 class="section-title section"><span>Page d'accueil</span></h2>
@@ -1023,6 +1034,11 @@
         const a = S.addons[Number(b.dataset.rm)];
         if (!confirm(`Retirer « ${a.manifest.name} » ?`)) return;
         S.addons.splice(Number(b.dataset.rm), 1); saveAddons(); cache.clear(); draw();
+      }));
+      app.querySelectorAll("[data-rf]").forEach((b) => b.addEventListener("click", async () => {
+        const i = Number(b.dataset.rf); toast("Actualisation…");
+        try { S.addons[i] = await installAddon(S.addons[i].url); saveAddons(); cache.clear(); toast("Add-on à jour ✓"); draw(); }
+        catch (e) { toast("Impossible d'actualiser (" + e.message + ")"); }
       }));
       app.querySelectorAll("[data-pl]").forEach((b) => b.addEventListener("click", () => { S.player = b.dataset.pl; LS.set("player", S.player); draw(); }));
       $("#upd").addEventListener("click", async () => {

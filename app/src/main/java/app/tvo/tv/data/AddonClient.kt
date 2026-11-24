@@ -168,6 +168,7 @@ class AddonClient(private val http: OkHttpClient) {
             CatalogDef(type, id, co.s("name") ?: id, extras, co.strList("extraRequired"), co.strList("extraSupported"))
         } ?: emptyList(),
         idPrefixes = o.strList("idPrefixes").ifEmpty { null },
+        configurable = o.obj("behaviorHints")?.let { h -> (h["configurable"] as? JsonPrimitive)?.booleanOrNull == true || (h["configurationRequired"] as? JsonPrimitive)?.booleanOrNull == true } ?: false,
     )
 
     private fun parsePreview(o: JsonObject, fallbackType: String): MetaPreview? {
