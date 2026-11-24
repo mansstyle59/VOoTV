@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -117,6 +118,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val similar by produceState(emptyList<MetaPreview>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.similar(p.type, p.id) else emptyList() }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var heroFocused by remember { mutableStateOf(true) }
+    val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
+    val heroFull = (screenH - 190).coerceIn(250, 400).dp
+    val heroH by androidx.compose.animation.core.animateDpAsState(if (heroFocused) heroFull else 130.dp, label = "heroH")
     Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Visuel plein écran (image puis bande-annonce au même endroit), voilé à gauche et en bas pour garder le texte lisible
@@ -124,24 +130,25 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize(), cover = true)
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
-                0.0f to Color.Black.copy(alpha = if (trailerOn) 0.7f else 0.88f), 0.42f to Color.Black.copy(alpha = if (trailerOn) 0.35f else 0.55f), 0.75f to Color.Transparent)))
+                0.0f to Color.Black.copy(alpha = if (trailerOn) 0.75f else 0.94f), 0.5f to Color.Black.copy(alpha = if (trailerOn) 0.4f else 0.7f), 0.85f to Color.Transparent)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
         // Bloc d'infos fixe : le titre reste toujours visible, la liste ne défile que dessous
-        Box(Modifier.fillMaxWidth().padding(top = 56.dp)) {
+        Box(Modifier.fillMaxWidth().padding(top = 36.dp).onFocusChanged { heroFocused = it.hasFocus }) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
-                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(100.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
-                        else Text(p.name, fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                        Spacer(Modifier.height(14.dp))
+                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(if (heroFocused) 84.dp else 56.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                        else Text(p.name, fontSize = if (heroFocused) 38.sp else 28.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
+                        Spacer(Modifier.height(10.dp))
                         MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
-                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 14.dp), fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.9f), maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp)
+                        if (heroFocused) {
+                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 12.dp), fontSize = 15.sp,
+                            color = Color.White.copy(alpha = 0.92f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 22.sp)
                         if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
                         if (meta.cast.isNotEmpty() && meta.people.isEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
                             fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1)
-                        Spacer(Modifier.height(22.dp))
+                        if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1)
+                        Spacer(Modifier.height(16.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             TvoButton(playLabel, {
                                 if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
@@ -155,12 +162,13 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         }
                         if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                             val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
-                            Text("Il reste $left min", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Muted)
+                            Text("Il reste $left min", Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted)
+                        }
                         }
                     }
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            item { Spacer(Modifier.height(500.dp)) }
+            item { Spacer(Modifier.height(heroH + 36.dp)) }
             if (meta.people.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
