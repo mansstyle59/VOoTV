@@ -655,6 +655,16 @@
   function signIn(provider) {
     location.href = `${AUTH_BASE}/authorize?provider=${provider}&redirect_to=${encodeURIComponent(REDIRECT)}`;
   }
+  /** Fournisseurs réellement activés côté serveur (les autres boutons sont masqués). */
+  let AUTH_PROVIDERS = LS.get("authprov", { google: false, apple: false, email: true });
+  fetch(`${AUTH_BASE}/settings`, { headers: { apikey: SB.key } }).then((r) => r.json()).then((d) => {
+    const e = d.external || {}; AUTH_PROVIDERS = { google: !!e.google, apple: !!e.apple, email: !!e.email }; LS.set("authprov", AUTH_PROVIDERS);
+  }).catch(() => {});
+  async function signInEmail(email) {
+    const r = await fetch(`${AUTH_BASE}/otp?redirect_to=${encodeURIComponent(REDIRECT)}`, { method: "POST", headers: { apikey: SB.key, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, create_user: true }) });
+    if (!r.ok) throw new Error(r.status === 429 ? "Trop de demandes, réessaie dans quelques minutes." : "Envoi impossible.");
+  }
   function signOut() { LS.set("auth", null); toast("Déconnecté. Tes données restent sur ce téléphone."); }
   async function authToken() {
     const a = account(); if (!a) return null;
@@ -1540,7 +1550,7 @@
   }
 
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
-  const SECT_INFO = { "Compte": "Google, Apple et synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
+  const SECT_INFO = { "Compte": "Connexion et synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
@@ -1569,8 +1579,10 @@
       <div class="list">
         ${account() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(account().email || "Compte TVO")}</div></div><button class="btn" id="signOut">Se déconnecter</button></div>`
           : `<div class="card small muted">Connecte-toi pour retrouver Ma liste, Continuer à regarder, tes profils et tes add-ons sur tous tes appareils.</div>
-        <button class="btn block signin" id="gIn"><b style="font-size:17px">G</b> Continuer avec Google</button>
-        <button class="btn block signin apple" id="aIn"><b style="font-size:17px"></b> Continuer avec Apple</button>`}
+        ${AUTH_PROVIDERS.google ? `<button class="btn block signin" id="gIn"><b style="font-size:17px">G</b> Continuer avec Google</button>` : ""}
+        ${AUTH_PROVIDERS.apple ? `<button class="btn block signin apple" id="aIn"><b style="font-size:17px"></b> Continuer avec Apple</button>` : ""}
+        ${AUTH_PROVIDERS.email ? `<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input class="field" id="mail" type="email" inputmode="email" autocapitalize="off" placeholder="Ton adresse e-mail"><button class="btn primary" id="mailGo">Recevoir le lien</button></div>
+          <div class="small muted">Ouvre le lien reçu par e-mail sur ce téléphone : TVO se connecte tout seul.</div>` : ""}`}
         <div id="syncStatus" class="small" style="color:var(--cyan)">${esc(syncState.status)}</div>
       </div>
       <h2 class="section-title section"><span>Connecter une TV</span></h2>
@@ -1648,6 +1660,10 @@
       if (td) td.addEventListener("click", () => { LS.set("tmdb_key", null); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); syncNow(); draw(); });
       const gIn = $("#gIn"); if (gIn) gIn.addEventListener("click", () => signIn("google"));
       const aIn = $("#aIn"); if (aIn) aIn.addEventListener("click", () => signIn("apple"));
+      const mg = $("#mailGo"); if (mg) mg.addEventListener("click", async () => {
+        const v = $("#mail").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v)) return toast("Adresse e-mail invalide");
+        mg.disabled = true; try { await signInEmail(v); toast("E-mail envoyé ✓ Ouvre le lien sur ce téléphone.", 4500); } catch (e) { toast(e.message, 4000); } mg.disabled = false;
+      });
       const so = $("#signOut"); if (so) so.addEventListener("click", () => { signOut(); draw(); });
       $("#tvGo").addEventListener("click", async () => { if (await approveTv($("#tvCode").value)) $("#tvCode").value = ""; });
       $("#syncNow").addEventListener("click", async () => { $("#syncStatus").textContent = "Synchronisation…"; await syncNow(); $("#syncStatus").textContent = syncState.status; });
