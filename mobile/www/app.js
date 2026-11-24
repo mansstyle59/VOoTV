@@ -669,10 +669,39 @@
   // ------------------------------------------------------------------ compte TVO (identifiant + mot de passe, géré par TVO)
   const acct = () => LS.get("acct", null);
   const cleanUser = (u) => String(u || "").trim().toLowerCase();
+  /** Mêmes règles que le serveur (le serveur revérifie de toute façon). */
+  function passProblem(user, p) {
+    const l = String(p || "").toLowerCase();
+    if (l.length < 10) return "Mot de passe : 10 caractères minimum";
+    if (!/[a-zà-ÿ]/i.test(p) || !/[0-9]/.test(p)) return "Mot de passe : mélange des lettres et des chiffres";
+    if (user && l.includes(String(user).toLowerCase())) return "Le mot de passe ne doit pas contenir ton identifiant";
+    if (/^(.)\1+$/.test(l) || /(0123|1234|2345|3456|4567|5678|6789|azert|qwert|abcd|motdepasse|password|soleil|bonjour|doudou|loulou|chouchou|marseille|football|tvo)/.test(l)) return "Mot de passe trop facile à deviner";
+    return null;
+  }
+  function passScore(p) {
+    p = String(p || ""); let s = 0;
+    if (p.length >= 10) s++; if (p.length >= 14) s++;
+    if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++; if (/[0-9]/.test(p)) s++; if (/[^A-Za-z0-9]/.test(p)) s++;
+    return Math.min(4, s);
+  }
+  /** Vérifie si le mot de passe figure dans une fuite connue (Have I Been Pwned) :
+   *  seuls les 5 premiers caractères de son empreinte partent sur Internet, jamais le mot de passe. */
+  async function passLeaked(p) {
+    try {
+      const b = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(p));
+      const h = [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("").toUpperCase();
+      const t = await (await fetch("https://api.pwnedpasswords.com/range/" + h.slice(0, 5), { headers: { "Add-Padding": "true" } })).text();
+      return t.split("\n").some((line) => { const [suf, n] = line.trim().split(":"); return suf === h.slice(5) && Number(n) > 0; });
+    } catch { return false; }
+  }
+  async function checkNewPass(user, pass) {
+    const pb = passProblem(user, pass); if (pb) throw new Error(pb);
+    if (await passLeaked(pass)) throw new Error("Ce mot de passe a déjà fuité sur Internet : choisis-en un autre");
+  }
   async function acctRegister(user, pass) {
     user = cleanUser(user);
     if (!/^[a-z0-9._-]{3,24}$/.test(user)) throw new Error("Identifiant : 3 à 24 caractères (lettres, chiffres, . _ -)");
-    if (String(pass).length < 8) throw new Error("Mot de passe : 8 caractères minimum");
+    await checkNewPass(user, pass);
     await syncNow();
     const id = await rpc("tvo_register", { p_user: user, p_pass: pass, p_id: syncId() });
     if (id && id !== syncId()) LS.set("sync_id", id);
@@ -1605,13 +1634,21 @@
         ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted">Compte « ${esc(acct().user)} » · tes appareils sont synchronisés</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
           <details class="card"><summary class="small">Changer le mot de passe</summary><div class="list" style="padding:10px 0 0">
             <input class="field" id="pOld" type="password" autocomplete="current-password" placeholder="Mot de passe actuel">
-            <input class="field" id="pNew" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)">
-            <button class="btn primary block" id="pGo">Changer</button></div></details>`
+            <input class="field" id="pNew" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe">
+            <div class="pmeter" id="pNewM"><i></i></div>
+            <button class="btn primary block" id="pGo">Changer</button>
+            <div class="small muted">Changer le mot de passe déconnecte aussi tes autres appareils.</div></div></details>
+          <details class="card"><summary class="small">Déconnecter tous mes appareils</summary><div class="list" style="padding:10px 0 0">
+            <div class="small muted">Si tu penses que quelqu'un utilise ton compte : tous les autres appareils sont déconnectés immédiatement.</div>
+            <input class="field" id="rPass" type="password" autocomplete="current-password" placeholder="Ton mot de passe">
+            <button class="btn danger block" id="rGo">Déconnecter les autres appareils</button></div></details>`
         : `<div class="card small muted">Crée ton compte TVO pour retrouver Ma liste, Continuer à regarder, tes profils et tes add-ons sur tous tes appareils.</div>
           <div class="seg wide" id="acctSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
           <input class="field" id="aUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
           <input class="field" id="aPass" type="password" autocomplete="current-password" placeholder="Mot de passe">
+          <div class="pmeter" id="aPassM" hidden><i></i><span></span></div>
           <input class="field" id="aPass2" type="password" autocomplete="new-password" placeholder="Confirme le mot de passe" hidden>
+          <label class="small muted showpw"><input type="checkbox" id="aShow"> Afficher le mot de passe</label>
           <button class="btn primary block" id="aGo">Se connecter</button>
           <div id="aMsg" class="small" style="color:#ff8a8a"></div>`}
         <div id="syncStatus" class="small" style="color:var(--cyan)">${esc(syncState.status)}</div>
@@ -1698,8 +1735,15 @@
       const seg = $("#acctSeg"); let mode = "in";
       if (seg) seg.addEventListener("click", (e) => { const b = e.target.closest("[data-m]"); if (!b) return; mode = b.dataset.m;
         seg.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
-        $("#aPass2").hidden = mode !== "up"; $("#aGo").textContent = mode === "up" ? "Créer mon compte" : "Se connecter";
+        $("#aPass2").hidden = mode !== "up"; $("#aPassM").hidden = mode !== "up"; $("#aGo").textContent = mode === "up" ? "Créer mon compte" : "Se connecter";
         $("#aPass").setAttribute("autocomplete", mode === "up" ? "new-password" : "current-password"); $("#aMsg").textContent = ""; });
+      const meter = (input, box) => { if (!input || !box) return; input.addEventListener("input", () => {
+        const sc = passScore(input.value), pb = passProblem($("#aUser") ? $("#aUser").value : (acct() || {}).user, input.value);
+        box.dataset.s = input.value ? (pb ? 0 : sc) : ""; const sp = box.querySelector("span");
+        if (sp) sp.textContent = !input.value ? "" : pb || ["", "Faible", "Moyen", "Bon", "Excellent"][Math.max(1, sc)];
+      }); };
+      meter($("#aPass"), $("#aPassM")); meter($("#pNew"), $("#pNewM"));
+      const sh = $("#aShow"); if (sh) sh.addEventListener("change", () => ["aPass", "aPass2"].forEach((k) => ($("#" + k).type = sh.checked ? "text" : "password")));
       const aGo = $("#aGo"); if (aGo) aGo.addEventListener("click", async () => {
         const u = $("#aUser").value, pw = $("#aPass").value; $("#aMsg").textContent = "";
         if (mode === "up" && pw !== $("#aPass2").value) { $("#aMsg").textContent = "Les mots de passe ne correspondent pas"; return; }
@@ -1709,9 +1753,19 @@
       });
       const ao = $("#acctOut"); if (ao) ao.addEventListener("click", () => { if (confirm("Se déconnecter du compte TVO sur ce téléphone ?")) { acctLogout(); draw(); } });
       const pGo = $("#pGo"); if (pGo) pGo.addEventListener("click", async () => {
-        try { const ok = await rpc("tvo_change_password", { p_user: acct().user, p_old: $("#pOld").value, p_new: $("#pNew").value });
-          toast(ok ? "Mot de passe changé ✓" : "Mot de passe actuel incorrect"); if (ok) { $("#pOld").value = $("#pNew").value = ""; } }
-        catch (e) { toast(e.message); }
+        try {
+          await checkNewPass(acct().user, $("#pNew").value);
+          const r = await rpc("tvo_change_password", { p_user: acct().user, p_old: $("#pOld").value, p_new: $("#pNew").value });
+          if (!r) return toast("Mot de passe actuel incorrect");
+          if (typeof r === "string") { LS.set("sync_id", r); syncNow(); }
+          $("#pOld").value = $("#pNew").value = ""; toast("Mot de passe changé ✓ Les autres appareils sont déconnectés.", 4000);
+        } catch (e) { toast(e.message, 4000); }
+      });
+      const rGo = $("#rGo"); if (rGo) rGo.addEventListener("click", async () => {
+        try { const r = await rpc("tvo_rotate", { p_user: acct().user, p_pass: $("#rPass").value });
+          if (!r) return toast("Mot de passe incorrect");
+          LS.set("sync_id", r); $("#rPass").value = ""; syncNow(); toast("Tous les autres appareils sont déconnectés ✓", 4000);
+        } catch (e) { toast(e.message, 4000); }
       });
       const so = $("#signOut"); if (so) so.addEventListener("click", () => { signOut(); draw(); });
       $("#tvGo").addEventListener("click", async () => { if (await approveTv($("#tvCode").value)) $("#tvCode").value = ""; });

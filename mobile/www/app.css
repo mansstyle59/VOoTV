@@ -767,3 +767,13 @@ details.sect[open] .chev { transform: rotate(-135deg); }
 .seg button { border: 0; background: none; color: var(--muted); font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 999px; }
 .seg button.on { background: var(--blue); color: #fff; }
 .seg.wide { display: grid; grid-template-columns: 1fr 1fr; } .seg.wide button { padding: 10px; font-size: 14px; }
+
+/* Force du mot de passe */
+.pmeter { display: grid; gap: 4px; }
+.pmeter i { display: block; height: 6px; border-radius: 3px; background: var(--surface-2); position: relative; overflow: hidden; }
+.pmeter i::after { content: ""; position: absolute; inset: 0; width: 0; border-radius: 3px; background: #ef4444; }
+.pmeter[data-s="0"] i::after { width: 15%; } .pmeter[data-s="1"] i::after { width: 30%; background: #f97316; }
+.pmeter[data-s="2"] i::after { width: 55%; background: #eab308; } .pmeter[data-s="3"] i::after { width: 80%; background: #22c55e; }
+.pmeter[data-s="4"] i::after { width: 100%; background: #16a34a; }
+.pmeter span { font-size: 12px; color: var(--muted); min-height: 14px; }
+.showpw { display: flex; align-items: center; gap: 8px; }
