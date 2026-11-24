@@ -1,5 +1,6 @@
 package app.tvo.tv.ui
 
+import androidx.compose.ui.draw.paint
 import androidx.compose.runtime.remember
 
 import androidx.compose.runtime.getValue
@@ -473,4 +474,29 @@ fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onFocus: () -> Unit = {}, onClick: (
             }
         }
     }
+}
+
+
+/** Image de fond commune des pages (un film tendance), gardée pour toute la session. */
+object PageImg { var cached: String? = null }
+
+@Composable
+fun rememberPageImage(): String? {
+    val v by androidx.compose.runtime.produceState(PageImg.cached) {
+        if (PageImg.cached == null && app.tvo.tv.data.Tmdb.enabled)
+            PageImg.cached = app.tvo.tv.data.Tmdb.trending("movie").mapNotNull { it.background }.randomOrNull()
+        value = PageImg.cached
+    }
+    return v
+}
+
+/** Fond de page : photo de film voilée et teintée (la couleur seule sert de secours). */
+@Composable
+fun Modifier.imageBackdrop(accent: Color, url: String? = rememberPageImage()): Modifier {
+    val painter = coil.compose.rememberAsyncImagePainter(url)
+    return this.background(tvoBrush(accent))
+        .paint(painter, contentScale = ContentScale.Crop, alpha = 0.5f)
+        .background(Brush.horizontalGradient(0f to Color(0xE60A0F1E), 0.55f to Color(0xA60A0F1E), 1f to Color(0x4D0A0F1E)))
+        .background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xD90A0F1E)))
+        .background(Brush.radialGradient(listOf(accent.copy(alpha = 0.28f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1200f))
 }

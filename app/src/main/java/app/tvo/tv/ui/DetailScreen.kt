@@ -283,7 +283,7 @@ fun PersonScreen(id: String, nav: Nav) {
     }
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
-        modifier = Modifier.fillMaxSize().background(tvoBrush(Color(0xFF8B5CF6))),
+        modifier = Modifier.fillMaxSize().imageBackdrop(Color(0xFF8B5CF6), p.works.firstNotNullOfOrNull { it.background }),
         contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 40.dp, bottom = 48.dp),
         horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),

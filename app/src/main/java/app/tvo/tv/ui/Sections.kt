@@ -270,7 +270,7 @@ fun SearchSection(nav: Nav) {
     }
     val trendMovies by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("movie") else emptyList() }
     val trendSeries by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("series") else emptyList() }
-    Row(Modifier.fillMaxSize().background(tvoBrush(Color(0xFF2F5BFF)))) {
+    Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF))) {
         Column(Modifier.width(500.dp).padding(start = 40.dp, top = 28.dp)) {
             Text("Recherche", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x66101A36))
@@ -344,7 +344,7 @@ fun SettingsSection(nav: Nav) {
     var page by rememberSaveable { mutableStateOf("profil") }
 
     val pageColor = Color(pages.first { it.key == page }.color)
-    Row(Modifier.fillMaxSize().background(tvoBrush(pageColor, Color(0xFF2F5BFF))).padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
+    Row(Modifier.fillMaxSize().imageBackdrop(pageColor).padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
         // Menu
         Column(Modifier.width(330.dp).fillMaxHeight()) {
             Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(bottom = 14.dp))
@@ -521,7 +521,7 @@ fun AddonAddScreen(onDone: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().background(tvoBrush(Color(0xFF2F5BFF))).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF)).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Ajouter un add-on", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
@@ -672,7 +672,7 @@ fun TmdbKeyScreen(onDone: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().background(tvoBrush(Color(0xFF2F5BFF))).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF)).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Clé API TMDB", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Text("Sur themoviedb.org : Paramètres › API. La « clé d'API » ou le « jeton d'accès en lecture » fonctionnent.",
