@@ -101,11 +101,43 @@ object Tmdb {
     private fun today() = java.time.LocalDate.now().toString()
     private fun monthsAgo(n: Long) = java.time.LocalDate.now().minusMonths(n).toString()
 
+    // ---- Catalogues à jour sans réinstaller : liste publiée sur GitHub (docs/catalogs.json), lue en arrière-plan ----
+    private const val REMOTE_URL = "https://raw.githubusercontent.com/mansstyle59/VOoTV/main/docs/catalogs.json"
+    private class RC(val cat: CatalogDef, val path: String, val params: Map<String, String>)
+    @Volatile private var remote: Map<String, RC> = emptyMap()
+    @Volatile private var hidden: Set<String> = emptySet()
+    private fun applyRemote(o: JsonObject) {
+        hidden = o.arr("hide")?.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }?.toSet() ?: emptySet()
+        remote = o.arr("catalogs")?.mapNotNull { it as? JsonObject }?.mapNotNull { c ->
+            val id = c.s("id") ?: return@mapNotNull null; val type = c.s("type") ?: return@mapNotNull null
+            val name = c.s("name") ?: return@mapNotNull null; val path = c.s("path") ?: return@mapNotNull null
+            val params = (c["params"] as? JsonObject)?.mapValues { (_, v) -> (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: "" } ?: emptyMap()
+            id to RC(cat(type, id, name), path, params)
+        }?.toMap() ?: emptyMap()
+    }
+    private fun expand(v: String): String = when {
+        v == "{today}" -> today()
+        v.startsWith("{m:") -> monthsAgo(v.substring(3, v.length - 1).toLongOrNull() ?: 12)
+        else -> v
+    }
+    /** Dernière liste connue (au démarrage), puis mise à jour en arrière-plan pour le prochain affichage. */
+    fun loadRemoteCached() { Tvo.store.remoteCats()?.let { s -> runCatching { applyRemote(kotlinx.serialization.json.Json.parseToJsonElement(s) as JsonObject) } } }
+    suspend fun refreshRemote() {
+        runCatching {
+            val o = Tvo.client.getJson(REMOTE_URL)
+            if (o.arr("catalogs") != null) { applyRemote(o); Tvo.store.setRemoteCats(o.toString()) }
+        }
+    }
+    private fun live(): Addon {
+        val base = addon.manifest.catalogs.filter { it.id !in hidden && it.id !in remote }
+        return addon.copy(manifest = addon.manifest.copy(catalogs = base + remote.values.map { it.cat }.filter { it.id !in hidden }))
+    }
+
     /** Add-ons as seen by catalogs: TMDB first, Cinemeta catalogs hidden (Cinemeta still provides episodes). */
     fun withTmdb(addons: List<Addon>, tmdbKey: String?, kids: Boolean = false): List<Addon> {
-        if (kids) return listOf(addon.copy(manifest = addon.manifest.copy(catalogs = addon.manifest.catalogs.filter { it.id.startsWith("kids") })))
+        if (kids) return listOf(live().let { l -> l.copy(manifest = l.manifest.copy(catalogs = l.manifest.catalogs.filter { it.id.startsWith("kids") })) })
         if (tmdbKey.isNullOrBlank() && !proxyOk) return addons
-        return listOf(addon) + addons.map {
+        return listOf(live()) + addons.map {
             if (it.manifest.id == "com.linvo.cinemeta") it.copy(manifest = it.manifest.copy(catalogs = emptyList())) else it
         }
     }
@@ -158,6 +190,7 @@ object Tmdb {
         val search = extra["search"]
         val genre = extra["genre"]?.let { (if (cat.type == "series") TV_GENRES else MOVIE_GENRES)[it] }
         val o = when {
+            remote[cat.id] != null -> remote.getValue(cat.id).let { rc -> get("/${rc.path}", rc.params.mapValues { expand(it.value) } + ("page" to page)) }
             search != null -> get("/search/$k", mapOf("query" to search, "page" to page))
             genre != null -> get("/discover/$k", mapOf("with_genres" to genre.toString(), "sort_by" to "popularity.desc", "page" to page, "vote_count.gte" to "50"))
             cat.id == "trending" -> get("/trending/$k/week", mapOf("page" to page))

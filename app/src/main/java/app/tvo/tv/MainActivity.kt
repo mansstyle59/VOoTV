@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         // Retour dans l'appli : nouvelle recherche de mise à jour (au plus une fois toutes les 20 minutes)
         if (System.currentTimeMillis() - lastCheck > 20 * 60_000 && PendingUpdate.release.value == null) {
             lastCheck = System.currentTimeMillis()
-            lifecycleScope.launch { Updater.check()?.let { PendingUpdate.release.value = it } }
+            lifecycleScope.launch { Updater.check()?.takeIf { it.important }?.let { PendingUpdate.release.value = it } }
         }
     }
 
@@ -158,6 +158,7 @@ private fun navFor(nc: NavHostController) = Nav(
 /** Re-reads every installed add-on manifest so catalogs stay current. */
 private suspend fun refreshAddons() {
     if (app.tvo.tv.data.Tmdb.checkProxy()) Tvo.client.clearCaches()
+    app.tvo.tv.data.Tmdb.refreshRemote() // nouveaux catalogues publiés (silencieux, visibles à la prochaine ouverture d'une page)
     val store = Tvo.store
     // Les chaînes Free-TV sont retirées (remplacées par Freebox TV).
     if (store.addons.value.any { app.tvo.tv.data.NoTv.isTv(it) }) store.setAddons(store.addons.value)
@@ -322,7 +323,7 @@ private fun SplashScreen(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         val t0 = System.currentTimeMillis()
         val r = kotlinx.coroutines.withTimeoutOrNull(5000) { Updater.check() }
-        if (r != null) { status = "Nouvelle version ${r.versionName} trouvée"; PendingUpdate.release.value = r }
+        if (r != null && r.important) { status = "Mise à jour importante ${r.versionName} trouvée"; PendingUpdate.release.value = r }
         else status = "TVO est à jour ✓"
         delay((2400 - (System.currentTimeMillis() - t0)).coerceAtLeast(500))
         onDone()

@@ -26,6 +26,7 @@ object Tvo {
     fun init(app: Application) {
         if (::store.isInitialized) return
         store = Store(app)
+        app.tvo.tv.data.Tmdb.loadRemoteCached()
         client = AddonClient(http)
     }
 }

@@ -1,0 +1,452 @@
+{
+ "v": 1,
+ "hide": [],
+ "catalogs": [
+  {
+   "id": "r_m_action",
+   "type": "movie",
+   "name": "Films d'action récents",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "28",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_comedy",
+   "type": "movie",
+   "name": "Comédies récentes",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "35",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_scifi",
+   "type": "movie",
+   "name": "Science-fiction récente",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "878",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_thriller",
+   "type": "movie",
+   "name": "Thrillers récents",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "53",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_horror",
+   "type": "movie",
+   "name": "Films d'horreur récents",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "27",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_drama",
+   "type": "movie",
+   "name": "Drames récents",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "18",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_romance",
+   "type": "movie",
+   "name": "Romances récentes",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "10749",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_anim",
+   "type": "movie",
+   "name": "Animation récente",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "16",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_crime",
+   "type": "movie",
+   "name": "Films policiers récents",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "80",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_fantasy",
+   "type": "movie",
+   "name": "Fantastique et aventure",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "14|12",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "40"
+   }
+  },
+  {
+   "id": "r_m_doc",
+   "type": "movie",
+   "name": "Documentaires récents",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "99",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:24}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "15"
+   }
+  },
+  {
+   "id": "r_m_war",
+   "type": "movie",
+   "name": "Guerre et histoire",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "10752|36",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:30}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "30"
+   }
+  },
+  {
+   "id": "r_m_toprated",
+   "type": "movie",
+   "name": "Les mieux notés de l'année",
+   "path": "discover/movie",
+   "params": {
+    "sort_by": "vote_average.desc",
+    "primary_release_date.gte": "{m:12}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "400"
+   }
+  },
+  {
+   "id": "r_m_french",
+   "type": "movie",
+   "name": "Films français récents",
+   "path": "discover/movie",
+   "params": {
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:18}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "20",
+    "with_original_language": "fr"
+   }
+  },
+  {
+   "id": "r_m_apple",
+   "type": "movie",
+   "name": "Films sur Apple TV+",
+   "path": "discover/movie",
+   "params": {
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:36}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "20",
+    "watch_region": "FR",
+    "with_watch_monetization_types": "flatrate",
+    "with_watch_providers": "350"
+   }
+  },
+  {
+   "id": "r_s_crime",
+   "type": "series",
+   "name": "Séries policières",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "25",
+    "with_genres": "80"
+   }
+  },
+  {
+   "id": "r_s_scifi",
+   "type": "series",
+   "name": "Séries SF et fantastique",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "25",
+    "with_genres": "10765"
+   }
+  },
+  {
+   "id": "r_s_drama",
+   "type": "series",
+   "name": "Séries dramatiques",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "25",
+    "with_genres": "18"
+   }
+  },
+  {
+   "id": "r_s_comedy",
+   "type": "series",
+   "name": "Séries comiques",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "25",
+    "with_genres": "35"
+   }
+  },
+  {
+   "id": "r_s_action",
+   "type": "series",
+   "name": "Séries action et aventure",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "25",
+    "with_genres": "10759"
+   }
+  },
+  {
+   "id": "r_s_mystery",
+   "type": "series",
+   "name": "Séries mystère",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "25",
+    "with_genres": "9648"
+   }
+  },
+  {
+   "id": "r_s_anime",
+   "type": "series",
+   "name": "Animés",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:36}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "20",
+    "with_genres": "16",
+    "with_original_language": "ja"
+   }
+  },
+  {
+   "id": "r_s_doc",
+   "type": "series",
+   "name": "Séries documentaires",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:36}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "10",
+    "with_genres": "99"
+   }
+  },
+  {
+   "id": "r_s_disney",
+   "type": "series",
+   "name": "Séries sur Disney+",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:36}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "15",
+    "watch_region": "FR",
+    "with_watch_monetization_types": "flatrate",
+    "with_watch_providers": "337"
+   }
+  },
+  {
+   "id": "r_s_french",
+   "type": "series",
+   "name": "Séries françaises",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:30}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "8",
+    "with_original_language": "fr"
+   }
+  },
+  {
+   "id": "r_s_toprated",
+   "type": "series",
+   "name": "Séries les mieux notées",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "vote_average.desc",
+    "first_air_date.gte": "{m:24}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "300"
+   }
+  },
+  {
+   "id": "kids_r_tv_disney",
+   "type": "series",
+   "name": "Séries Disney+ pour enfants",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:48}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "5",
+    "with_genres": "10762|16",
+    "watch_region": "FR",
+    "with_watch_monetization_types": "flatrate",
+    "with_watch_providers": "337",
+    "without_genres": "18,10768"
+   }
+  },
+  {
+   "id": "kids_r_tv_netflix",
+   "type": "series",
+   "name": "Séries Netflix pour enfants",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:48}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "5",
+    "with_genres": "10762|16",
+    "watch_region": "FR",
+    "with_watch_monetization_types": "flatrate",
+    "with_watch_providers": "8",
+    "without_genres": "18,10768"
+   }
+  },
+  {
+   "id": "kids_r_tv_family",
+   "type": "series",
+   "name": "Séries en famille",
+   "path": "discover/tv",
+   "params": {
+    "sort_by": "popularity.desc",
+    "first_air_date.gte": "{m:36}",
+    "first_air_date.lte": "{today}",
+    "vote_count.gte": "10",
+    "with_genres": "10751",
+    "without_genres": "18,10768,80"
+   }
+  },
+  {
+   "id": "kids_r_toprated",
+   "type": "movie",
+   "name": "Films pour enfants les mieux notés",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "10751|16",
+    "sort_by": "vote_average.desc",
+    "primary_release_date.gte": "{m:36}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "200",
+    "without_genres": "27,53,80,10749"
+   }
+  },
+  {
+   "id": "kids_r_fantasy",
+   "type": "movie",
+   "name": "Fantastique pour les enfants",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "14,10751",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:36}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "15",
+    "without_genres": "27,53,80"
+   }
+  },
+  {
+   "id": "kids_r_music",
+   "type": "movie",
+   "name": "Musique et comédies musicales",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "10402,10751",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:48}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "10",
+    "without_genres": "27,53,80"
+   }
+  },
+  {
+   "id": "kids_r_french",
+   "type": "movie",
+   "name": "Films pour enfants français",
+   "path": "discover/movie",
+   "params": {
+    "with_genres": "10751|16",
+    "sort_by": "popularity.desc",
+    "primary_release_date.gte": "{m:48}",
+    "primary_release_date.lte": "{today}",
+    "vote_count.gte": "5",
+    "with_original_language": "fr",
+    "without_genres": "27,53,80,10749"
+   }
+  }
+ ]
+}

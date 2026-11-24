@@ -1,0 +1,4 @@
+{
+  "note": "Mises à jour importantes : la télé ne propose l'installation que si sa version est inférieure à minTv. Les catalogues (catalogs.json) se mettent à jour seuls, en arrière-plan.",
+  "minTv": 0
+}

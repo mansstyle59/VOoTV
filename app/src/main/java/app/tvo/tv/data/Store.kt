@@ -96,6 +96,8 @@ class Store(ctx: Context) {
         progress.value = load("progress_${p.id}") ?: emptyList()
     }
 
+    fun remoteCats(): String? = prefs.getString("remote_cats", null)
+    fun setRemoteCats(s: String) { prefs.edit().putString("remote_cats", s).apply() }
     fun saveLastStream(videoId: String, s: StreamItem) {
         val u = s.url ?: return
         save("ls_$videoId", LastStream(u, s.headers, s.name, s.addonName, s.bingeGroup))

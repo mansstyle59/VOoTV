@@ -17,7 +17,7 @@ import java.io.File
 import java.io.IOException
 
 object Updater {
-    data class Release(val versionCode: Int, val versionName: String, val apkUrl: String, val notes: String)
+    data class Release(val versionCode: Int, val versionName: String, val apkUrl: String, val notes: String, val important: Boolean = true)
 
     fun cleanNotes(b: String): String = b.lines().map { it.trim() }
         .filter { it.isNotEmpty() && !it.startsWith("- TVO-") && !it.startsWith("Co-Authored-By") && !it.startsWith("Claude-Session") && !it.startsWith("http") }
@@ -48,7 +48,14 @@ object Updater {
                 ?.s("browser_download_url") ?: return@mapNotNull null
             Release(code, tag.removePrefix("v"), apk, o.s("body") ?: "")
         }.maxByOrNull { it.versionCode }?.takeIf { it.versionCode > BuildConfig.VERSION_CODE }
+            // Importante = la version installée est plus ancienne que « minTv » (docs/update.json) : correctif, lecteur vidéo…
+            // Sinon (catalogues, petits ajustements) : rien à installer, les catalogues se mettent à jour seuls.
+            ?.let { r -> r.copy(important = BuildConfig.VERSION_CODE < minTv()) }
     }.getOrNull()
+
+    private suspend fun minTv(): Int = runCatching {
+        Tvo.client.getJson("https://raw.githubusercontent.com/${BuildConfig.UPDATE_REPO}/main/docs/update.json").i("minTv") ?: 0
+    }.getOrDefault(0)
 
     suspend fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }

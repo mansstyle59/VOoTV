@@ -425,6 +425,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (kidsPage) buildRows(addons, null, true).filter { it.cat.id.startsWith("kids") }
         else buildRows(addons, type).let { if (type == null) applyHome(it, home) else it }
     }
+    val seen = remember(rows) { SeenRows() }
     val hidden = if (type == null) home.hidden else emptyList()
     val cont = remember(progress, type) { if (kidsPage) emptyList() else store.continueWatching(progress).filter { type == null || it.type == type } }
     val lib = remember(library, type) { if (kidsPage) emptyList() else library.filter { type == null || it.type == type } }
@@ -461,7 +462,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         if (type == null) item(key = "platforms") { PlatformTiles(nav) }
         if (type == null || type == "movie") item(key = "sagas") { SagaTiles(nav) }
-        items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
+        items(rows, key = { it.key }) { row -> CatalogRow(row, nav, seen) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
 }
@@ -491,10 +492,19 @@ fun PortraitPanel(title: String, items: List<MetaPreview>, nav: Nav) {
     }
 }
 
+/** Titres déjà affichés plus haut sur la page : une affiche n'apparaît qu'une seule fois (pas de doublons entre rangées). */
+class SeenRows { val ids = HashSet<String>(); val byRow = HashMap<String, List<MetaPreview>>() }
+
 @Composable
-private fun CatalogRow(row: RowSource, nav: Nav) {
+private fun CatalogRow(row: RowSource, nav: Nav, seen: SeenRows = SeenRows()) {
     val state by produceState<List<MetaPreview>?>(null, row.key) {
-        value = runCatching { Tvo.client.catalog(row.addon, row.cat, row.extra) }.getOrDefault(emptyList())
+        value = seen.byRow[row.key] ?: run {
+            val all = runCatching { Tvo.client.catalog(row.addon, row.cat, row.extra) }.getOrDefault(emptyList())
+            val fresh = all.filter { it.id !in seen.ids }
+            // Trop de doublons : on masque la rangée plutôt que d'en afficher 1 ou 2
+            val kept = if (fresh.size >= 4 || (all.size < 4 && fresh.size == all.size)) fresh else emptyList()
+            seen.ids.addAll(kept.map { it.id }); seen.byRow[row.key] = kept; kept
+        }
     }
     when {
         state == null -> LoadingRow(row.title)

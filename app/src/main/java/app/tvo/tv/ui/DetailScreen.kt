@@ -94,6 +94,7 @@ fun resumeTarget(meta: MetaDetail, progress: List<Progress>): Pair<String, Progr
     return next.id to progress.firstOrNull { it.videoId == next.id }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val store = Tvo.store
