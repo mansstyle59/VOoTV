@@ -2020,6 +2020,12 @@
     const d = $("#desc"); if (d) d.addEventListener("click", () => d.classList.toggle("clamp"));
   }
 
+  let SRC_QUEUE = null;
+  /** Source suivante de la liste classée (si la lecture échoue ou ne démarre pas). */
+  function nextSource(cur) {
+    if (!SRC_QUEUE) return null; const l = SRC_QUEUE.list; const i = l.findIndex((x) => x === cur || (x.url && x.url === cur.url));
+    return l.slice(i + 1).find((x) => x.url && !x.needsHeaders) || null;
+  }
   async function screenSources(type, metaId, videoId) {
     setTabs(null);
     app.innerHTML = header("Sources", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`)
@@ -2074,11 +2080,13 @@
           return `<details class="qgroup" data-q="${q}" ${openQ.has(q) ? "open" : ""}><summary><b>${qLabel(q) === "Auto" ? "Autres" : qLabel(q)}</b><span class="small muted">${l.length} lien${l.length > 1 ? "s" : ""}${ok < l.length ? ` · ${ok} en ligne` : ""}</span><i class="chev"></i></summary>
             <div class="list">${l.map(row).join("")}</div></details>`; }).join("");
       $("#list").querySelectorAll("details.qgroup").forEach((d) => d.addEventListener("toggle", () => { const q = +d.dataset.q; d.open ? openQ.add(q) : openQ.delete(q); }));
+      SRC_QUEUE = { list: playable, m, videoId };
       $("#list").querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => { const s = playable.find((x) => x._k === b.dataset.k); if (s) playStream(m, s, videoId); }));
     };
     let k = 0;
     const st = streams(type, videoId, (items) => {
-      items.forEach((s) => { s._k = String(k++); found.push(s); if (s.url && /^https?:/.test(s.url) && !test.has(s.url)) queue.push(s); });
+      // Les liens « à résoudre » (débrideurs, /resolve/, /playback/) ne sont pas testés : un test lancerait leur préparation pour rien
+      items.forEach((s) => { s._k = String(k++); found.push(s); if (s.url && /^https?:/.test(s.url) && !/resolve|playback|debrid|\/dl\/|\/stream\/[a-z]+\/[a-z0-9]{20,}/i.test(s.url) && !test.has(s.url)) queue.push(s); });
       done++; schedule(); pump();
     });
     draw(st.total);
@@ -2411,8 +2419,9 @@
     }
     const v = m.videos.find((x) => x.id === videoId);
     const p = S.prog.find((x) => x.videoId === videoId);
-    toast("Préparation de la lecture…", 1500);
-    const subs = [...s.subtitles, ...(await subtitles(m.type, videoId).catch(() => []))];
+    // Les sous-titres ne retardent jamais le lancement : 1,5 s maximum, sinon on démarre sans
+    const extra = await Promise.race([subtitles(m.type, videoId).catch(() => []), sleep(1500).then(() => [])]);
+    const subs = [...s.subtitles, ...extra];
     openPlayer({ m, s, v, videoId, start: p && !finished(p) && fraction(p) > 0.02 ? p.position / 1000 : 0, subs });
   }
 
@@ -2569,13 +2578,23 @@
     });
     video.addEventListener("pause", () => save());
     video.addEventListener("ended", () => { save(true); if (m.type === "series" && !ctx.nextCancelled) playNext(ctx); else closePlayer(); });
-    video.addEventListener("error", () => {
-      el.insertAdjacentHTML("beforeend", `<div class="err"><div class="card"><b style="font-size:20px">Lecture impossible</b>
-        <div class="muted">Ce format n'est peut-être pas pris en charge par le lecteur intégré. Essaie VLC ou une autre source.</div>
-        <button class="btn primary" id="eVlc">Ouvrir dans VLC</button><button class="btn" id="eBack">Retour</button></div></div>`);
+    let failed = false;
+    const fail = (why) => {
+      if (failed || !document.body.contains(video)) return; failed = true;
+      const nx = nextSource(s);
+      el.insertAdjacentHTML("beforeend", `<div class="err"><div class="card"><b style="font-size:20px">${esc(why)}</b>
+        <div class="muted">Cette source ne répond pas ou n'est pas lisible ici. ${nx ? "La suivante dans la liste est prête." : ""}</div>
+        ${nx ? `<button class="btn primary" id="eNext">Essayer la source suivante</button>` : ""}<button class="btn" id="eVlc">Ouvrir dans VLC</button><button class="btn" id="eBack">Retour aux sources</button></div></div>`);
+      if (nx) $("#eNext").addEventListener("click", () => { closePlayer(); playStream(m, nx, ctx.videoId); });
       $("#eVlc").addEventListener("click", () => { location.href = isIOS ? "vlc-x-callback://x-callback-url/stream?url=" + enc(s.url) : "vlc://" + s.url; });
       $("#eBack").addEventListener("click", closePlayer);
-    });
+    };
+    video.addEventListener("error", () => fail("Lecture impossible"));
+    // Si rien ne démarre au bout de 20 s, on propose tout de suite une autre source au lieu d'attendre
+    const watchdog = setTimeout(() => { if (!video.currentTime && video.readyState < 3) fail("La vidéo ne démarre pas"); }, 20000);
+    video.addEventListener("playing", () => clearTimeout(watchdog), { once: true });
+    // Vidéo factice de 8 s envoyée par certains add-ons à la place du film (lien expiré ou débrideur manquant)
+    video.addEventListener("loadedmetadata", () => { if (video.duration > 0 && video.duration < 20 && m.type !== "tv") setTimeout(() => fail("Cette source envoie une vidéo d'erreur"), 1500); }, { once: true });
     if (screen.orientation && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => {});
   }
 
