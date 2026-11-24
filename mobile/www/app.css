@@ -1090,45 +1090,148 @@ html.mac .upd-banner { top: 40px; }
 .aiprev svg { width: 78%; height: 78%; }
 .aicon.on .aiprev { border-color: var(--blue-2); box-shadow: 0 0 0 3px rgba(61,124,255,.35); }
 
-/* ---------- Gestion des comptes 1.5 ---------- */
-.acc-top { display: grid; gap: 12px; padding: 6px var(--pad) 14px; }
-.acc-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.acc-seg button { display: grid; gap: 2px; justify-items: start; padding: 12px 14px; border-radius: 16px; border: 1px solid rgba(160,190,255,.12);
-  background: var(--surface, #151e3b); color: var(--muted, #9ea9c6); text-align: left; font: inherit; cursor: pointer; min-width: 0; }
-.acc-seg button b { font-size: 24px; line-height: 1.1; color: var(--text, #f3f6ff); }
-.acc-seg button span { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.acc-seg button.pending b { color: #facc15; } .acc-seg button.off b { color: #f87171; }
-.acc-seg button.on { background: var(--blue-grad); border-color: transparent; color: #fff; }
-.acc-seg button.on b { color: #fff; }
-.acc-seg button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.acc-search { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 14px;
-  background: var(--surface, #151e3b); border: 1px solid rgba(160,190,255,.12); color: var(--muted, #9ea9c6); }
-.acc-search svg { width: 18px; height: 18px; flex: none; }
-.acc-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text, #f3f6ff); font: inherit; font-size: 16px; }
-.acc-list { display: grid; gap: 12px; padding: 0 var(--pad) calc(30px + env(safe-area-inset-bottom)); }
-.acc-card { display: grid; gap: 14px; padding: 16px; border-radius: 20px; background: var(--surface, #151e3b); border: 1px solid rgba(160,190,255,.1); min-width: 0; }
-.acc-card.trial { border-color: rgba(250,204,21,.35); }
-.acc-card header { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.acc-card .acc-av { flex: none; width: 46px; height: 46px; font-size: 19px; }
-.acc-id { display: grid; gap: 4px; justify-items: start; min-width: 0; }
-.acc-id b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
-.acc-id em { font-style: normal; font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.1); color: var(--muted, #9ea9c6); vertical-align: 2px; }
-.pstat.ok { background: rgba(34,197,94,.18); color: #4ade80; }
-.acc-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0; padding: 12px 14px; border-radius: 14px; background: rgba(0,0,0,.18); }
-.acc-info div { min-width: 0; } .acc-info div:nth-child(-n+2) { grid-column: 1 / -1; }
-.acc-info dt { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted, #9ea9c6); }
-.acc-info dd { margin: 2px 0 0; font-size: 14.5px; overflow-wrap: anywhere; }
-.acc-sub { font-size: 13px; font-weight: 700; color: var(--muted, #9ea9c6); margin-bottom: -6px; }
+/* ---------- Gestion des comptes 1.6 : liste épurée façon réglages iPhone ---------- */
+.acc-top { display: grid; gap: 12px; padding: 4px var(--pad) 16px; }
+.acc-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px; border-radius: 14px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); }
+.acc-seg button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 6px; border: 0; border-radius: 10px;
+  background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; min-width: 0; }
+.acc-seg button.on { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 2px 8px rgba(0,0,0,.25); }
+.acc-seg i { font-style: normal; font-size: 11.5px; font-weight: 800; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-grid; place-items: center; background: rgba(255,255,255,.16); color: #fff; }
+.acc-seg i.pending { background: #f5b922; color: #1a1300; }
+.acc-search { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; background: rgba(255,255,255,.06); color: var(--muted); }
+.acc-search svg { width: 17px; height: 17px; flex: none; }
+.acc-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); font: inherit; font-size: 16px; }
+.acc-list { padding: 0 var(--pad) calc(30px + env(safe-area-inset-bottom)); }
+.acc-group { border-radius: 18px; overflow: hidden; background: var(--surface); border: 1px solid rgba(255,255,255,.08); }
+.acc-row + .acc-row { border-top: 1px solid rgba(255,255,255,.07); }
+.acc-row summary { display: flex; align-items: center; gap: 12px; padding: 12px 14px; list-style: none; cursor: pointer; min-width: 0; }
+.acc-row summary::-webkit-details-marker { display: none; }
+.acc-row .acc-av { flex: none; width: 38px; height: 38px; border-radius: 50%; font-size: 16px; }
+.acc-tx { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.acc-tx b { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-tx em { font-style: normal; font-size: 11px; font-weight: 700; margin-left: 6px; color: var(--muted); }
+.acc-tx small { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc-st { flex: none; font-size: 12.5px; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.acc-st::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.acc-st.ok { color: #4ade80; } .acc-st.trial { color: #f5b922; } .acc-st.off { color: #f87171; } .acc-st.admin { color: #8fc2ff; }
+.acc-chev { flex: none; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); opacity: .6; margin-left: 2px; }
+.acc-row[open] .acc-chev { transform: rotate(45deg); }
+.acc-row[open] { background: rgba(255,255,255,.03); }
+.acc-more { display: grid; gap: 12px; padding: 0 14px 16px 64px; }
+.acc-more dl { margin: 0; display: grid; gap: 8px; }
+.acc-more dl div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; min-width: 0; }
+.acc-more dt { color: var(--muted); flex: none; } .acc-more dd { margin: 0; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.acc-sub { margin: 2px 0 -4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .acc-dur { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.acc-dur button { height: 40px; padding: 0 4px; border-radius: 11px; border: 1px solid rgba(160,190,255,.16); background: rgba(255,255,255,.05);
-  color: var(--text, #f3f6ff); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.acc-dur button { height: 32px; padding: 0 2px; white-space: nowrap; border-radius: 16px; border: 0; background: rgba(255,255,255,.08); color: var(--text); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .acc-dur button:active { background: var(--blue); }
-.acc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.acc-actions .btn { flex: 1 1 0; min-width: 90px; margin: 0; }
-.acc-wide { width: 100%; margin: 0; }
-@media (max-width: 360px) { .acc-dur { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.acc-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.acc-link { padding: 4px 0; border: 0; background: none; color: #8fc2ff; font: inherit; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+.acc-link.danger { color: #f87171; }
+.acc-empty { padding: 36px 16px; text-align: center; color: var(--muted); font-size: 14.5px; border-radius: 18px; background: rgba(255,255,255,.03); }
+@media (max-width: 400px) { .acc-more { padding-left: 14px; } }
 @media (min-width: 1024px) {
-  .acc-top { grid-template-columns: minmax(0, 1fr) 320px; align-items: center; max-width: 1200px; }
-  .acc-list { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); max-width: 1200px; align-items: start; }
-  .acc-dur button:hover, .acc-seg button:not(.on):hover { background: rgba(255,255,255,.1); }
+  .acc-top { grid-template-columns: 420px 300px; justify-content: space-between; max-width: 900px; }
+  .acc-list { max-width: 900px; }
+  .acc-row summary:hover { background: rgba(255,255,255,.04); }
+  .acc-dur button:hover, .acc-seg button:not(.on):hover { background: rgba(255,255,255,.12); }
 }
+
+/* =====================================================================
+   Thème « Liquid Glass » (activé par défaut, html.glass)
+   Verre net : reflets, bords lumineux et transparence sur un fond coloré.
+   Pas de flou sur les en-têtes, menus, formulaires ni textes (lisibilité) ;
+   le flou n'est utilisé que sous la barre flottante du bas et les feuilles.
+   ===================================================================== */
+html.glass {
+  --g-fill: linear-gradient(160deg, rgba(255,255,255,.115) 0%, rgba(255,255,255,.045) 42%, rgba(255,255,255,.03) 100%);
+  --g-fill-strong: linear-gradient(160deg, rgba(255,255,255,.17) 0%, rgba(255,255,255,.07) 50%, rgba(255,255,255,.05) 100%);
+  --g-edge: rgba(255,255,255,.16);
+  --g-edge-top: rgba(255,255,255,.30);
+  --g-shine: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.22);
+  --g-shadow: 0 10px 30px rgba(2,6,23,.35);
+  --surface: #17234a; --panel: #121b3a;
+}
+/* Fond « aurore » fixe (fonctionne aussi sur iPhone, contrairement à background-attachment: fixed) */
+html.glass body { background: var(--bg); }
+html.glass body::before {
+  content: ""; position: fixed; inset: -10vmax; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38vmax 30vmax at 12% 8%, rgba(52,228,216,.20), transparent 70%),
+    radial-gradient(42vmax 34vmax at 92% 18%, rgba(61,124,255,.30), transparent 70%),
+    radial-gradient(46vmax 36vmax at 70% 96%, rgba(42,79,230,.22), transparent 70%),
+    radial-gradient(30vmax 26vmax at 6% 78%, rgba(120,90,255,.14), transparent 70%),
+    var(--bg);
+}
+html.glass .header, html.glass .header.topbar { background: var(--bg); }
+html.glass .header.topbar:not(.scrolled), html.glass .header.homebar:not(.scrolled) { background: transparent; }
+
+/* Surfaces en verre */
+html.glass .card, html.glass .sect-group, html.glass details.sect, html.glass .acc-group,
+html.glass .field, html.glass .ccard, html.glass .pm, html.glass .auth-card, html.glass .wn-card {
+  background: var(--g-fill); border: 1px solid var(--g-edge); border-top-color: var(--g-edge-top);
+  box-shadow: var(--g-shine), var(--g-shadow);
+}
+html.glass .sect-group details.sect { background: none; border: 0; box-shadow: none; }
+html.glass .sect-group details.sect + details.sect { border-top: 1px solid rgba(255,255,255,.08); }
+html.glass .field { background: rgba(255,255,255,.06); box-shadow: inset 0 1px 2px rgba(0,0,0,.25); }
+html.glass .field:focus { border-color: rgba(143,194,255,.8); box-shadow: 0 0 0 3px rgba(61,124,255,.28), inset 0 1px 2px rgba(0,0,0,.25); }
+
+/* Boutons et puces en verre ; actions principales en bleu brillant */
+html.glass .btn:not(.primary):not(.danger):not(.blue):not(.accent), html.glass .chip:not(.on), html.glass .icon-btn,
+html.glass .header .icon-btn {
+  background: var(--g-fill-strong) !important; border: 1px solid var(--g-edge); border-top-color: var(--g-edge-top);
+  box-shadow: var(--g-shine); color: var(--text);
+}
+html.glass .btn.primary.block, html.glass .btn.blue, html.glass .btn.accent, html.glass .chip.on,
+html.glass .seg button.on, html.glass .detail-actions .btn.primary, html.glass .car-act .btn.primary {
+  background: linear-gradient(180deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 52%), var(--blue-grad) !important;
+  border: 1px solid rgba(160,205,255,.55); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 8px 22px rgba(61,124,255,.38);
+}
+html.glass .btn.danger { background: linear-gradient(160deg, rgba(248,113,113,.22), rgba(248,113,113,.10)); border: 1px solid rgba(248,113,113,.35); box-shadow: var(--g-shine); }
+html.glass .btn:active, html.glass .chip:active, html.glass .icon-btn:active, html.glass .acc-dur button:active { filter: brightness(1.25); }
+@media (hover: hover) {
+  html.glass .btn:hover, html.glass .chip:hover, html.glass .icon-btn:hover, html.glass .acc-dur button:hover { filter: brightness(1.15); }
+}
+
+/* Barre du bas : verre liquide bleu (seul endroit avec flou, texte et icônes nets) */
+html.glass .tabs {
+  background: linear-gradient(180deg, rgba(40,62,130,.62), rgba(14,22,52,.74));
+  border: 1px solid rgba(255,255,255,.16); border-top-color: rgba(255,255,255,.32);
+  -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%);
+  box-shadow: 0 14px 36px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(0,0,0,.3);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { html.glass .tabs { background: rgba(18,28,62,.97); } }
+html.glass .tab { color: #b4c2e6; }
+html.glass .tab.active { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.07)); box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 2px 10px rgba(61,124,255,.25); }
+
+/* Feuilles et fenêtres : verre avec léger flou derrière (le contenu derrière n'est pas à lire) */
+html.glass .as-card, html.glass .pin-card, html.glass .wn-card {
+  background: linear-gradient(170deg, rgba(36,54,112,.86), rgba(14,20,46,.92));
+  border: 1px solid rgba(255,255,255,.16); border-top-color: rgba(255,255,255,.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 -10px 40px rgba(0,0,0,.45);
+}
+
+/* Cartes d'affiches : fin liseré lumineux */
+html.glass .poster, html.glass .pcard .img, html.glass .ncard, html.glass .gtile, html.glass .ptile {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10), 0 8px 22px rgba(0,0,0,.3);
+}
+
+/* Mac et grands écrans : barre du haut en verre opaque (pas de flou) */
+@media (min-width: 1024px) {
+  html.glass .header.topbar.scrolled, html.glass .header.homebar.scrolled { background: linear-gradient(180deg, rgba(14,22,52,.98), rgba(10,15,30,.96)); border-bottom: 1px solid rgba(255,255,255,.08); }
+}
+
+/* Réglages : choix du thème */
+.theme-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.theme-pick button { display: grid; gap: 8px; padding: 10px; border-radius: 16px; border: 2px solid transparent; background: rgba(255,255,255,.05); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+.theme-pick button.on { border-color: var(--blue-2, #6aa8ff); }
+.theme-pick i { display: block; height: 64px; border-radius: 12px; }
+.theme-pick .t-glass i { background: radial-gradient(60% 80% at 20% 10%, rgba(52,228,216,.5), transparent), radial-gradient(70% 90% at 90% 30%, rgba(61,124,255,.6), transparent), #0a0f1e;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), inset 0 1px 0 rgba(255,255,255,.5); }
+.theme-pick .t-classic i { background: linear-gradient(180deg, #151e3b, #0a0f1e); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.tr-yt { display: block; margin-top: 12px; text-align: center; font-size: 14px; font-weight: 600; color: #8fc2ff; text-decoration: none; }
+/* Rien ne passe jamais sous l'heure et la batterie (iPhone) */
+body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: var(--bg); z-index: 900; pointer-events: none; }
+.ppl-row .bubble { flex: 0 0 92px; width: 92px; }

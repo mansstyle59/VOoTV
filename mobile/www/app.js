@@ -58,6 +58,11 @@
     set(k, v) { try { localStorage.setItem("tvo." + k, JSON.stringify(v)); } catch { /* quota */ } },
     del(k) { localStorage.removeItem("tvo." + k); },
   };
+  /** Thème : « glass » (Liquid Glass, par défaut) ou « classic ». */
+  const theme = () => (LS.get("theme", "glass") === "classic" ? "classic" : "glass");
+  function setTheme(t) { LS.set("theme", t); document.documentElement.classList.toggle("glass", t === "glass"); }
+  setTheme(theme());
+
 
   const GENRES = ["Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy",
     "History", "Horror", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western"];
@@ -825,31 +830,33 @@
       const groups = [["pending", "En attente"], ["active", "Actifs"], ["off", "Bloqués"]];
       const inG = (u, g) => (g === "off" ? u.eff === "disabled" || u.eff === "expired" : u.eff === g);
       $("#acF").innerHTML = groups.map(([g, l]) => { const n = list.filter((u) => inG(u, g)).length;
-        return `<button class="${f === g ? "on" : ""} ${g}" data-f="${g}"><b>${n}</b><span>${l}</span></button>`; }).join("");
+        return `<button class="${f === g ? "on" : ""}" data-f="${g}">${l}${n ? `<i class="${g}">${n}</i>` : ""}</button>`; }).join("");
       const l = list.filter((u) => inG(u, f) && (!q || u.user.includes(q) || (u.email || "").toLowerCase().includes(q)));
-      const durations = [[3, "Essai 3 j"], [7, "7 j"], [30, "1 mois"], [365, "1 an"], [0, "Illimité"]];
-      $("#acL").innerHTML = l.map((u) => {
+      const durations = [[3, "3 jours"], [7, "7 jours"], [30, "1 mois"], [365, "1 an"], [0, "Illimité"]];
+      const rows = l.map((u) => {
         const admin = u.role === "admin", self = u.user === me;
-        const [st, cls] = admin ? ["Administrateur", "admin"] : lab[u.eff] || [u.eff, "std"];
+        const [st, cls] = admin ? ["Admin", "admin"] : lab[u.eff] || [u.eff, "std"];
         const left = u.expires_at ? Math.ceil((new Date(u.expires_at) - Date.now()) / 864e5) : null;
-        const access = admin || (u.status === "active" && !u.expires_at) ? "Accès illimité" : left !== null ? (left > 0 ? `Encore ${left} jour${left > 1 ? "s" : ""} · jusqu'au ${when(u.expires_at)}` : `Accès terminé le ${when(u.expires_at)}`) : "Pas encore autorisé";
-        return `<article class="acc-card ${cls}">
-          <header><span class="acc-av">${esc(u.user.slice(0, 1).toUpperCase())}</span>
-            <div class="acc-id"><b>${esc(u.user)}${self ? ` <em>Toi</em>` : ""}</b><span class="pstat ${cls}">${esc(st)}</span></div></header>
-          <dl class="acc-info">
-            <div><dt>E-mail</dt><dd>${u.email ? esc(u.email) : `<span class="muted">Non renseigné</span>`}</dd></div>
-            <div><dt>Accès</dt><dd>${esc(access)}</dd></div>
-            <div><dt>Inscrit</dt><dd>${when(u.created_at)}</dd></div>
-            <div><dt>Vu</dt><dd>${ago(u.last_seen)}</dd></div>
-          </dl>
-          ${self && !u.email ? `<button class="btn acc-wide" data-myemail="1">Ajouter mon e-mail</button>` : ""}
-          ${admin ? "" : `<div class="acc-sub">${u.eff === "pending" ? "Autoriser l'accès pour" : u.eff === "active" ? "Changer la durée d'accès" : "Redonner l'accès pour"}</div>
-          <div class="acc-dur">${durations.map(([d, t]) => `<button data-act="${esc(u.user)}|active|${d}">${t}</button>`).join("")}</div>
-          <div class="acc-actions">
-            ${u.email ? `<button class="btn" data-mail="${esc(u.user)}">✉ Mail</button><button class="btn" data-mcopy="${esc(u.user)}">Copier</button>` : ""}
-            ${u.status === "disabled" ? `<button class="btn" data-act="${esc(u.user)}|active|">Réactiver</button>` : u.eff !== "pending" ? `<button class="btn" data-act="${esc(u.user)}|disabled|">Désactiver</button>` : ""}
-            <button class="btn danger" data-del="${esc(u.user)}">Supprimer</button></div>`}
-        </article>`; }).join("") || `<div class="empty small">${q ? "Aucun compte ne correspond." : f === "pending" ? "Aucune demande en attente." : "Aucun compte ici."}</div>`;
+        const access = admin || (u.status === "active" && !u.expires_at) ? "Illimité" : left !== null ? (left > 0 ? `${left} jour${left > 1 ? "s" : ""} restant${left > 1 ? "s" : ""}` : "Terminé") : "Non autorisé";
+        const sub = u.eff === "pending" ? `Demande du ${when(u.created_at)}` : `${access} · vu ${ago(u.last_seen)}`;
+        return `<details class="acc-row ${cls}">
+          <summary><span class="acc-av">${esc(u.user.slice(0, 1).toUpperCase())}</span>
+            <span class="acc-tx"><b>${esc(u.user)}${self ? `<em>Toi</em>` : ""}</b><small>${esc(sub)}</small></span>
+            <span class="acc-st ${cls}">${esc(st)}</span><i class="acc-chev"></i></summary>
+          <div class="acc-more">
+            <dl><div><dt>E-mail</dt><dd>${u.email ? esc(u.email) : "Non renseigné"}</dd></div>
+              <div><dt>Accès</dt><dd>${u.expires_at && left > 0 ? `Jusqu'au ${when(u.expires_at)}` : esc(access)}</dd></div>
+              <div><dt>Inscrit</dt><dd>${when(u.created_at)}</dd></div>
+              <div><dt>Dernière visite</dt><dd>${ago(u.last_seen)}</dd></div></dl>
+            ${self && !u.email ? `<button class="acc-link" data-myemail="1">Ajouter mon e-mail</button>` : ""}
+            ${admin ? "" : `<p class="acc-sub">${u.eff === "pending" ? "Autoriser pour" : "Durée d'accès"}</p>
+            <div class="acc-dur">${durations.map(([d, t]) => `<button data-act="${esc(u.user)}|active|${d}">${t}</button>`).join("")}</div>
+            <div class="acc-links">
+              ${u.email ? `<button class="acc-link" data-mail="${esc(u.user)}">Envoyer un mail</button>` : ""}
+              ${u.status === "disabled" ? `<button class="acc-link" data-act="${esc(u.user)}|active|">Réactiver</button>` : u.eff !== "pending" ? `<button class="acc-link" data-act="${esc(u.user)}|disabled|">Désactiver</button>` : ""}
+              <button class="acc-link danger" data-del="${esc(u.user)}">Supprimer</button></div>`}
+          </div></details>`; }).join("");
+      $("#acL").innerHTML = rows ? `<div class="acc-group">${rows}</div>` : `<div class="acc-empty">${q ? "Aucun compte ne correspond." : f === "pending" ? "Aucune demande en attente." : "Aucun compte ici."}</div>`;
     };
     $("#acQ").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); draw(); });
     $("#acF").addEventListener("click", (e) => { const b = e.target.closest("[data-f]"); if (b) { f = b.dataset.f; draw(); } });
@@ -1098,7 +1105,7 @@
       LS.set("prog." + p.id, Object.values((d.prog || {})[p.id] || {}).sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 400));
     });
     if (d.home && (d.home.t || 0) > homeLayout().t) LS.set("home", d.home);
-    if ((d.tmdbT || 0) > LS.get("tmdb_t", 0)) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
+    if ((d.tmdbT || 0) > LS.get("tmdb_t", 0) || (d.tmdbKey && !tmdbKey())) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
     if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = d.addons; LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
     if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
   }
@@ -1488,14 +1495,24 @@
     vids = vids.filter((v) => v.site === "YouTube" && v.iso_639_1 === "fr" && !/vost|sous-titr|subtitled|\bvo\b/i.test(v.name || ""));
     return vids.find((v) => v.type === "Trailer" && v.official) || vids.find((v) => v.type === "Trailer") || vids.find((v) => v.type === "Teaser") || null;
   }
+  /** Adresse de lecture YouTube. Dans l'appli (iPhone, Android, Mac), on passe par une page relais https,
+   *  sinon YouTube refuse la lecture (erreur 153 : adresse d'origine manquante). */
+  function ytSrc(key, bg) {
+    const k = encodeURIComponent(key);
+    if (location.protocol === "https:" && !window.Capacitor?.isNativePlatform?.()) {
+      return `https://www.youtube-nocookie.com/embed/${k}?autoplay=1&playsinline=1&rel=0&modestbranding=1&hl=fr&cc_lang_pref=fr` + (bg ? `&controls=0&loop=1&playlist=${k}` : "");
+    }
+    return `https://mansstyle59.github.io/VOoTV/trailer/?v=${k}${bg ? "&bg=1" : ""}`;
+  }
   async function playTrailer(m) {
     const kind = m.tmdbKind || (m.type === "series" ? "tv" : "movie");
     const pick = await trailerVF(m);
     if (!pick) return toast("Pas de bande-annonce en français pour ce titre.");
     const box = document.createElement("div"); box.className = "tr-sheet";
     box.innerHTML = `<div class="tr-card"><div class="tr-top"><b>${esc(pick.name || "Bande-annonce")}</b><button class="icon-btn" data-x aria-label="Fermer">✕</button></div>
-      <div class="tr-frame"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(pick.key)}?autoplay=1&playsinline=1&rel=0&modestbranding=1&hl=fr&cc_lang_pref=fr"
-        allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>`;
+      <div class="tr-frame"><iframe src="${esc(ytSrc(pick.key))}"
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <a class="tr-yt" href="https://www.youtube.com/watch?v=${encodeURIComponent(pick.key)}" target="_blank" rel="noopener">Ça ne se lance pas ? Ouvrir dans YouTube</a></div>`;
     document.body.appendChild(box);
     box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) box.remove(); });
   }
@@ -1684,6 +1701,8 @@
 
   const PROVIDERS = [["8", "Netflix", "#e50914"], ["119", "Prime Video", "#00a8e1"], ["337", "Disney+", "#113ccf"], ["381", "Canal+", "#111111"],
     ["350", "Apple TV+", "#555555"], ["531", "Paramount+", "#0064ff"], ["1899", "Max", "#002be7"]];
+  /** Logos officiels intégrés (images TMDB, affichés même sans clé), complétés par TMDB quand c'est possible. */
+  const PROV_DEF = {"8": "/rK1KljqmbvO9HQa1PBFLILWah72.png", "119": "/gMZdpavHmxFNnLpMHwVxfqeux2g.png", "337": "/5eZ872CghnHFLB1j8grszbrx0dx.png", "381": "/gliWKhLJVdm7QwL1braBCRko5dx.png", "350": "/v9SnyvYt0U3KGgBH3Sbh3z4yODe.png", "531": "/pkx3klJlwW5JdtaulvDx6hDNtch.png", "1899": "/skypuy7SXuugIQeYg0IglmzoKaS.png"};
   /** Logos officiels des plateformes (fournis par TMDB), mis en cache 7 jours. */
   let PROV_LOGOS = LS.get("provlogos", null);
   async function provLogos() {
@@ -1696,7 +1715,7 @@
     } catch { return {}; }
   }
   function provTile(id, n, c) {
-    const logo = PROV_LOGOS && PROV_LOGOS.m[id];
+    const logo = (PROV_LOGOS && PROV_LOGOS.m[id]) || (PROV_DEF[id] ? "https://image.tmdb.org/t/p/w154" + PROV_DEF[id] : null);
     return `<a class="prov ptile" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}"><span class="plogo">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : esc(n.slice(0, 1))}</span><b>${esc(n)}</b></a>`;
   }
   function refreshProvTiles() {
@@ -1744,9 +1763,11 @@
     ["Crime", "#64748b"], ["Sci-Fi", "#6366f1"], ["Fantasy", "#8b5cf6"], ["Horror", "#991b1b"], ["Romance", "#ec4899"], ["Animation", "#22c55e"],
     ["Family", "#06b6d4"], ["Mystery", "#475569"], ["History", "#b45309"], ["War", "#57534e"], ["Western", "#c2410c"], ["Documentary", "#0ea5e9"]];
   let GENRE_IMG = LS.get("genreimg", { t: 0, m: {} });
+  /** Images par défaut des catégories (visibles même sans clé TMDB). */
+  const GENRE_DEF = {"Action": "/cKvDv2LpwVEqbdXWoQl4XgGN6le.jpg", "Adventure": "/c7btGYblBnfAaw713WvFM0Kimc7.jpg", "Comedy": "/sMmG82PtjK8A9rVc34gwKQtCm3A.jpg", "Drama": "/bybAHw5fenKXRFI4phanPhpljlT.jpg", "Thriller": "/yE766yhgg98tKwTKd8CyNvAtmn6.jpg", "Crime": "/axRYPjeLD4zjJNaIw4TPopbKVfs.jpg", "Sci-Fi": "/subj7knTn4DeS6KS7qI66EQKe9i.jpg", "Fantasy": "/hofnlIyF6bePkgQOpcuRWLvzf15.jpg", "Horror": "/3icyRAqgakNcQn6aDVz9libFmBA.jpg", "Romance": "/sCzcYW9h55WcesOqA12cgEr9Exw.jpg", "Animation": "/qjTqY5coNiz6sVtPng40IzltsoN.jpg", "Family": "/rueyXwlewVPAP5NkqCUJx4RjhqB.jpg", "Mystery": "/qqHFLg90IUSoTmSMpKOOW5RyqN3.jpg", "History": "/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg", "War": "/zb6fM1CX41D9rF9hdgclu0peUmy.jpg", "Western": "/2oZklIzUbvZXXzIFzv7Hi68d6xf.jpg", "Documentary": "/dUbP1HNdI0aCq1zgRJw28PWSqmk.jpg"};
   function genreTilesHTML(type = "movie") {
     return `<div class="gtiles">${GENRE_TILES.filter(([g]) => type !== "series" || g in TMDB.TV).map(([g, c]) => {
-      const img = GENRE_IMG.m[g];
+      const img = GENRE_IMG.m[g] || (GENRE_DEF[g] ? "https://image.tmdb.org/t/p/w500" + GENRE_DEF[g] : null);
       return `<a class="gtile" style="--c:${c}" href="#/genre/${type}/${enc(g)}" data-gt="${g}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ""}<span class="gshade"></span><b>${esc(genreLabel(g))}</b></a>`;
     }).join("")}</div>`;
   }
@@ -1917,7 +1938,7 @@
     setTabs("search");
     const last = sessionStorage.getItem("tvo.q") || "";
     app.innerHTML = header("Recherche") + `<div class="pad"><div class="search-box">${ICON.search}
-      <input class="field" id="q" type="search" enterkeyhint="search" placeholder="Film, série…" value="${esc(last)}" autocomplete="off" autocorrect="off"></div></div>
+      <input class="field" id="q" type="search" enterkeyhint="search" placeholder="Film, série, acteur…" value="${esc(last)}" autocomplete="off" autocorrect="off"></div></div>
       <div id="res"></div>`;
     const q = $("#q"), res = $("#res");
     let timer, seq = 0;
@@ -1932,9 +1953,13 @@
         try { return { title: a.manifest.id === "tvo.freetv.fr" || a.manifest.id.startsWith("tvo.m3u.") ? c.name : ["com.linvo.cinemeta", "tmdb"].includes(a.manifest.id) ? typeLabel(c.type) : `${c.name} · ${a.manifest.name}`, list: await catalog(a, c, { search: v }) }; }
         catch { return { list: [] }; }
       }));
+      let people = [];
+      if (tmdbOn()) try { people = ((await tget("/search/person", { query: v })).results || []).filter((x) => x.profile_path && x.popularity > 0.5).slice(0, 15); } catch { /* */ }
       if (my !== seq) return;
       const found = out.filter((x) => x.list.length);
-      res.innerHTML = found.length ? found.map((x) => `<section class="section"><h2 class="section-title"><span>${esc(x.title)}</span></h2>
+      const ppl = people.length ? `<section class="section"><h2 class="section-title"><span>Acteurs et actrices</span></h2><div class="row ppl-row">${people.map((pp) =>
+        `<a class="bubble" href="#/person/${enc(String(pp.id))}"><span class="ph"><img src="${esc(timg(pp.profile_path, "w185"))}" alt="" loading="lazy"></span><b>${esc(pp.name)}</b>${pp.known_for && pp.known_for[0] ? `<small>${esc(pp.known_for[0].title || pp.known_for[0].name || "")}</small>` : ""}</a>`).join("")}</div></section>` : "";
+      res.innerHTML = (found.length || people.length) ? ppl + found.map((x) => `<section class="section"><h2 class="section-title"><span>${esc(x.title)}</span></h2>
         <div class="row">${x.list.map(posterHTML).join("")}</div></section>`).join("")
         : `<div class="empty"><h2>Aucun résultat</h2>Essaie un autre titre, en anglais ou en français.</div>`;
     };
@@ -2025,7 +2050,7 @@
     // Ordinateur : la bande-annonce VF démarre toute seule dans le grand visuel (rien si pas de VF)
     if (isDesk() && m.tmdbId) trailerVF(m).then((v) => {
       const h = app.querySelector(".dt-hero"); if (!v || !h || !document.body.contains(h)) return;
-      h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(v.key)}?autoplay=1&mute=0&controls=0&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${encodeURIComponent(v.key)}&hl=fr"
+      h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="${esc(ytSrc(v.key, true))}"
         allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1"></iframe></div>`);
       setTimeout(() => h.classList.add("playing"), 2500);
     });
@@ -2160,7 +2185,7 @@
       <svg viewBox="0 0 512 512"><circle cx="256" cy="256" r="150" fill="none" stroke="${c}" stroke-width="28"/><path d="M220 186 Q220 170 234 178 L330 240 Q343 248 330 256 L234 318 Q220 326 220 310 Z" transform="translate(4 8)" fill="${c}"/></svg></span><span>${label}</span></button>`;
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
   const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
-    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
+    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Apparence": "Thème Liquid Glass ou classique", "Application": "Version et mises à jour" };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
     root.querySelectorAll("h2.section-title.section").forEach((h) => {
@@ -2267,6 +2292,10 @@
       <h2 class="section-title section"><span>Page d'accueil</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
       <div class="list" id="homeEd"></div>
+      <h2 class="section-title section"><span>Apparence</span></h2>
+      <div class="list"><div class="theme-pick" id="themePick">
+        <button class="t-glass ${theme() === "glass" ? "on" : ""}" data-theme="glass"><i></i>Liquid Glass</button>
+        <button class="t-classic ${theme() === "classic" ? "on" : ""}" data-theme="classic"><i></i>Classique</button></div></div>
       ${APPICON() ? `<h2 class="section-title section"><span>Icône de l'appli</span></h2>
       <div class="list"><div class="card small muted">Change l'icône de TVO sur l'écran d'accueil, sans réinstaller.</div><div class="aicons" id="aicons">${APP_ICONS.map(iconTile).join("")}</div></div>` : ""}
       <h2 class="section-title section"><span>Application</span></h2>
@@ -2275,6 +2304,8 @@
       <div class="legal-links pad"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions d'utilisation</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div>`;
       makeCollapsible(app, acct() ? [] : ["Compte"]);
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
+      $("#themePick").addEventListener("click", (e) => { const b = e.target.closest("[data-theme]"); if (!b) return; setTheme(b.dataset.theme);
+        $("#themePick").querySelectorAll("[data-theme]").forEach((x) => x.classList.toggle("on", x === b)); });
       const drawHome = () => {
         const h = homeLayout();
         const special = [["continue", "Continuer à regarder", "Reprends là où tu t'es arrêté"], ["library", "Ma liste", "Tes films et séries enregistrés"], ["collections", "Sagas et collections", "Toy Story, Fast & Furious, Harry Potter…"]];
