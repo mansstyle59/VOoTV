@@ -5374,7 +5374,7 @@ var qrcode = function() {
       <div class="nf" id="nf">
         <div class="nf-top">
           <div class="pl-clock" id="pClock"><b id="pNow"></b><span id="pEnd"></span></div>
-          ${document.pictureInPictureEnabled || isIOS ? `<button class="nf-ic" id="pPip" aria-label="Image dans l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>` : ""}
+          ${document.pictureInPictureEnabled || isIOS || window.TvoPip ? `<button class="nf-ic" id="pPip" aria-label="Image dans l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>` : ""}
           <button class="nf-ic" id="pLock" aria-label="Verrouiller les commandes"><svg viewBox="0 0 24 24" fill="currentColor"><path class="lk-on" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4zm2 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg></button>
           <button class="nf-ic" id="pClose" aria-label="Fermer">${ICON.back}</button>
         </div>
@@ -5496,9 +5496,16 @@ var qrcode = function() {
     const pip = $("#pPip");
     if (pip) pip.addEventListener("click", async (e) => {
       e.stopPropagation();
+      if (window.TvoPip) { TvoPip.enter(); return; }
       try { if (video.webkitSetPresentationMode) video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
         else if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await video.requestPictureInPicture(); } catch { toast("Image dans l'image indisponible"); }
     });
+    // Android : passage automatique en image dans l'image quand on quitte l'appli pendant la lecture
+    if (window.TvoPip) {
+      video.addEventListener("play", () => TvoPip.arm(true));
+      ["pause", "ended"].forEach((ev) => video.addEventListener(ev, () => TvoPip.arm(false)));
+      window.addEventListener("pagehide", () => TvoPip.arm(false));
+    }
     // Chargement
     const load = $("#pLoad");
     ["waiting", "stalled", "loadstart"].forEach((ev) => video.addEventListener(ev, () => (load.hidden = false)));

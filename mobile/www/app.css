@@ -1700,3 +1700,7 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 .sheet, .modal, .panel, .dialog { border-radius: var(--r-panel); }
 .row-title, .section-title, .rowhead h2, .rowhead .t { font-size: var(--title-size); font-weight: 700; letter-spacing: -.2px; }
 .btn:focus-visible, .chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* Image dans l'image (Android) : on ne garde que la vidéo */
+html.in-pip .nf-top, html.in-pip .nf-bottom, html.in-pip .nf-ic, html.in-pip .tabs, html.in-pip .header, html.in-pip .toast { display: none !important; }
+html.in-pip, html.in-pip body { background: #000; }
