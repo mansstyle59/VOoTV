@@ -4513,6 +4513,17 @@ var qrcode = function() {
     const lang = (s) => { const t = (s.name + " " + s.title).toLowerCase();
       return /\bmulti\b/.test(t) ? "MULTI" : /\b(vff|vfq|vf2?|french|truefrench|fr)\b|🇫🇷/.test(t) ? "VF" : /\bvostfr\b/.test(t) ? "VOSTFR" : ""; };
     const size = (s) => { const m = (s.name + " " + s.title).match(/(\d+(?:[.,]\d+)?)\s?(GB|Go|MB|Mo)\b/i); return m ? m[1].replace(",", ".") + " " + (/g/i.test(m[2]) ? "Go" : "Mo") : ""; };
+    // Détail lisible : ligne du titre de l'add-on (nom du fichier, langue, codec…) + codec détecté
+    const detail = (s) => {
+      const t = `${s.name} ${s.title}`; const tags = [];
+      if (/hevc|x265|h\.?265/i.test(t)) tags.push("HEVC"); else if (/x264|h\.?264|avc/i.test(t)) tags.push("H.264");
+      if (/dolby vision|\bdv\b/i.test(t)) tags.push("Dolby Vision"); else if (/hdr/i.test(t)) tags.push("HDR");
+      if (/atmos/i.test(t)) tags.push("Atmos"); else if (/5\.1/.test(t)) tags.push("5.1");
+      if (/\bmkv\b/i.test(t)) tags.push("MKV"); else if (/\bmp4\b/i.test(t)) tags.push("MP4");
+      const line = String(s.title || "").replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ").split("\n").map((x) => x.trim()).filter(Boolean)
+        .filter((x) => x.toLowerCase() !== String(s.name).trim().toLowerCase())[0] || "";
+      return [line.slice(0, 90), tags.join(" · ")].filter(Boolean).join("  |  ");
+    };
     const score = (s) => { const r = test.get(s.url); const alive = !r ? 1 : r.ok ? 2 : 0;
       return alive * 1e7 + (iosBad(s) ? 0 : 3e6) + (lang(s) ? 1e6 : 0) + s.quality * 1e5 - (r && r.ok ? Math.min(r.ms, 99999) : 50000); };
     // Test rapide : on mesure le temps de réponse de chaque lien (sans télécharger la vidéo)
@@ -4527,7 +4538,7 @@ var qrcode = function() {
           .finally(() => { clearTimeout(to); running--; schedule(); pump(); });
       }
     };
-    let raf = 0; const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => draw(st.total)); };
+    let raf = 0; const schedule = () => { if (raf) return; raf = setTimeout(() => { raf = 0; if (document.body.contains($("#list") || document.body)) draw(st.total); }, 400); };
     const badge = (s) => { if (!s.url) return `<span class="sp ext">Lien externe</span>`;
       if (iosBad(s)) return `<span class="sp bad">Pas lisible sur iPhone (VLC)</span>`;
       const r = test.get(s.url); if (!r) return `<span class="sp wait">Test…</span>`;
@@ -4535,6 +4546,7 @@ var qrcode = function() {
       return `<span class="sp ${r.ms < 400 ? "fast" : r.ms < 1200 ? "mid" : "slow"}">⚡ ${r.ms < 1000 ? r.ms + " ms" : (r.ms / 1000).toFixed(1) + " s"}</span>`; };
     const row = (s) => `<button class="card source" data-k="${esc(s._k)}">
         <span style="min-width:0;flex:1"><span class="name">${esc(s.name.replace(/\n/g, " ").slice(0, 80))}</span>
+        ${detail(s) ? `<span class="desc2">${esc(detail(s))}</span>` : ""}
         <span class="tags">${badge(s)}${lang(s) ? `<span class="tag">${lang(s)}</span>` : ""}${size(s) ? `<span class="tag">${size(s)}</span>` : ""}<span class="from">${esc(s.addonName)}</span></span></span>
         <span class="playic">${ICON.play}</span></button>`;
     const draw = (total) => {
