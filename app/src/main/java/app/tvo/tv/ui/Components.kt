@@ -450,7 +450,6 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
 
 
 /** Carte d'une saga / collection : fond de la saga, voile et nom. */
-@Composable
 fun sagaName(n: String) = n.replace(" - Saga", "").replace(" Collection", "").replace("— Saga", "").trim()
 
 @Composable
