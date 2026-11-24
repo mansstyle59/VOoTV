@@ -204,7 +204,7 @@ class MpvPlayerActivity : ComponentActivity() {
                 }
                 MPVLib.MPV_EVENT_END_FILE -> runOnUiThread {
                     if (length > 0 && position >= length - 15_000) { save(finished = true); finish() }
-                    else if (position < 1000) error = "Cette source ne peut pas être lue avec MPV."
+                    else if (position < 1000) { Tvo.store.clearLastStream(req.videoId); error = "Cette source ne peut pas être lue avec MPV." }
                 }
             }
         }

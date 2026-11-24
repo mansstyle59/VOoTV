@@ -132,7 +132,7 @@ class PlayerActivity : ComponentActivity() {
             this,
             DefaultRenderersFactory(this)
                 .setEnableDecoderFallback(true)
-                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER),
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON),
         ).setSeekBackIncrementMs(10_000).setSeekForwardIncrementMs(10_000).build()
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setPreferredAudioLanguages("fr", "fre", "fra")
@@ -145,7 +145,7 @@ class PlayerActivity : ComponentActivity() {
                     val d = player.duration
                     // Lien « de démonstration » (quelques secondes) : la source demande un service payant (débrideur).
                     if (req.type != "tv" && req.type != "channel" && d in 1..45_000) {
-                        player.stop()
+                        player.stop(); Tvo.store.clearLastStream(req.videoId)
                         error = "Cette source ne fournit qu'une vidéo d'attente : elle demande un service payant. Choisis une autre source."
                         showOverlayFocus(); return
                     }
@@ -169,6 +169,7 @@ class PlayerActivity : ComponentActivity() {
                     VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition.coerceAtLeast(req.startPosition)))
                     finish(); return
                 }
+                Tvo.store.clearLastStream(req.videoId)
                 error = when (e.errorCode) {
                     PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
                     PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "La source ne répond pas. Essaie une autre source."
@@ -225,6 +226,7 @@ class PlayerActivity : ComponentActivity() {
     private val stuck = Runnable {
         if (!isFinishing && player.playbackState != Player.STATE_READY && error == null) {
             player.stop()
+            Tvo.store.clearLastStream(req.videoId)
             error = "La source ne répond pas (rien après 25 secondes). Choisis une autre source."
             showOverlayFocus()
         }

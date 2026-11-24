@@ -524,7 +524,7 @@ fun AddonAddScreen(onDone: () -> Unit) {
                     item { Column(Modifier.padding(top = 8.dp)) { Text(cat, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan); Text(why, fontSize = 12.sp, color = TvoColors.Muted) } }
                     items(list, key = { it.url }) { sug ->
                         val installed = Tvo.store.addons.value.any { a -> a.url == sug.url.substringBefore("/manifest.json") || a.url == sug.url }
-                        TvoButton(if (installed) "✓ ${sug.name}" else sug.name, { if (!installed) install(sug.url) }, Modifier.fillMaxWidth())
+                        TvoButton(if (installed) "✓ ${sug.name}" else sug.name, { if (!installed) install(sug.url) }, Modifier.fillMaxWidth(), wide = true)
                         Text(sug.desc, fontSize = 12.sp, color = TvoColors.Muted)
                     }
                 }

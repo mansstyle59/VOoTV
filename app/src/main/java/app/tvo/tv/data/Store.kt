@@ -87,6 +87,8 @@ class Store(ctx: Context) {
         save("ls_$videoId", LastStream(u, s.headers, s.name, s.addonName, s.bingeGroup))
     }
     fun lastStream(videoId: String): LastStream? = load("ls_$videoId")
+    /** Lien mort ou expiré : on l'oublie pour que « Reprendre » propose les sources au lieu de boucler dessus. */
+    fun clearLastStream(videoId: String?) { if (videoId != null) prefs.edit().remove("ls_$videoId").apply() }
 
     /** Dernier profil ouvert, s'il peut s'ouvrir directement (pas de code, pas bloqué). */
     fun lastProfileToOpen(): Profile? {
