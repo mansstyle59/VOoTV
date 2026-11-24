@@ -2511,15 +2511,19 @@ var qrcode = function() {
   TMDB.addon = { url: TMDB.URL, manifest: { id: "tmdb", name: "TMDB", version: "3", description: "Catalogues, titres et résumés en français",
     types: ["movie", "series"], resources: [{ name: "catalog" }], idPrefixes: null, catalogs: [
       ...seasonCats(),
-      tcat("movie", "latest", "Derniers films sortis"),
-      tcat("movie", "kids", "Films pour enfants"), tcat("series", "kids", "Dessins animés et séries enfants"),
-      tcat("movie", "trending", "Films tendance cette semaine"), tcat("series", "trending", "Séries tendance cette semaine"),
-      tcat("movie", "popular", "Films populaires", TMDB.MOVIE, true), tcat("series", "popular", "Séries populaires", TMDB.TV, true),
-
-      tcat("movie", "prov_8", "Nouveaux films sur Netflix"), tcat("series", "prov_8", "Nouvelles séries sur Netflix"),
-      tcat("movie", "prov_119", "Nouveaux films sur Prime Video"), tcat("series", "prov_119", "Nouvelles séries sur Prime Video"),
-      tcat("movie", "prov_337", "Nouveautés Disney+"), tcat("series", "prov_381", "Nouveautés Canal+"), tcat("series", "prov_350", "Nouveautés Apple TV+"),
-      tcat("movie", "top_rated", "Films les mieux notés"), tcat("series", "top_rated", "Séries les mieux notées")] } };
+      tcat("movie", "latest", "Derniers films sortis"), tcat("movie", "now_playing", "Au cinéma en ce moment"),
+      tcat("movie", "recent_pop", "Nouveautés populaires"), tcat("movie", "trending", "Films tendance cette semaine"),
+      tcat("movie", "popular", "Films populaires", TMDB.MOVIE, true),
+      tcat("movie", "prov_8", "Nouveaux films sur Netflix"), tcat("movie", "prov_119", "Nouveaux films sur Prime Video"), tcat("movie", "prov_337", "Nouveautés Disney+"),
+      tcat("series", "latest_tv", "Nouvelles séries"), tcat("series", "trending", "Séries tendance cette semaine"),
+      tcat("series", "on_the_air", "Séries en cours de diffusion"), tcat("series", "popular", "Séries populaires", TMDB.TV, true),
+      tcat("series", "prov_8", "Nouvelles séries sur Netflix"), tcat("series", "prov_119", "Nouvelles séries sur Prime Video"),
+      tcat("series", "prov_381", "Nouveautés Canal+"), tcat("series", "prov_350", "Nouveautés Apple TV+"),
+      // Page Kids (jamais mélangés au reste) : beaucoup de films récents, peu de séries
+      tcat("movie", "kids_new", "Nouveaux films pour enfants"), tcat("movie", "kids", "Films pour enfants du moment"),
+      tcat("movie", "kids_anim", "Films d'animation récents"), tcat("movie", "kids_disney", "Disney+ pour enfants"),
+      tcat("movie", "kids_netflix", "Films famille sur Netflix"), tcat("movie", "kids_prime", "Films famille sur Prime Video"),
+      tcat("series", "kids_tv", "Dessins animés récents"), tcat("series", "kids", "Séries pour enfants")] } };
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
   /** Administrateur : le profil marqué admin, sinon le premier profil. Il choisit les add-ons de chaque profil. */
   const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
@@ -2530,7 +2534,7 @@ var qrcode = function() {
   function catalogAddons() {
     if (S.profile && S.profile.kids) {
       // Profil enfant : seulement les catalogues jeunesse
-      return [{ ...TMDB.addon, manifest: { ...TMDB.addon.manifest, catalogs: TMDB.addon.manifest.catalogs.filter((c) => c.id === "kids") } }];
+      return [{ ...TMDB.addon, manifest: { ...TMDB.addon.manifest, catalogs: TMDB.addon.manifest.catalogs.filter((c) => String(c.id).startsWith("kids")) } }];
     }
     if (!tmdbOn()) return myAddons();
     return [TMDB.addon, ...myAddons().map((a) => (a.manifest.id === "com.linvo.cinemeta" ? { ...a, manifest: { ...a.manifest, catalogs: [] } } : a))];
@@ -2566,6 +2570,7 @@ var qrcode = function() {
     const hit = (r.results || []).find((k) => k.name.toLowerCase() === q) || (r.results || [])[0];
     return (kwCache[q] = hit ? String(hit.id) : null);
   }
+  const monthsAgo = (n) => { const d = new Date(); d.setMonth(d.getMonth() - n); return d.toISOString().slice(0, 10); };
   const tkind = (t) => (t === "series" ? "tv" : "movie");
   const timg = (p, size) => (p ? TMDB.IMG + size + p : null);
   const rating = (v) => (v > 0 ? v.toFixed(1) : null);
@@ -2584,8 +2589,15 @@ var qrcode = function() {
       : c.id === "trending" ? await tget(`/trending/${k}/week`, { page })
       : c.id === "now_playing" ? await tget("/movie/now_playing", { page, region: "FR" })
       : c.id === "upcoming" ? await tget("/movie/upcoming", { page, region: "FR" })
-      : c.id === "kids" ? await tget(`/discover/${k}`, k === "tv" ? { page, with_genres: "10762", sort_by: "popularity.desc" }
-          : { page, with_genres: "10751", without_genres: "27,53,80", certification_country: "FR", "certification.lte": "U", sort_by: "popularity.desc", "vote_count.gte": "50" })
+      : c.id === "kids" ? await tget(`/discover/${k}`, k === "tv" ? { page, with_genres: "10762", sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(36) }
+          : { page, with_genres: "10751", without_genres: "27,53,80", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(30), "primary_release_date.lte": today(), "vote_count.gte": "30" })
+      : c.id === "kids_new" ? await tget("/discover/movie", { page, with_genres: "10751|16", without_genres: "27,53,80,10749", sort_by: "primary_release_date.desc", "primary_release_date.gte": monthsAgo(14), "primary_release_date.lte": today(), "vote_count.gte": "8" })
+      : c.id === "kids_anim" ? await tget("/discover/movie", { page, with_genres: "16", without_genres: "27,53,80,10749", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(30), "primary_release_date.lte": today(), "vote_count.gte": "30" })
+      : c.id === "kids_tv" ? await tget("/discover/tv", { page, with_genres: "16|10762", without_genres: "18,10768", sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(30), "first_air_date.lte": today(), "vote_count.gte": "10" })
+      : c.id.startsWith("kids_") && ["disney", "netflix", "prime"].includes(c.id.slice(5)) ? await tget("/discover/movie", { page, watch_region: "FR", with_watch_providers: { disney: "337", netflix: "8", prime: "119" }[c.id.slice(5)], with_watch_monetization_types: "flatrate",
+          with_genres: "10751|16", without_genres: "27,53,80,10749", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(36), "primary_release_date.lte": today(), "vote_count.gte": "20" })
+      : c.id === "recent_pop" ? await tget("/discover/movie", { page, region: "FR", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(8), "primary_release_date.lte": today(), "vote_count.gte": "40" })
+      : c.id === "latest_tv" ? await tget("/discover/tv", { page, sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(8), "first_air_date.lte": today(), "vote_count.gte": "15" })
       : c.id.startsWith("ev_") ? await (async () => { const [, q, kind] = c.id.split("_"); const kw = await keywordId(q); if (!kw) return { results: [] };
           return tget("/discover/movie", { page, with_keywords: kw, sort_by: kind === "new" ? "primary_release_date.desc" : "vote_average.desc",
             "primary_release_date.lte": today(), "vote_count.gte": kind === "new" ? "15" : "200" }); })()
@@ -3674,7 +3686,7 @@ var qrcode = function() {
     if (!active) { tabs.hidden = true; document.body.classList.add("no-tabs"); return; }
     document.body.classList.remove("no-tabs");
     tabs.hidden = false;
-    const items = [["home", "Accueil", ICON.home], ["series", "Séries", ICON.series, 1], ["movies", "Films", ICON.movie, 1], ["discover", "Découvrir", ICON.search], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings]].filter(([k]) => k !== "live" || hasLive());
+    const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.movie], ["series", "Séries", ICON.series], ["kids", "Kids", ICON.smile], ["discover", "Découvrir", ICON.search, 1], ["live", "Live TV", ICON.live], ["list", "Ma liste", ICON.heart], ["settings", "Profil", ICON.settings, 1]].filter(([k]) => k !== "live" || hasLive());
     tabs.innerHTML = `<span class="tlogo" data-tab="home">${LOGO_SVG}</span>` + items.map(([k, l, i, desk]) => `<button class="tab ${desk ? "desk-only" : ""} ${k === active ? "active" : ""}" data-tab="${k}"><span class="ico">${i}</span><span>${l}</span></button>`).join("")
       + (S.profile ? `<span class="tright"><button class="icon-btn" data-tab="search" aria-label="Rechercher">${ICON.search}</button><button class="tav" data-tab="profiles" aria-label="Changer de profil">${avatar(S.profile, "sm")}</button></span>` : "");
     tabs.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
@@ -3703,12 +3715,12 @@ var qrcode = function() {
     const items = [["home", "Accueil", ICON.home], ["movies", "Films", ICON.clap], ["series", "Séries", ICON.series], ["live", "Live TV", ICON.live]].filter(([k]) => k !== "live" || hasLive());
     return `<nav class="navchips">${items.map(([k, l, i]) => `<a class="nchip ${k === active ? "on" : ""}" href="#/${k}">${i}<span>${l}</span></a>`).join("")}</nav>`;
   }
-  function buildRows(type) {
+  function buildRows(type, kidsMode) {
     const rows = [];
-    catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type)).forEach((c) => {
+    catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => !catRequires(c) && (!type || c.type === type) && (kidsMode || (S.profile && S.profile.kids) || !String(c.id).startsWith("kids"))).forEach((c) => {
       rows.push({ key: `${a.url}|${c.type}|${c.id}`, title: a.manifest.id === "com.linvo.cinemeta" ? catalogTitle(c.type, c.name) : ["tmdb", "tvo.freetv.fr"].includes(a.manifest.id) || a.manifest.id.startsWith("tvo.m3u.") ? c.name : `${c.name} · ${a.manifest.name}`, a, c, extra: {} });
     }));
-    if (type) {
+    if (type && !kidsMode) {
       const src = genreSource(type);
       if (src) {
         const opts = catOptions(src.c, "genre");
@@ -3853,7 +3865,8 @@ var qrcode = function() {
     app.innerHTML = (type ? topBar(typeLabel(type)) : `<header class="header homebar">
         <button data-go="#/profiles" aria-label="Changer de profil">${avatar(p, "sm")}</button>
         <h1>Tendances pour toi</h1>
-        <button class="icon-btn round" data-go="#/discover" aria-label="Rechercher">${ICON.search}</button></header>`)
+        <button class="icon-btn round" data-go="#/discover" aria-label="Rechercher">${ICON.search}</button>
+        <button class="icon-btn round" data-go="#/settings" aria-label="Réglages">${ICON.settings}</button></header>`)
       + `<div id="upd"></div><div id="hero"></div><div id="rows"></div>`;
     const rowsEl = $("#rows");
 
@@ -3904,6 +3917,23 @@ var qrcode = function() {
     }
   }
 
+
+  /** Page Kids : films et dessins animés récents pour les enfants (peu de séries, beaucoup de films). */
+  function screenKids() {
+    setTabs("kids");
+    app.innerHTML = topBar("Kids") + `<div class="kidspage"><div id="hero"></div><div id="rows"></div></div>`;
+    const rowsEl = $("#rows");
+    const rows = buildRows(null, true).filter((r) => String(r.c.id).startsWith("kids"));
+    if (!rows.length) rowsEl.innerHTML = `<div class="empty"><h2>Pas de catalogue</h2>Ajoute ta clé TMDB dans Réglages pour voir les films pour enfants.</div>`;
+    let heroDone = false;
+    lazyRows(rowsEl, rows, (list) => { if (!heroDone && list.length) { heroDone = true; (isDesk() ? renderHero : renderCarousel)($("#hero"), list); } });
+    if (tmdbOn()) {
+      const cs = document.createElement("section"); cs.className = "section";
+      cs.innerHTML = `<h2 class="section-title"><span class="st plain">Sagas pour enfants</span><a href="#/collections">Tout voir →</a></h2><div class="row colrow" id="colrow"></div>`;
+      rowsEl.insertBefore(cs, rowsEl.children[2] || null);
+      loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, true);
+    }
+  }
 
   // ------------------------------------------------------------------ bandes-annonces (TMDB → YouTube), en français si possible
   /** Bande-annonce en version française uniquement (aucune lecture si elle n'existe pas en VF). */
@@ -4286,7 +4316,7 @@ var qrcode = function() {
       <div class="dx-grid pad">
         ${dtile("movie", "#/movies", ICON.clap, "Films", "Nouveautés, tendances, classiques", "big")}
         ${dtile("series", "#/series", ICON.series, "Séries", "Les séries du moment", "big")}
-        ${dtile("kids", "#/catalog/" + enc(TMDB.URL + "|movie|kids"), ICON.smile, "Enfants", "Pour toute la famille")}
+        ${dtile("kids", "#/kids", ICON.smile, "Kids", "Pour toute la famille")}
         ${dtile("saga", "#/collections", ICON.movie, "Sagas", "Collections complètes")}</div>
       <section class="section" id="top10" hidden><h2 class="section-title"><span class="st plain">Top 10 de la semaine</span></h2><div class="row top10" id="top10Row"></div></section>
       <div id="dRows"></div><div id="rows"></div>`;
@@ -5603,6 +5633,7 @@ var qrcode = function() {
     switch (page) {
       case "home": case "": case undefined: return screenBrowse(null);
       case "movies": return screenBrowse("movie");
+      case "kids": return screenKids();
       case "live": return screenLive();
       case "discover": return screenDiscover();
       case "person": return screenPerson(a);

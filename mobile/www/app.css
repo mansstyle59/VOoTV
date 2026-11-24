@@ -1636,3 +1636,8 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 .dx-txt svg { display: none; }
 .dx-txt small { display: none; }
 @media (min-width: 700px) { .dhero { aspect-ratio: 21/8; } .dx, .dx.big { aspect-ratio: 16/9; } }
+
+/* Accueil : avatar, titre, recherche, réglages */
+.homebar { grid-template-columns: 44px 1fr 44px 44px; gap: 6px; }
+/* Page Kids */
+.kidspage .section-title .st { color: #ffd166; }
