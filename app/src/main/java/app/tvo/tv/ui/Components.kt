@@ -213,7 +213,7 @@ fun TvoButton(
         scale = ButtonDefaults.scale(focusedScale = 1.06f, pressedScale = 0.97f),
         border = ButtonDefaults.border(
             border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(0.dp, Color.Transparent), shape = shape),
-            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), inset = (-3).dp, shape = shape),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), shape = shape),
         ),
         contentPadding = PaddingValues(start = if (icon != null) 20.dp else 26.dp, end = 26.dp),
     ) {

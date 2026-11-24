@@ -620,7 +620,7 @@ class PlayerActivity : ComponentActivity() {
                 containerColor = if (big) Color.White else Color(0xFF6D7691).copy(alpha = 0.40f), contentColor = if (big) Color.Black else Color.White,
                 focusedContainerColor = Color.White, focusedContentColor = Color.Black),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
-                focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), inset = (-3).dp, shape = androidx.compose.foundation.shape.CircleShape)),
+                focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), shape = androidx.compose.foundation.shape.CircleShape)),
         ) { Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { androidx.tv.material3.Icon(icon, desc, Modifier.size(size * 0.5f)) } }
     }
 
