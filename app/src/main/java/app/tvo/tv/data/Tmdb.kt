@@ -176,6 +176,22 @@ object Tmdb {
         return runCatching { get("/${kind(type)}/$tid/external_ids").s("imdb_id") }.getOrNull()
     }
 
+    /** Clé YouTube de la bande-annonce en français (VF uniquement), ou null s'il n'y en a pas. */
+    suspend fun trailerVF(type: String, id: String): String? = runCatching {
+        val k = kind(type)
+        val tid = when {
+            id.startsWith("tmdb:") -> id.split(":").getOrNull(2)
+            id.startsWith("tt") -> {
+                val f = get("/find/${id.substringBefore(":")}", mapOf("external_source" to "imdb_id"))
+                (f.arr(if (k == "tv") "tv_results" else "movie_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
+            }
+            else -> null
+        } ?: return@runCatching null
+        val vids = get("/$k/$tid/videos", mapOf("language" to "fr-FR")).arr("results")?.mapNotNull { it as? JsonObject } ?: emptyList()
+        val fr = vids.filter { it.s("site") == "YouTube" && it.s("iso_639_1") == "fr" && !it.s("key").isNullOrBlank() }
+        (fr.firstOrNull { it.s("type") == "Trailer" } ?: fr.firstOrNull { it.s("type") == "Teaser" } ?: fr.firstOrNull())?.s("key")
+    }.getOrNull()
+
     /** French details on top of an add-on's meta (or a TMDB-only meta when [base] is null). */
     suspend fun enrich(type: String, imdb: String?, tmdbId: String?, base: MetaDetail?): MetaDetail? = runCatching {
         val k = kind(type)

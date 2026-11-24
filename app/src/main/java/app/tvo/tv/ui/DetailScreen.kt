@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -98,9 +101,18 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val seasons = remember(meta) { meta.episodes.mapNotNull { it.season }.distinct() }
     var season by remember(meta) { mutableStateOf(targetVideo?.season ?: seasons.firstOrNull()) }
     val playFr = remember { FocusRequester() }
+    // Bande-annonce : uniquement en VF, lancée automatiquement après 2,5 s. Aucune si pas de VF.
+    val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
+    var trailerOn by remember(p.id) { mutableStateOf(false) }
+    LaunchedEffect(trailer) { if (trailer != null) { delay(2500); trailerOn = true } }
 
     Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        Backdrop(p.background ?: p.poster)
+        Box(Modifier.fillMaxSize()) {
+            AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxWidth(0.78f).fillMaxHeight(0.72f).align(Alignment.TopEnd), contentScale = ContentScale.Crop)
+            if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxWidth(0.78f).fillMaxHeight(0.72f).align(Alignment.TopEnd))
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.0f to TvoColors.Bg, 0.25f to TvoColors.Bg, 0.6f to Color(0x660B0B12), 1f to Color.Transparent)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Transparent, 0.45f to Color(0x990B0B12), 0.7f to TvoColors.Bg)))
+        }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 48.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
                 Column(Modifier.padding(start = 56.dp).width(620.dp)) {
@@ -120,6 +132,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
                             store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                         }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
+                        if (trailer != null) TvoButton(if (trailerOn) "Arrêter la bande-annonce" else "Bande-annonce VF", { trailerOn = !trailerOn })
                     }
                     if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                         val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)

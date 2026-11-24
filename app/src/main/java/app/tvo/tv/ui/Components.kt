@@ -304,9 +304,9 @@ fun LandscapeCard(
     val shape = RoundedCornerShape(12.dp)
     Card(
         onClick = onClick,
-        modifier = modifier.width(width).aspectRatio(16f / 10f).onFocused(onFocus),
+        modifier = modifier.width(width).aspectRatio(16f / 9f).onFocused(onFocus),
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.06f),
+        scale = CardDefaults.scale(focusedScale = 1.1f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = CardDefaults.colors(containerColor = TvoColors.Surface),
     ) {
