@@ -2184,16 +2184,17 @@
   const iconTile = ([n, label, bg, c]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev" style="background:${bg}">
       <svg viewBox="0 0 512 512"><circle cx="256" cy="256" r="150" fill="none" stroke="${c}" stroke-width="28"/><path d="M220 186 Q220 170 234 178 L330 240 Q343 248 330 256 L234 318 Q220 326 220 310 Z" transform="translate(4 8)" fill="${c}"/></svg></span><span>${label}</span></button>`;
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
-  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
+  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Installer sur la télé": "Code Downloader 7971420 et étapes", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Apparence": "Thème Liquid Glass ou classique", "Application": "Version et mises à jour" };
   const SECT_GROUPS = [
-    ["Mon compte", ["Compte", "Connecter une TV"]],
+    ["Mon compte", ["Compte"]],
+    ["Télévision", ["Installer sur la télé", "Connecter une TV"]],
     ["Lecture et contenus", ["Lecteur", "Add-ons", "Page d'accueil", "Titres et résumés (TMDB)"]],
     ["Apparence", ["Apparence", "Icône de l'appli"]],
     ["Administration", ["@accounts", "Gestion des profils", "Clés API"]],
     ["Application", ["Application"]],
   ];
-  const SECT_ICON = { "Compte": ["check", "#3d7cff"], "Connecter une TV": ["live", "#0ea5e9"], "Lecteur": ["play", "#22c55e"], "Add-ons": ["plus", "#8b5cf6"],
+  const SECT_ICON = { "Compte": ["check", "#3d7cff"], "Connecter une TV": ["live", "#0ea5e9"], "Installer sur la télé": ["series", "#0d9488"], "Lecteur": ["play", "#22c55e"], "Add-ons": ["plus", "#8b5cf6"],
     "Page d'accueil": ["home", "#f59e0b"], "Titres et résumés (TMDB)": ["doc", "#14b8a6"], "Apparence": ["bolt", "#ec4899"], "Icône de l'appli": ["grid", "#6366f1"],
     "Gestion des profils": ["smile", "#f97316"], "Clés API": ["more", "#64748b"], "Application": ["settings", "#475569"] };
   function makeCollapsible(root, openByDefault) {
@@ -2277,6 +2278,16 @@
           <div id="aMsg" class="small" style="color:#ff8a8a"></div>`}
         <div id="syncStatus" class="small" style="color:var(--cyan)">${esc(syncState.status)}</div>
       </div>
+      <h2 class="section-title section"><span>Installer sur la télé</span></h2>
+      <div class="list"><div class="card tv-install">
+        <div class="tvi-code"><small>Code Downloader</small><b>7971420</b><button class="btn" id="dlCopy">Copier</button></div>
+        <ol class="tvi-steps">
+          <li>Sur la télé (Android TV, box, Fire TV), installe l'appli gratuite <b>Downloader</b> depuis le store.</li>
+          <li>Dans les réglages de la télé, autorise Downloader à installer des applis («&nbsp;Sources inconnues&nbsp;»).</li>
+          <li>Ouvre Downloader, tape le code <b>7971420</b> puis «&nbsp;Go&nbsp;»&nbsp;: TVO se télécharge et s'installe.</li>
+          <li>Ouvre TVO sur la télé, puis connecte-la à ton compte avec «&nbsp;Connecter une TV&nbsp;» juste en dessous.</li>
+        </ol>
+        <div class="small muted">Adresse directe : aftv.news/7971420</div></div></div>
       <h2 class="section-title section"><span>Connecter une TV</span></h2>
       <div class="list">
         <div class="card small muted">Sur la télé : scanne le QR code avec l'appareil photo, ou saisis ici le code affiché sur la télé. Tu peux aussi afficher un code ici et le taper sur la télé avec la télécommande (« J'ai un code »).</div>
@@ -2409,6 +2420,7 @@
           try { if (b.dataset.icon) await APPICON().change({ name: b.dataset.icon, suppressNotification: false }); else await APPICON().reset({ suppressNotification: false }); mark(); }
           catch (err) { toast("Cette icône arrivera avec la prochaine installation de l'appli.", 4500); } });
       }
+      const dc = $("#dlCopy"); if (dc) dc.addEventListener("click", async () => { try { await navigator.clipboard.writeText("7971420"); toast("Code copié ✓"); } catch { toast("Code : 7971420"); } });
       const ga = $("#goAcc"); if (ga) ga.addEventListener("click", () => go("#/accounts"));
       const dG = $("#dGo"); if (dG) dG.addEventListener("click", async () => {
         if (!confirm("Supprimer définitivement ton compte et toutes tes données ?")) return;
