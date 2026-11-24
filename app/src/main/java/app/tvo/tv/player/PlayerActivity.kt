@@ -27,6 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.foundation.lazy.items
+import app.tvo.tv.data.MetaDetail
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -109,6 +112,7 @@ class PlayerActivity : ComponentActivity() {
     private var nextUp by mutableStateOf<NextUp?>(null)
     private var nextDismissed = false
     private var options by mutableStateOf(false)
+    private var episodesMenu by mutableStateOf(false)
     private var seekFlash by mutableStateOf<String?>(null)
     private var seekFlashId by mutableIntStateOf(0)
     private var resizeIdx by mutableIntStateOf(0)
@@ -312,6 +316,16 @@ class PlayerActivity : ComponentActivity() {
             val idx = eps.indexOfFirst { it.id == req.videoId }
             val next = eps.getOrNull(idx + 1)
             if (meta == null || next == null) { finish(); return@launch }
+            playEpisode(next, meta.preview.name)
+        }
+    }
+
+    /** Lance un épisode choisi (épisode suivant ou menu Épisodes) sans quitter le lecteur. */
+    private fun playEpisode(next: app.tvo.tv.data.Video, showName: String) {
+        nextUp = NextUp("Recherche de la source…", loading = true)
+        lifecycleScope.launch {
+            saveProgress(finished = true)
+            val addons = Tvo.store.allowed(Tvo.store.addons.value)
             val all = withTimeoutOrNull(20_000) {
                 Tvo.client.streams(addons, req.type, next.id).toList().flatMap { it.items }
             } ?: emptyList()
@@ -325,7 +339,7 @@ class PlayerActivity : ComponentActivity() {
                 showOverlayFocus()
                 return@launch
             }
-            if (Tvo.store.externalPlayer.value) { openExternal(this@PlayerActivity, Uri.parse(pick.url), meta.preview.name); finish(); return@launch }
+            if (Tvo.store.externalPlayer.value) { openExternal(this@PlayerActivity, Uri.parse(pick.url), showName); finish(); return@launch }
             val subs = runCatching { Tvo.client.subtitles(addons, req.type, next.id) }.getOrDefault(emptyList())
             load(req.copy(
                 url = pick.url, headers = pick.headers,
@@ -347,8 +361,12 @@ class PlayerActivity : ComponentActivity() {
                     Column {
                         Text(req.title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         req.subtitle?.let { Text(it, fontSize = 16.sp, color = TvoColors.Muted) }
-                        Text("▲ Options (audio, sous-titres, format, vitesse)   ◀ ▶ reculer / avancer de 10 s", fontSize = 12.sp,
+                        Text("▲ Options (audio, sous-titres, format, vitesse)   ◀ ▶ reculer / avancer de 10 s" + if (req.type == "series") "   ▼ Épisodes" else "", fontSize = 12.sp,
                             color = Color(0xB3FFFFFF), modifier = Modifier.padding(top = 6.dp))
+                        if (req.type == "series") Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            TvoButton("Épisodes", { openEpisodes() })
+                            TvoButton("Options", { openOptions() })
+                        }
                     }
                 }
             }
@@ -371,6 +389,7 @@ class PlayerActivity : ComponentActivity() {
                 }
             }
             if (options) OptionsPanel()
+            if (episodesMenu) EpisodesPanel()
             nextUp?.let { n -> NextUpCard(n) }
             error?.let { ErrorCard(it) }
         }
@@ -441,6 +460,48 @@ class PlayerActivity : ComponentActivity() {
     )
 
     private fun openOptions() { playerView.hideController(); options = true; overlayView.requestFocus() }
+    private fun openEpisodes() { if (req.type != "series") return; playerView.hideController(); episodesMenu = true; options = false; overlayView.requestFocus() }
+    private fun closeEpisodes() { episodesMenu = false; playerView.requestFocus() }
+
+    /** Menu Épisodes : saisons + liste de la saison, pour passer d'un épisode à l'autre pendant une série. */
+    @Composable
+    private fun EpisodesPanel() {
+        val meta by produceState<app.tvo.tv.data.MetaDetail?>(null, req.metaId) {
+            value = runCatching { Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), req.type, req.metaId) }.getOrNull()
+        }
+        val all = meta?.episodes ?: emptyList()
+        val seasons = remember(all) { all.mapNotNull { it.season }.distinct() }
+        var season by remember(seasons, req.season) { mutableStateOf(req.season ?: seasons.firstOrNull()) }
+        val fr = remember { FocusRequester() }
+        LaunchedEffect(meta) { delay(120); runCatching { fr.requestFocus() } }
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.4f to Color.Transparent, 1f to Color(0xF2000000)))) {
+            Column(Modifier.align(Alignment.CenterEnd).width(560.dp).fillMaxHeight().padding(end = 40.dp, top = 40.dp, bottom = 40.dp)) {
+                Text(meta?.preview?.name ?: req.title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+                Spacer(Modifier.height(12.dp))
+                if (meta == null) Text("Chargement des épisodes…", color = TvoColors.Muted)
+                else if (seasons.isEmpty()) Text("Aucun épisode trouvé.", color = TvoColors.Muted)
+                else {
+                    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(seasons) { sn -> Chip(if (sn == 0) "Bonus" else "Saison $sn", season == sn, { season = sn }) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(all.filter { it.season == season }, key = { it.id }) { ep ->
+                            val current = ep.id == req.videoId
+                            TvoButton(
+                                (if (current) "▶ " else "") + "É${ep.episode ?: "?"} · ${ep.title ?: "Épisode"}",
+                                { closeEpisodes(); if (!current) playEpisode(ep, meta?.preview?.name ?: req.title) },
+                                (if (current) Modifier.focusRequester(fr) else Modifier).fillMaxWidth(),
+                                primary = current,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                TvoButton("Fermer", { closeEpisodes() })
+            }
+        }
+    }
     private fun closeOptions() { options = false; playerView.requestFocus() }
 
     @Composable
@@ -569,12 +630,13 @@ class PlayerActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Netflix-like remote: ◀ ▶ seek without opening the controls, ▲ or Menu opens options.
-        if (event.action == KeyEvent.ACTION_DOWN && !options && nextUp == null && error == null && !playerView.isControllerFullyVisible) {
+        if (event.action == KeyEvent.ACTION_DOWN && !options && !episodesMenu && nextUp == null && error == null && !playerView.isControllerFullyVisible) {
             val step = if (event.repeatCount > 2) 30_000L else 10_000L
             when (event.keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> { seekBy(-step); return true }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(step); return true }
                 KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> { openOptions(); return true }
+                KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> if (req.type == "series") { openEpisodes(); return true }
                 KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
                     if (player.isPlaying) player.pause() else player.play()
                     playerView.showController(); return true
