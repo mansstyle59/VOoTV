@@ -1,5 +1,6 @@
 package app.tvo.tv.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.RoundedCornerShape
 
 import androidx.compose.foundation.layout.aspectRatio
@@ -122,7 +123,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
     val heroFull = (screenH - 190).coerceIn(250, 400).dp
-    val heroH by androidx.compose.animation.core.animateDpAsState(if (heroFocused) heroFull else 130.dp, label = "heroH")
+    val heroH by androidx.compose.animation.core.animateDpAsState(if (heroFocused) heroFull else 150.dp, label = "heroH")
     Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Visuel plein écran (image puis bande-annonce au même endroit), voilé à gauche et en bas pour garder le texte lisible
@@ -134,6 +135,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
+        // Quand on parcourt les rangées : fond sombre progressif pour que visages et affiches restent nets
+        val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, label = "scrim")
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
         // Bloc d'infos fixe : le titre reste toujours visible, la liste ne défile que dessous
         Box(Modifier.fillMaxWidth().padding(top = 36.dp).onFocusChanged { heroFocused = it.hasFocus }) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
@@ -168,7 +172,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            item { Spacer(Modifier.height(heroH + 36.dp)) }
+            item { Spacer(Modifier.height(heroH + 30.dp)) }
             if (meta.people.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
