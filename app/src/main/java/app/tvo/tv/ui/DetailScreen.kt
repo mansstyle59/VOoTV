@@ -1,5 +1,9 @@
 package app.tvo.tv.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+
+import androidx.compose.foundation.layout.aspectRatio
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -106,20 +110,18 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     var trailerOn by remember(p.id) { mutableStateOf(false) }
     LaunchedEffect(trailer) { if (trailer != null) { delay(2500); trailerOn = true } }
 
-    var trailerFull by remember(p.id) { mutableStateOf(false) }
-    androidx.activity.compose.BackHandler(enabled = trailerFull) { trailerFull = false }
-    if (trailerFull && trailer != null) {
-        // Bande-annonce en plein écran, sans rien par-dessus. Retour pour revenir à la fiche.
-        Box(Modifier.fillMaxSize().background(Color.Black)) { TrailerView(trailer!!, Modifier.fillMaxSize()) }
-        return
-    }
+    var trailerWin by remember(p.id) { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = trailerWin) { trailerWin = false }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        Box(Modifier.fillMaxSize()) {
-            // Image puis bande-annonce sur tout l'écran, avec un dégradé à gauche et en bas pour lire le texte.
+        // Grand visuel à droite (comme Netflix) : image, puis la bande-annonce VF à la même place, rognée proprement.
+        Box(Modifier.fillMaxWidth(0.72f).fillMaxHeight(0.74f).align(Alignment.TopEnd)) {
             AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize())
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.0f to Color(0xEE0A0F1E), 0.38f to Color(0xAA0A0F1E), 0.7f to Color.Transparent)))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Transparent, 0.55f to Color(0x660A0F1E), 1f to Color(0xF20A0F1E))))
+            if (trailerOn && !trailerWin && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize(), cover = true)
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.0f to TvoColors.Bg, 0.3f to Color(0x990A0F1E), 0.6f to Color.Transparent)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to TvoColors.Bg)))
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 48.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
@@ -136,12 +138,14 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1)
                     Spacer(Modifier.height(22.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        TvoButton(playLabel, { nav.openStreams(p.type, p.id, target) }, Modifier.focusRequester(playFr), Icons.Default.PlayArrow, primary = true)
+                        TvoButton(playLabel, {
+                            if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
+                            else nav.openStreams(p.type, p.id, target)
+                        }, Modifier.focusRequester(playFr), Icons.Default.PlayArrow, primary = true)
                         TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
                             store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                         }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
-                        if (trailer != null) TvoButton("Bande-annonce plein écran", { trailerOn = true; trailerFull = true })
-                        if (trailer != null && trailerOn) TvoButton("Couper", { trailerOn = false })
+                        if (trailer != null) TvoButton("Bande-annonce", { trailerWin = true })
                     }
                     if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                         val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
@@ -176,6 +180,16 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 }
             }
         }
+    }
+    // Fenêtre de bande-annonce : vidéo entière au centre, fond assombri. Retour pour fermer.
+    if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color(0xD9000000)), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.fillMaxWidth(0.74f).aspectRatio(16f / 9f).clip(RoundedCornerShape(16.dp)).background(Color.Black)) {
+                TrailerView(trailer!!, Modifier.fillMaxSize(), cover = false)
+            }
+            Text("Bande-annonce VF · ${p.name}  —  Retour pour fermer", Modifier.padding(top = 14.dp), fontSize = 15.sp, color = TvoColors.Muted)
+        }
+    }
     }
     LaunchedEffect(Unit) { delay(100); runCatching { playFr.requestFocus() } }
 }

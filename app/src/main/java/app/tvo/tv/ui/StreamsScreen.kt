@@ -215,6 +215,7 @@ suspend fun play(ctx: Context, meta: MetaDetail, s: StreamItem, videoId: String,
         return
     }
     val url = s.url ?: return
+    store.saveLastStream(videoId, s)
     val video = meta.videos.firstOrNull { it.id == videoId }
     val prog = store.progress.value.firstOrNull { it.videoId == videoId }
     val start = if (prog != null && !prog.finished && prog.fraction > 0.02f) prog.position else 0L
@@ -243,6 +244,17 @@ suspend fun play(ctx: Context, meta: MetaDetail, s: StreamItem, videoId: String,
         addonName = s.addonName,
     )
     PlayerActivity.start(ctx, req)
+}
+
+/** Reprise rapide : relance directement la dernière source utilisée (pas de nouvelle recherche). Sinon, écran des sources. */
+fun resumeFast(ctx: Context, scope: kotlinx.coroutines.CoroutineScope, nav: Nav, type: String, metaId: String, videoId: String) {
+    val ls = Tvo.store.lastStream(videoId) ?: return nav.openStreams(type, metaId, videoId)
+    scope.launch {
+        val addons = Tvo.store.allowed(Tvo.store.addons.value)
+        val m = Tvo.client.metaCache["$type/$metaId"] ?: runCatching { Tvo.client.meta(addons, type, metaId) }.getOrNull()
+        if (m == null) { nav.openStreams(type, metaId, videoId); return@launch }
+        play(ctx, m, StreamItem(ls.addon, ls.name, "", ls.url, null, null, ls.headers, emptyList(), ls.bingeGroup, 0), videoId, addons)
+    }
 }
 
 fun openExternal(ctx: Context, uri: Uri, title: String?) {

@@ -99,6 +99,10 @@ data class MetaDetail(
 @Serializable
 data class SubtitleItem(val url: String, val lang: String)
 
+/** Dernière source utilisée pour une vidéo : la reprise relance directement cette source, sans recherche. */
+@kotlinx.serialization.Serializable
+data class LastStream(val url: String, val headers: Map<String, String> = emptyMap(), val name: String = "", val addon: String = "", val bingeGroup: String? = null)
+
 data class StreamItem(
     val addonName: String,
     val name: String,

@@ -79,6 +79,12 @@ class Store(ctx: Context) {
         progress.value = load("progress_${p.id}") ?: emptyList()
     }
 
+    fun saveLastStream(videoId: String, s: StreamItem) {
+        val u = s.url ?: return
+        save("ls_$videoId", LastStream(u, s.headers, s.name, s.addonName, s.bingeGroup))
+    }
+    fun lastStream(videoId: String): LastStream? = load("ls_$videoId")
+
     /** Dernier profil ouvert, s'il peut s'ouvrir directement (pas de code, pas bloqué). */
     fun lastProfileToOpen(): Profile? {
         val id = prefs.getString("last_profile", null) ?: return null

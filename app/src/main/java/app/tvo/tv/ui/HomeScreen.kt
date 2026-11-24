@@ -338,6 +338,8 @@ fun buildRows(addons: List<Addon>, type: String?): List<RowSource> {
 @Composable
 fun BrowseSection(type: String?, nav: Nav) {
     val store = Tvo.store
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
     val rawAddons by store.addons.collectAsState()
     val tmdbKey by store.tmdbKey.collectAsState()
     val prof by store.currentProfile.collectAsState()
@@ -365,7 +367,7 @@ fun BrowseSection(type: String?, nav: Nav) {
                             title = p.name,
                             subtitle = if (p.season != null) "S${p.season} : É${p.episode} · ${p.episodeTitle ?: ""}" else "Il reste ${((p.duration - p.position) / 60000).coerceAtLeast(1)} min",
                             progress = p.fraction,
-                            onClick = { nav.openStreams(p.type, p.metaId, p.videoId) },
+                            onClick = { resumeFast(ctx, scope, nav, p.type, p.metaId, p.videoId) },
                             onLongClick = { store.removeFromContinue(p.metaId) },
                             width = 240.dp,
                             showPlay = true,
