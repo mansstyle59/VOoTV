@@ -3126,21 +3126,50 @@ var qrcode = function() {
     start();
     setTimeout(() => { const b = $("#tvlCode"); if (b) b.focus(); }, 200);
   }
+  /** Fond de l'écran de connexion : mur d'affiches de films tendance qui défile doucement. */
+  function authWall() {
+    const draw = (posters) => {
+      const w = $("#authWall"); if (!w || !posters.length) return;
+      const rows = [0, 1, 2, 3].map((r) => { const l = posters.slice(r * 7).concat(posters).slice(0, 10); return l.concat(l); });
+      w.innerHTML = rows.map((l, r) => `<div class="aw-row${r % 2 ? " rev" : ""}">${l.map((p) => `<img src="https://image.tmdb.org/t/p/w185${p}" alt="" loading="lazy" decoding="async">`).join("")}</div>`).join("");
+    };
+    const cached = LS.get("authwall", { t: 0, p: [] });
+    draw(cached.p);
+    if (Date.now() - cached.t > 864e5 || !cached.p.length) {
+      tget("/trending/all/week").then((d) => {
+        const p = (d.results || []).map((x) => x.poster_path).filter(Boolean).slice(0, 28);
+        if (p.length) { LS.set("authwall", { t: Date.now(), p }); if (!cached.p.length) draw(p); }
+      }).catch(() => {});
+    }
+    return `<div class="auth-wall" id="authWall" aria-hidden="true"></div><div class="auth-shade" aria-hidden="true"></div>`;
+  }
+  const AU_ICON = {
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>',
+    mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  };
   function screenAuth() {
     setTabs(null);
     let mode = "in";
     // Sur une télé, la version téléphone n'est pas adaptée : on indique la bonne appli (connexion par QR code ou code).
     const onTv = /Android/i.test(navigator.userAgent) && (/\b(TV|AFT\w*|BRAVIA|SmartTV|GoogleTV|Chromecast)\b/i.test(navigator.userAgent) || (navigator.maxTouchPoints === 0 && innerWidth >= 900));
     if (onTv && !sessionStorage.getItem("tvo.form")) return screenTvLogin();
-    app.innerHTML = `<div class="auth"><span class="auth-logo">${LOGO_SVG}</span><p class="auth-tag">Films, séries et TV en direct</p>
+    app.innerHTML = `<div class="auth auth2">${authWall()}
+      <div class="auth-hero"><span class="auth-logo">${LOGO_SVG}</span>
+        <h1 class="auth-title">Tous tes films et séries,<br>au même endroit.</h1>
+        <p class="auth-tag">Films, séries et TV en direct, sur ton téléphone, ta télé et ton ordinateur.</p>
+        <div class="auth-pills"><span>Reprise où tu t'es arrêté</span><span>Ma liste synchronisée</span><span>Profils famille</span></div></div>
       <div class="auth-card">
+        <h2 class="auth-h" id="auH">Bon retour 👋</h2>
         <div class="seg wide" id="auSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
-        <input class="field" id="auUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
-        <input class="field" id="auPass" type="password" autocomplete="current-password" placeholder="Mot de passe">
+        <label class="au-field"><span class="au-ic">${AU_ICON.user}</span><input id="auUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant" aria-label="Identifiant"></label>
+        <label class="au-field"><span class="au-ic">${AU_ICON.lock}</span><input id="auPass" type="password" autocomplete="current-password" placeholder="Mot de passe" aria-label="Mot de passe">
+          <button type="button" class="au-eye" id="auEye" aria-label="Afficher le mot de passe">${AU_ICON.eye}</button></label>
         <div class="pmeter" id="auM" hidden><i></i><span></span></div>
-        <input class="field" id="auPass2" type="password" autocomplete="new-password" placeholder="Confirme le mot de passe" hidden>
-        <input class="field" id="auMail" type="email" inputmode="email" autocapitalize="off" autocomplete="email" placeholder="E-mail (pour être prévenu de l'activation)" hidden>
-        <label class="small muted showpw"><input type="checkbox" id="auShow"> Afficher le mot de passe</label>
+        <label class="au-field" id="auPass2W" hidden><span class="au-ic">${AU_ICON.lock}</span><input id="auPass2" type="password" autocomplete="new-password" placeholder="Confirme le mot de passe" aria-label="Confirme le mot de passe"></label>
+        <label class="au-field" id="auMailW" hidden><span class="au-ic">${AU_ICON.mail}</span><input id="auMail" type="email" inputmode="email" autocapitalize="off" autocomplete="email" placeholder="E-mail (prévenu à l'activation)" aria-label="E-mail"></label>
+        <input type="checkbox" id="auShow" hidden>
         <label class="small muted showpw" id="auCgu" hidden><input type="checkbox" id="auAccept"> J'accepte les <a href="#/legal/terms">conditions d'utilisation</a> et la <a href="#/legal/privacy">politique de confidentialité</a></label>
         <button class="btn primary block" id="auGo">Se connecter</button>
         <div id="auMsg" class="small" style="color:#ff8a8a;min-height:16px"></div>
@@ -3148,10 +3177,13 @@ var qrcode = function() {
       <p class="small muted auth-note">Un nouveau compte doit être validé par l'administrateur avant de pouvoir regarder.</p>
       <div class="legal-links"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div></div>`;
     const setMode = (m) => { mode = m; $("#auSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x.dataset.m === m));
-      ["auPass2", "auM", "auCgu", "auMail"].forEach((k) => ($("#" + k).hidden = m !== "up")); $("#auGo").textContent = m === "up" ? "Créer mon compte" : "Se connecter"; $("#auMsg").textContent = ""; };
+      ["auPass2W", "auM", "auCgu", "auMailW"].forEach((k) => ($("#" + k).hidden = m !== "up")); $("#auGo").textContent = m === "up" ? "Créer mon compte" : "Se connecter"; $("#auMsg").textContent = "";
+      $("#auH").textContent = m === "up" ? "Crée ton compte" : "Bon retour 👋"; };
     $("#auSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-m]"); if (b) setMode(b.dataset.m); });
 
-    $("#auShow").addEventListener("change", (e) => ["auPass", "auPass2"].forEach((k) => ($("#" + k).type = e.target.checked ? "text" : "password")));
+    $("#auEye").addEventListener("click", (e) => { e.preventDefault(); const show = $("#auPass").type === "password";
+      ["auPass", "auPass2"].forEach((k) => ($("#" + k).type = show ? "text" : "password")); $("#auEye").classList.toggle("on", show); });
+    $("#auPass").addEventListener("keydown", (e) => { if (e.key === "Enter" && mode === "in") $("#auGo").click(); });
     $("#auPass").addEventListener("input", () => { const v = $("#auPass").value, pb = passProblem($("#auUser").value, v), sc = passScore(v);
       $("#auM").dataset.s = v ? (pb ? 0 : sc) : ""; $("#auM span").textContent = !v ? "" : pb || ["", "Faible", "Moyen", "Bon", "Excellent"][Math.max(1, sc)]; });
     $("#auGo").addEventListener("click", async () => {
@@ -3166,7 +3198,7 @@ var qrcode = function() {
   function screenBlocked() {
     setTabs(null);
     const a = acct() || {}; const [t, d] = STATUS_TXT[a.status] || ["Accès impossible", "Vérifie ta connexion internet."];
-    app.innerHTML = `<div class="auth"><span class="auth-logo">${LOGO_SVG}</span><div class="auth-card" style="text-align:center">
+    app.innerHTML = `<div class="auth auth2">${authWall()}<div class="auth-hero"><span class="auth-logo">${LOGO_SVG}</span></div><div class="auth-card" style="text-align:center">
       <b style="font-size:20px">${esc(t)}</b><p class="small muted" style="margin:0">${esc(d)}</p><p class="small" style="margin:0;color:var(--cyan)">Compte « ${esc(a.user || "")} »</p>
       <button class="btn primary block" id="blkRetry">Vérifier à nouveau</button><button class="btn block" id="blkOut">Changer de compte</button></div>
       <div class="legal-links"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions</a><a href="#/legal/privacy">Confidentialité</a></div></div>`;
