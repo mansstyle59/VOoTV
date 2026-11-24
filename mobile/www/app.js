@@ -4979,6 +4979,7 @@ var qrcode = function() {
           <div style="min-width:0"><b>${esc(a.manifest.name)}</b> <span class="small muted">${esc(a.manifest.version)}</span>
           <div class="small" style="color:var(--cyan)">${kinds.join(" · ") || "—"}</div>
           ${a.manifest.description ? `<div class="small muted">${esc(a.manifest.description)}</div>` : ""}</div></div>
+          ${isAdmin(p) && S.profiles.length === 1 ? `<div class="ptog"><span class="small muted">Add-on</span><button class="chip ${((p.off || []).includes(a.manifest.id)) ? "" : "on"}" data-pa="${i}|${esc(p.id)}">${(p.off || []).includes(a.manifest.id) ? "Désactivé" : "Activé"}</button></div>` : ""}
           ${isAdmin(p) && S.profiles.length > 1 ? `<div class="ptog"><span class="small muted">Activé pour</span>${S.profiles.map((pp) => `<button class="chip ${((pp.off || []).includes(a.manifest.id)) ? "" : "on"}" data-pa="${i}|${esc(pp.id)}">${esc(pp.name)}</button>`).join("")}</div>` : ""}
           ${!isAdmin(p) ? "" : `<div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}${a.manifest.configurable && /^https?:/.test(a.url) ? `<a class="btn" href="${esc(a.url)}/configure" target="_blank" rel="noopener">Configurer</a>` : ""}${/^https?:/.test(a.url) ? `<button class="btn" data-rf="${i}">Actualiser</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div>`}</div>`;
       }).join("")).join("")}

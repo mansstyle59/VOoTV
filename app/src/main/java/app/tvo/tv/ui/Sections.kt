@@ -499,7 +499,10 @@ private fun AddonRow(a: Addon, index: Int) {
         Text(kinds.joinToString(" · ").ifEmpty { "—" }, fontSize = 13.sp, color = TvoColors.Cyan)
         if (m.description.isNotBlank()) Text(m.description, fontSize = 13.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (m.configurable && a.url.startsWith("http")) Text("Configurer depuis le téléphone : ${a.url}/configure", fontSize = 12.sp, color = TvoColors.Cyan, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val prof by store.currentProfile.collectAsState()
+        val enabled = prof?.off?.contains(m.id) != true
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+            prof?.let { pr -> Chip(if (enabled) "Activé" else "Désactivé", enabled, { store.setAddonForProfile(pr.id, m.id, !enabled); Tvo.client.clearCaches() }) }
             if (index > 0) TvoButton("Monter", { store.moveAddon(a.url, -1) }, icon = Icons.Default.KeyboardArrowUp)
             if (a.url.startsWith("http")) {
                 val scope = rememberCoroutineScope()
