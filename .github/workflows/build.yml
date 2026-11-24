@@ -44,7 +44,7 @@ jobs:
         working-directory: mobile
         run: |
           npm ci
-          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
           cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
           npx cap sync android
       - name: Compiler l'APK mobile
@@ -70,7 +70,7 @@ jobs:
         working-directory: mobile
         run: |
           npm ci
-          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
           cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
           npx cap sync ios
       - name: Compiler l'IPA
@@ -101,7 +101,7 @@ jobs:
         working-directory: mobile
         run: |
           npm ci
-          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
           cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
           rm -rf ../desktop/www && cp -R www ../desktop/www
       - name: Compiler l'app Mac (Apple Silicon + Intel)
