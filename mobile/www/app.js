@@ -645,7 +645,7 @@
   }
   async function rpc(fn, body, token) {
     const r = await fetch(SB.url + fn, { method: "POST", headers: { apikey: SB.key, Authorization: "Bearer " + (token || SB.key), "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error("HTTP " + r.status);
+    if (!r.ok) { let m = "HTTP " + r.status; try { const j = await r.json(); if (j && j.message) m = j.message; } catch {} throw new Error(m); }
     const t = await r.text();
     return t ? JSON.parse(t) : null;
   }
@@ -665,6 +665,29 @@
     const r = await fetch(`${AUTH_BASE}/otp?redirect_to=${encodeURIComponent(REDIRECT)}`, { method: "POST", headers: { apikey: SB.key, "Content-Type": "application/json" },
       body: JSON.stringify({ email, create_user: true }) });
     if (!r.ok) throw new Error(r.status === 429 ? "Trop de demandes, réessaie dans quelques minutes." : "Envoi impossible.");
+  }
+  // ------------------------------------------------------------------ compte TVO (identifiant + mot de passe, géré par TVO)
+  const acct = () => LS.get("acct", null);
+  const cleanUser = (u) => String(u || "").trim().toLowerCase();
+  async function acctRegister(user, pass) {
+    user = cleanUser(user);
+    if (!/^[a-z0-9._-]{3,24}$/.test(user)) throw new Error("Identifiant : 3 à 24 caractères (lettres, chiffres, . _ -)");
+    if (String(pass).length < 8) throw new Error("Mot de passe : 8 caractères minimum");
+    await syncNow();
+    const id = await rpc("tvo_register", { p_user: user, p_pass: pass, p_id: syncId() });
+    if (id && id !== syncId()) LS.set("sync_id", id);
+    LS.set("acct", { user }); await syncNow();
+  }
+  async function acctLogin(user, pass) {
+    user = cleanUser(user);
+    const id = await rpc("tvo_login", { p_user: user, p_pass: pass });
+    if (!id) throw new Error("Identifiant ou mot de passe incorrect");
+    LS.set("sync_id", id); LS.set("acct", { user });
+    await syncNow();
+  }
+  function acctLogout() {
+    LS.set("acct", null); LS.set("auth", null); LS.del("sync_id");
+    toast("Déconnecté. Ce téléphone n'est plus synchronisé avec ton compte.");
   }
   function signOut() { LS.set("auth", null); toast("Déconnecté. Tes données restent sur ce téléphone."); }
   async function authToken() {
@@ -1552,7 +1575,7 @@
   }
 
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
-  const SECT_INFO = { "Compte": "Connexion et synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
+  const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
@@ -1579,12 +1602,18 @@
       </div>
       <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
-        ${account() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(account().email || "Compte TVO")}</div></div><button class="btn" id="signOut">Se déconnecter</button></div>`
-          : `<div class="card small muted">Connecte-toi pour retrouver Ma liste, Continuer à regarder, tes profils et tes add-ons sur tous tes appareils.</div>
-        ${AUTH_PROVIDERS.google ? `<button class="btn block signin" id="gIn"><b style="font-size:17px">G</b> Continuer avec Google</button>` : ""}
-        ${AUTH_PROVIDERS.apple ? `<button class="btn block signin apple" id="aIn"><b style="font-size:17px"></b> Continuer avec Apple</button>` : ""}
-        ${AUTH_PROVIDERS.email ? `<div style="display:grid;grid-template-columns:1fr auto;gap:8px"><input class="field" id="mail" type="email" inputmode="email" autocapitalize="off" placeholder="Ton adresse e-mail"><button class="btn primary" id="mailGo">Recevoir le lien</button></div>
-          <div class="small muted">Ouvre le lien reçu par e-mail sur ce téléphone : TVO se connecte tout seul.</div>` : ""}`}
+        ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted">Compte « ${esc(acct().user)} » · tes appareils sont synchronisés</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
+          <details class="card"><summary class="small">Changer le mot de passe</summary><div class="list" style="padding:10px 0 0">
+            <input class="field" id="pOld" type="password" autocomplete="current-password" placeholder="Mot de passe actuel">
+            <input class="field" id="pNew" type="password" autocomplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)">
+            <button class="btn primary block" id="pGo">Changer</button></div></details>`
+        : `<div class="card small muted">Crée ton compte TVO pour retrouver Ma liste, Continuer à regarder, tes profils et tes add-ons sur tous tes appareils.</div>
+          <div class="seg wide" id="acctSeg"><button class="on" data-m="in">Se connecter</button><button data-m="up">Créer un compte</button></div>
+          <input class="field" id="aUser" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="username" placeholder="Identifiant">
+          <input class="field" id="aPass" type="password" autocomplete="current-password" placeholder="Mot de passe">
+          <input class="field" id="aPass2" type="password" autocomplete="new-password" placeholder="Confirme le mot de passe" hidden>
+          <button class="btn primary block" id="aGo">Se connecter</button>
+          <div id="aMsg" class="small" style="color:#ff8a8a"></div>`}
         <div id="syncStatus" class="small" style="color:var(--cyan)">${esc(syncState.status)}</div>
       </div>
       <h2 class="section-title section"><span>Connecter une TV</span></h2>
@@ -1628,7 +1657,7 @@
       <h2 class="section-title section"><span>Application</span></h2>
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>`;
-      makeCollapsible(app, account() ? [] : ["Compte"]);
+      makeCollapsible(app, acct() ? [] : ["Compte"]);
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
       const drawHome = () => {
         const h = homeLayout();
@@ -1665,6 +1694,24 @@
       const mg = $("#mailGo"); if (mg) mg.addEventListener("click", async () => {
         const v = $("#mail").value.trim(); if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v)) return toast("Adresse e-mail invalide");
         mg.disabled = true; try { await signInEmail(v); toast("E-mail envoyé ✓ Ouvre le lien sur ce téléphone.", 4500); } catch (e) { toast(e.message, 4000); } mg.disabled = false;
+      });
+      const seg = $("#acctSeg"); let mode = "in";
+      if (seg) seg.addEventListener("click", (e) => { const b = e.target.closest("[data-m]"); if (!b) return; mode = b.dataset.m;
+        seg.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        $("#aPass2").hidden = mode !== "up"; $("#aGo").textContent = mode === "up" ? "Créer mon compte" : "Se connecter";
+        $("#aPass").setAttribute("autocomplete", mode === "up" ? "new-password" : "current-password"); $("#aMsg").textContent = ""; });
+      const aGo = $("#aGo"); if (aGo) aGo.addEventListener("click", async () => {
+        const u = $("#aUser").value, pw = $("#aPass").value; $("#aMsg").textContent = "";
+        if (mode === "up" && pw !== $("#aPass2").value) { $("#aMsg").textContent = "Les mots de passe ne correspondent pas"; return; }
+        aGo.disabled = true; aGo.textContent = "Patiente…";
+        try { if (mode === "up") await acctRegister(u, pw); else await acctLogin(u, pw); toast("Connecté ✓"); draw(); }
+        catch (e) { $("#aMsg").textContent = e.message.replace(/^HTTP \d+$/, "Pas de connexion internet"); aGo.disabled = false; aGo.textContent = mode === "up" ? "Créer mon compte" : "Se connecter"; }
+      });
+      const ao = $("#acctOut"); if (ao) ao.addEventListener("click", () => { if (confirm("Se déconnecter du compte TVO sur ce téléphone ?")) { acctLogout(); draw(); } });
+      const pGo = $("#pGo"); if (pGo) pGo.addEventListener("click", async () => {
+        try { const ok = await rpc("tvo_change_password", { p_user: acct().user, p_old: $("#pOld").value, p_new: $("#pNew").value });
+          toast(ok ? "Mot de passe changé ✓" : "Mot de passe actuel incorrect"); if (ok) { $("#pOld").value = $("#pNew").value = ""; } }
+        catch (e) { toast(e.message); }
       });
       const so = $("#signOut"); if (so) so.addEventListener("click", () => { signOut(); draw(); });
       $("#tvGo").addEventListener("click", async () => { if (await approveTv($("#tvCode").value)) $("#tvCode").value = ""; });
