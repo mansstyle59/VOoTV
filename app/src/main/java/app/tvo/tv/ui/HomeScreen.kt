@@ -263,7 +263,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     // Les cartes « Continuer à regarder » n'ont pas le résumé : on va chercher la fiche complète (genre, année, note, résumé)
     val full by produceState<MetaPreview?>(null, shown?.id) {
         val s0 = shown
-        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform", "collection"))
+        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform", "collection", "person"))
             runCatching { Tvo.client.metaCache["${s0.type}/${s0.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), s0.type, s0.id)?.preview }.getOrNull()
         else null
     }
@@ -273,7 +273,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     LaunchedEffect(inRows) { navHidden.value = inRows }
     val logo by produceState<String?>(m?.logo, m?.id) {
         val mm = m
-        value = mm?.logo ?: if (mm != null && mm.type !in listOf("tv", "channel", "genre", "platform", "collection") && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
+        value = mm?.logo ?: if (mm != null && mm.type !in listOf("tv", "channel", "genre", "platform", "collection", "person") && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
     }
     Box(Modifier.fillMaxSize()) {
         if (m != null) {
@@ -281,7 +281,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
             // Grande image à droite, fondue vers la gauche (façon Nuvio / Netflix)
             AsyncImage(m.background ?: m.poster, null,
                 Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).let { if (tv) it.padding(60.dp) else it },
-                contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
+                contentScale = if (tv || m.type == "person") ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.CenterEnd else Alignment.Center)
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
                 .background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.35f to Color(0x990A0F1E), 1f to Color.Transparent)))
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
@@ -293,7 +293,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                     if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
                     else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
                     Spacer(Modifier.height(10.dp))
-                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films"
+                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films" else if (m.type == "person") "Acteur / actrice"
                         else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
                     if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -569,12 +569,13 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
 
 @Composable
 private fun ActorRow(nav: Nav) {
+    val select = LocalSelect.current
     val people by produceState<List<app.tvo.tv.data.Person>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.popularPeople() else emptyList() }
     if (people.isEmpty()) return
     PanelSection("Acteurs et actrices du moment") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            itemsIndexed(people, key = { _, pp -> pp.id }) { i, pp -> RowItem(rf, i) { PersonBubble(pp) { nav.openPerson(pp.id) } } }
+            itemsIndexed(people, key = { _, pp -> pp.id }) { i, pp -> RowItem(rf, i) { PersonBubble(pp, onFocus = { select(MetaPreview("person:${pp.id}", "person", pp.name, pp.photo, pp.photo, null, pp.role?.let { "Connu(e) pour : $it" } ?: "Voir ses films et séries.")) }) { nav.openPerson(pp.id) } } }
         }
     }
 }

@@ -250,10 +250,10 @@ private fun EpisodeCard(v: Video, fallback: String?, pr: Progress?, onClick: () 
 
 
 @Composable
-fun PersonBubble(person: app.tvo.tv.data.Person, onClick: () -> Unit) {
+fun PersonBubble(person: app.tvo.tv.data.Person, onFocus: () -> Unit = {}, onClick: () -> Unit) {
     Column(Modifier.width(96.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         androidx.tv.material3.Surface(
-            onClick = onClick, modifier = Modifier.size(84.dp),
+            onClick = onClick, modifier = Modifier.size(84.dp).onFocusChanged { if (it.isFocused) onFocus() },
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
             scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = androidx.tv.material3.Border(
