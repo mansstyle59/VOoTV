@@ -265,6 +265,9 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
         val s0 = shown
         value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform", "collection", "person"))
             runCatching { Tvo.client.metaCache["${s0.type}/${s0.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), s0.type, s0.id)?.preview }.getOrNull()
+        else if (s0 != null && s0.type == "person") runCatching {
+            app.tvo.tv.data.Tmdb.person(s0.id.removePrefix("person:"))?.let { pg -> s0.copy(description = pg.bio?.takeIf { it.isNotBlank() } ?: s0.description, releaseInfo = "${pg.works.size} films et séries") }
+        }.getOrNull()
         else null
     }
     val m = shown?.let { sh -> full?.takeIf { it.id == sh.id }?.let { f -> sh.copy(description = f.description, genres = sh.genres.ifEmpty { f.genres },
@@ -281,7 +284,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
             // Grande image à droite, fondue vers la gauche (façon Nuvio / Netflix)
             AsyncImage(m.background ?: m.poster, null,
                 Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).let { if (tv) it.padding(60.dp) else it },
-                contentScale = if (tv || m.type == "person") ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.CenterEnd else Alignment.Center)
+                contentScale = if (tv) ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.TopCenter else Alignment.Center)
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
                 .background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.35f to Color(0x990A0F1E), 1f to Color.Transparent)))
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
@@ -290,10 +293,15 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 48.dp, top = if (inRows) 22.dp else NavBarHeight + 4.dp).width(470.dp).height(if (inRows) 250.dp else 240.dp)) {
                 if (m != null) {
-                    if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
+                    if (logo != null && m.type == "platform") Row(verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(logo, m.name, Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                        Spacer(Modifier.width(16.dp))
+                        Text(m.name, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    }
+                    else if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
                     else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
                     Spacer(Modifier.height(10.dp))
-                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films" else if (m.type == "person") "Acteur / actrice"
+                    Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films" else if (m.type == "person") listOfNotNull("Acteur / actrice", m.releaseInfo).joinToString("  •  ")
                         else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
                     if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -575,7 +583,7 @@ private fun ActorRow(nav: Nav) {
     PanelSection("Acteurs et actrices du moment") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-            itemsIndexed(people, key = { _, pp -> pp.id }) { i, pp -> RowItem(rf, i) { PersonBubble(pp, onFocus = { select(MetaPreview("person:${pp.id}", "person", pp.name, pp.photo, pp.photo, null, pp.role?.let { "Connu(e) pour : $it" } ?: "Voir ses films et séries.")) }) { nav.openPerson(pp.id) } } }
+            itemsIndexed(people, key = { _, pp -> pp.id }) { i, pp -> RowItem(rf, i) { PersonBubble(pp, onFocus = { select(MetaPreview("person:${pp.id}", "person", pp.name, pp.photo?.replace("/w185/", "/h632/"), pp.photo?.replace("/w185/", "/h632/"), null, pp.role?.let { "Connu(e) pour : $it" } ?: "Voir ses films et séries.")) }) { nav.openPerson(pp.id) } } }
         }
     }
 }

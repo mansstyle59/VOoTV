@@ -144,7 +144,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 36.dp)) {
+        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { if (it.hasFocus) scope.launch { mainState.animateScrollToItem(0) } }) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
                         if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
                         else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
