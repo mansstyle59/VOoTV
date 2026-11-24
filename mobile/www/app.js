@@ -4115,14 +4115,13 @@ var qrcode = function() {
     setTabs("home");
     const pr = PROVIDERS.find((x) => x[0] === pid) || [pid, "Plateforme", "#2f5bff"];
     const back = `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`;
-    app.innerHTML = header("", back) + `<div class="pv-hero" id="pvh" style="--c:${pr[2]}"><div class="shade"></div><div class="pv-brand" id="pvb"><h1>${esc(pr[1])}</h1></div></div>
-      <div class="chips pad" id="pvk"><button class="chip on" data-k="all">Tout</button><button class="chip" data-k="movie">Films</button><button class="chip" data-k="series">Séries</button></div><div id="rows"></div>`;
+    const logo0 = (PROV_LOGOS && PROV_LOGOS.m[pid]) || (PROV_DEF[pid] ? "https://image.tmdb.org/t/p/w300" + PROV_DEF[pid] : "");
+    const bg0 = PROV_BG[pid] ? "https://image.tmdb.org/t/p/w1280" + PROV_BG[pid] : "";
+    app.innerHTML = header("", back) + `<div class="pv-hero pv2" id="pvh" style="--c:${pr[2]}">${bg0 ? `<img class="pv-bg" src="${esc(bg0)}" alt="">` : ""}<div class="shade"></div>
+      <div class="pv-brand" id="pvb">${logo0 ? `<img class="pv-logo" src="${esc(logo0)}" alt="">` : ""}<div><h1>${esc(pr[1])}</h1><p>Films et séries disponibles sur ${esc(pr[1])} en France</p></div></div></div>
+      <div class="seg pv-seg" id="pvk" role="tablist"><button class="on" data-k="movie" role="tab">Films</button><button data-k="series" role="tab">Séries</button></div><div id="rows"></div>`;
     if (!tmdbOn()) { $("#rows").innerHTML = `<div class="empty"><h2>Catalogue indisponible</h2>Le service de titres (TMDB) n'est pas joignable pour le moment.</div>`; return; }
-    provLogos().then((m) => { if (m[pid]) $("#pvb").innerHTML = `<img class="pv-logo" src="${esc(m[pid])}" alt="${esc(pr[1])}"><h1>${esc(pr[1])}</h1>`; });
-    tget("/discover/movie", { watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate", sort_by: "popularity.desc" }).then((d) => {
-      const b = (d.results || []).find((r) => r.backdrop_path); const h = $("#pvh");
-      if (b && h) h.insertAdjacentHTML("afterbegin", `<img src="${esc(timg(b.backdrop_path, "w1280"))}" alt="">`);
-    }).catch(() => {});
+    provLogos().then((m) => { const l = $("#pvb .pv-logo"); if (m[pid] && l) l.src = m[pid]; });
     const mk = (type, sort, name, g) => ({ key: `prov|${pid}|${type}|${sort}|${g || ""}`, title: name, a: TMDB.addon,
       c: { type, id: `pv_${pid}_${sort}_${g || ""}`, name, extra: [{ name: "skip", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }, extra: {} });
     const draw = (k) => {
@@ -4139,9 +4138,9 @@ var qrcode = function() {
       }));
       $("#rows").innerHTML = ""; lazyRows($("#rows"), rows);
     };
-    $("#pvk").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (!b) return;
-      document.querySelectorAll("#pvk .chip").forEach((c) => c.classList.toggle("on", c === b)); draw(b.dataset.k); });
-    draw("all");
+    $("#pvk").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (!b || b.classList.contains("on")) return;
+      document.querySelectorAll("#pvk button").forEach((c) => c.classList.toggle("on", c === b)); draw(b.dataset.k); });
+    draw("movie");
   }
 
   // Catégories en rectangles avec image (une affiche de film par genre, mise en cache 7 jours)

@@ -1339,3 +1339,34 @@ body.scrolled-bg::after { background: linear-gradient(180deg, rgba(10,15,30,.9) 
 .pl-clock { margin-left: auto; display: grid; justify-items: end; gap: 1px; padding: 2px 6px; text-shadow: 0 1px 6px rgba(0,0,0,.7); font-variant-numeric: tabular-nums; }
 .pl-clock b { font-size: 17px; font-weight: 800; color: #fff; }
 .pl-clock span { font-size: 12.5px; font-weight: 600; color: #cfe0ff; }
+
+/* ---------- Page plateforme 2.0 : présentation façon « je suis sur Netflix » ---------- */
+.pv-hero.pv2 { background: radial-gradient(120% 90% at 0% 100%, color-mix(in srgb, var(--c) 55%, transparent) 0%, transparent 60%), #000; }
+.pv-hero.pv2 > img.pv-bg { opacity: .72; }
+.pv-hero.pv2::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c) 45%, transparent) 0%, transparent 55%); mix-blend-mode: soft-light; }
+.pv2 .pv-brand { align-items: flex-end; }
+.pv2 .pv-brand p { margin: 4px 0 0; font-size: 14px; color: rgba(255,255,255,.82); text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+.pv2 .pv-logo { width: 72px; height: 72px; border-radius: 18px; border: 1px solid rgba(255,255,255,.18); background: #000; }
+.pv-seg { display: flex; width: calc(100% - 2 * var(--pad)); margin: 14px var(--pad) 4px; padding: 4px; }
+.pv-seg button { flex: 1; padding: 10px 0; font-size: 15px; }
+.pv-seg button.on { background: #fff; color: #000; }
+@media (min-width: 900px) { .pv-seg { width: 360px; } .pv2 .pv-logo { width: 96px; height: 96px; border-radius: 22px; } .pv2 .pv-brand p { font-size: 16px; } }
+
+/* ---------- Boutons 2.0 : plus nets, plus « premium » ---------- */
+.btn { letter-spacing: .1px; transition: transform .14s ease, box-shadow .2s ease, background-color .2s ease, opacity .14s ease; }
+.btn:focus-visible, .dt-actions button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.btn.pill { background: linear-gradient(180deg, #ffffff 0%, #e9e9f2 100%); color: #0b0a12; font-weight: 800; letter-spacing: .2px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 -2px 0 rgba(0,0,0,.08); }
+.btn.pill svg { width: 22px; height: 22px; }
+.btn.pill:active { transform: scale(.98); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.dt-actions { gap: 22px; margin-top: 10px; }
+.dt-actions button { gap: 7px; font-weight: 600; color: rgba(255,255,255,.88); min-width: 72px; }
+.dt-actions button svg { box-sizing: content-box; width: 22px; height: 22px; padding: 13px; border-radius: 999px;
+  background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.16);
+  -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  transition: background-color .2s ease, transform .14s ease; }
+.dt-actions button:active svg { transform: scale(.92); background: rgba(255,255,255,.22); }
+.car-act .btn.primary { background: linear-gradient(180deg, #fff, #e9e9f2); color: #0b0a12; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.car-act .btn:not(.primary) { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }

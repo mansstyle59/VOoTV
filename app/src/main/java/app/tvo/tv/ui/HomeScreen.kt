@@ -493,9 +493,9 @@ private val GENRE_IMG = mapOf(
     "Western" to "/2oZklIzUbvZXXzIFzv7Hi68d6xf.jpg",
     "Documentary" to "/dUbP1HNdI0aCq1zgRJw28PWSqmk.jpg",
 )
-private const val TMDB_IMG = "https://image.tmdb.org/t/p/"
+internal const val TMDB_IMG = "https://image.tmdb.org/t/p/"
 /** Image de fond de chaque plateforme (série populaire chez elle). */
-private val PROV_BG = mapOf(
+internal val PROV_BG = mapOf(
     "8" to "/9P4IIMYY3HifqeruZq0ZZ9g7YUi.jpg",
     "337" to "/9zcbqSxdsRMZWHYtyCd1nXPr2xq.jpg",
     "119" to "/bq28ajZaoMyzEIm6REelqyqtEDZ.jpg",

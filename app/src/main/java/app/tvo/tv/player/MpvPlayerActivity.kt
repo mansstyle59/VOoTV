@@ -103,14 +103,21 @@ class MpvPlayerActivity : ComponentActivity() {
         req = Json.decodeFromString(intent.getStringExtra(EXTRA) ?: run { finish(); return })
 
         MPVLib.create(applicationContext)
+        // Réglages repris de Nuvio : sans « opengl-es », l'image ne s'affiche pas sur beaucoup de boîtiers
+        MPVLib.setOptionString("profile", "fast")
         MPVLib.setOptionString("vo", "gpu")
         MPVLib.setOptionString("gpu-context", "android")
+        MPVLib.setOptionString("opengl-es", "yes")
+        MPVLib.setOptionString("audio-set-media-role", "yes")
+        MPVLib.setOptionString("sub-codepage", "auto:utf-8")
+        MPVLib.setOptionString("sub-use-margins", "yes")
         MPVLib.setOptionString("hwdec", "mediacodec-copy,no")
         MPVLib.setOptionString("hwdec-codecs", "h264,hevc,mpeg4,mpeg2video,vp8,vp9,av1")
         MPVLib.setOptionString("ao", "audiotrack,opensles")
         MPVLib.setOptionString("cache", "yes")
         MPVLib.setOptionString("demuxer-max-bytes", "64MiB")
-        MPVLib.setOptionString("demuxer-max-back-bytes", "32MiB")
+        MPVLib.setOptionString("demuxer-max-back-bytes", "64MiB")
+        MPVLib.setOptionString("demuxer-readahead-secs", "20")
         MPVLib.setOptionString("network-timeout", "30")
         MPVLib.setOptionString("slang", "fr,fre,fra,en")
         MPVLib.setOptionString("alang", "fr,fre,fra,en")
@@ -179,7 +186,10 @@ class MpvPlayerActivity : ComponentActivity() {
             runOnUiThread {
                 when (property) {
                     "time-pos" -> position = (value * 1000).toLong()
-                    "duration" -> length = (value * 1000).toLong()
+                    "duration" -> {
+                        length = (value * 1000).toLong()
+                        runCatching { MPVLib.getPropertyDouble("container-fps")?.let { f -> runOnUiThread { Afr.apply(this@MpvPlayerActivity, f.toFloat()) } } }
+                    }
                 }
             }
         }
@@ -364,6 +374,7 @@ class MpvPlayerActivity : ComponentActivity() {
     override fun onPause() { super.onPause(); Sync.playbackActive = false; save(); if (mpvReady) MPVLib.setPropertyBoolean("pause", true); Sync.syncInBackground() }
 
     override fun onDestroy() {
+        Afr.reset(this)
         saveJob?.cancel()
         runCatching { MPVLib.removeObserver(observer); MPVLib.destroy() }
         super.onDestroy()

@@ -115,22 +115,73 @@ val PLATFORMS = listOf(
 
 @Composable
 private fun ProviderGrid(id: String, nav: Nav) {
-    val name = PLATFORMS.firstOrNull { it.first.first == id }?.first?.second ?: "Plateforme"
+    // Page « comme si j'étais sur Netflix » : image, logo et couleur de la plateforme, Films et Séries séparés
+    val p = PLATFORMS.firstOrNull { it.first.first == id }
+    val name = p?.first?.second ?: "Plateforme"
+    val brand = Color(p?.first?.third ?: 0xFF2F5BFF)
+    var type by rememberSaveable { mutableStateOf("movie") }
     val items = remember { mutableStateListOf<MetaPreview>() }
-    var loading by remember { mutableStateOf(true) }
-    LaunchedEffect(id) {
-        val lists = listOf("movie", "series").map { t ->
-            runCatching { app.tvo.tv.data.Tmdb.catalog(app.tvo.tv.data.CatalogDef(t, "prov_$id", name), emptyMap()) }.getOrDefault(emptyList())
+    var loading by remember { mutableStateOf(false) }
+    var end by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val tabFocus = remember { FocusRequester() }
+    fun more() {
+        if (loading || end) return
+        loading = true
+        val t = type
+        scope.launch {
+            val page = runCatching { app.tvo.tv.data.Tmdb.catalog(app.tvo.tv.data.CatalogDef(t, "prov_$id", name), mapOf("skip" to items.size.toString())) }.getOrDefault(emptyList())
+            if (t != type) return@launch
+            val fresh = page.filter { n -> items.none { it.id == n.id } }
+            if (fresh.isEmpty()) end = true
+            items.addAll(fresh); loading = false
         }
-        val merged = mutableListOf<MetaPreview>()
-        for (i in 0 until maxOf(lists[0].size, lists[1].size)) { lists[0].getOrNull(i)?.let { merged += it }; lists[1].getOrNull(i)?.let { merged += it } }
-        items.addAll(merged.distinctBy { it.id }); loading = false
     }
-    Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        when {
-            loading -> CenterMessage("Chargement…")
-            items.isEmpty() -> CenterMessage(name, "Aucun titre trouvé (clé TMDB nécessaire).")
-            else -> PosterGrid("Nouveautés · $name", items, nav)
+    LaunchedEffect(type) { items.clear(); end = false; loading = false; more() }
+    LaunchedEffect(Unit) { delay(120); runCatching { tabFocus.requestFocus() } }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        PROV_BG[id]?.let {
+            coil.compose.AsyncImage(TMDB_IMG + "w1280" + it, null, Modifier.align(Alignment.TopEnd).fillMaxWidth(0.72f).fillMaxHeight(0.7f),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        }
+        Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.72f).fillMaxHeight(0.7f).background(
+            androidx.compose.ui.graphics.Brush.horizontalGradient(0f to Color.Black, 0.45f to Color.Black.copy(alpha = 0.55f), 1f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 0.7f to Color.Black)))
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(brand.copy(alpha = 0.38f), Color.Transparent),
+            center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1100f)))
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(136.dp),
+            contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 40.dp, bottom = 40.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(22.dp),
+        ) {
+            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.padding(bottom = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        p?.second?.let {
+                            coil.compose.AsyncImage(TMDB_IMG + "w300" + it, name, Modifier.size(84.dp).clip(RoundedCornerShape(20.dp)).background(Color.Black))
+                            Spacer(Modifier.width(20.dp))
+                        }
+                        Column {
+                            Text(name, fontSize = 46.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, lineHeight = 50.sp)
+                            Text("Films et séries disponibles sur $name en France", fontSize = 17.sp, color = Color.White.copy(alpha = 0.8f))
+                        }
+                    }
+                    Spacer(Modifier.height(150.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        TvoButton("Films", { type = "movie" }, Modifier.focusRequester(tabFocus), primary = type == "movie")
+                        TvoButton("Séries", { type = "series" }, primary = type == "series")
+                    }
+                    Text(if (type == "movie") "Films sur $name" else "Séries sur $name", Modifier.padding(top = 22.dp),
+                        fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+            if (items.isEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+                Text(if (loading) "Chargement…" else "Aucun titre trouvé pour le moment.", fontSize = 17.sp, color = Color.White.copy(alpha = 0.7f))
+            }
+            itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
+                PosterCard(item, { nav.openMeta(item) }, Modifier, width = 136.dp, onFocus = { if (i >= items.size - 14) more() })
+            }
         }
     }
 }
@@ -309,11 +360,25 @@ fun SettingsSection(nav: Nav) {
                             val engine by store.engine.collectAsState()
                             Chip("Automatique (recommandé)", !external && engine == "auto", { store.setExternalPlayer(false); store.setEngine("auto") })
                             Chip("VLC intégré", !external && engine == "vlc", { store.setExternalPlayer(false); store.setEngine("vlc") })
+                        }
+                    }
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            val engine by store.engine.collectAsState()
                             if (android.os.Build.VERSION.SDK_INT >= 26) Chip("MPV intégré", !external && engine == "mpv", { store.setExternalPlayer(false); store.setEngine("mpv") })
                             Chip("Appli externe", external, { store.setExternalPlayer(true) })
                         }
                     }
-                    item { Text("Automatique : lecteur rapide, qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, DTS, TrueHD, sous-titres stylés).", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { Text("Automatique : lecteur rapide avec décodeur FFmpeg (DTS, TrueHD, AC3), qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, sous-titres stylés).", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { Heading("Fréquence d'image auto") }
+                    item {
+                        val afr by store.afr.collectAsState()
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Chip("Activée (recommandé)", afr, { store.setAfr(true) })
+                            Chip("Désactivée", !afr, { store.setAfr(false) })
+                        }
+                    }
+                    item { Text("La télé se règle sur la cadence du film (24, 25 ou 50 images par seconde) : fini les saccades. L'écran peut devenir noir une seconde au lancement.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
                 }
                 "addons" -> {
                     item { Heading("Add-ons") }

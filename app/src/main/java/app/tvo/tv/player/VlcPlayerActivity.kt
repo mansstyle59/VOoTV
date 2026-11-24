@@ -102,7 +102,10 @@ class VlcPlayerActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         req = Json.decodeFromString(intent.getStringExtra(EXTRA) ?: run { finish(); return })
 
-        libVlc = LibVLC(this, arrayListOf("--network-caching=2000", "--http-reconnect", "--audio-time-stretch", "--avcodec-hw=any"))
+        libVlc = LibVLC(this, arrayListOf(
+            "--network-caching=3000", "--file-caching=3000", "--http-reconnect", "--audio-time-stretch",
+            "--avcodec-skiploopfilter=1", "--avcodec-skip-frame=0", "--avcodec-skip-idct=0", "--avcodec-threads=0",
+            "--deinterlace=0", "--audio-resampler=soxr", "--android-display-chroma=RV32", "--no-stats"))
         mp = MediaPlayer(libVlc)
         val vlcLayout = VLCVideoLayout(this)
         overlayView = ComposeView(this).apply { setContent { TvoTheme { Overlay() } } }
@@ -125,6 +128,7 @@ class VlcPlayerActivity : ComponentActivity() {
         mp.setEventListener { e ->
             when (e.type) {
                 MediaPlayer.Event.Playing -> {
+                    runCatching { mp.currentVideoTrack?.let { t -> if (t.frameRateDen > 0) Afr.apply(this@VlcPlayerActivity, t.frameRateNum.toFloat() / t.frameRateDen) } }
                     playing = true
                     if (!startApplied && req.startPosition > 0) { startApplied = true; mp.time = req.startPosition }
                 }
@@ -295,6 +299,7 @@ class VlcPlayerActivity : ComponentActivity() {
     override fun onPause() { super.onPause(); Sync.playbackActive = false; save(); mp.pause(); Sync.syncInBackground() }
 
     override fun onDestroy() {
+        Afr.reset(this)
         saveJob?.cancel()
         runCatching { mp.stop(); mp.detachViews(); mp.release(); libVlc.release() }
         super.onDestroy()

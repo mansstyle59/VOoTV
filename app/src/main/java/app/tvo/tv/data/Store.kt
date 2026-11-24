@@ -56,6 +56,9 @@ class Store(ctx: Context) {
     /** Moteur de lecture : "auto" (rapide + bascule VLC), "vlc" ou "mpv". */
     val engine = MutableStateFlow(prefs.getString("engine", if (prefs.getBoolean("vlcPlayer", false)) "vlc" else "auto") ?: "auto")
     fun setEngine(v: String) { engine.value = v; prefs.edit().putString("engine", v).apply() }
+    /** Fréquence d'image auto : la télé passe en 24/25/50 Hz selon le film (supprime les saccades). */
+    val afr = MutableStateFlow(prefs.getBoolean("afr", true))
+    fun setAfr(v: Boolean) { afr.value = v; prefs.edit().putBoolean("afr", v).apply() }
     val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
 
     /** Home page layout: hidden rows and custom order (row keys). */

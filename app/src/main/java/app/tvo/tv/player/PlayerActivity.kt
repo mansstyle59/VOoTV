@@ -137,6 +137,7 @@ class PlayerActivity : ComponentActivity() {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state == Player.STATE_READY) {
                     watchdog.removeCallbacks(stuck)
+                    player.videoFormat?.frameRate?.takeIf { it > 0f }?.let { Afr.apply(this@PlayerActivity, it) }
                     val d = player.duration
                     // Lien « de démonstration » (quelques secondes) : la source demande un service payant (débrideur).
                     if (req.type != "tv" && req.type != "channel" && d in 1..45_000) {
@@ -601,6 +602,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        Afr.reset(this)
         watchdog.removeCallbacks(stuck)
         progressJob?.cancel()
         if (::player.isInitialized) player.release()

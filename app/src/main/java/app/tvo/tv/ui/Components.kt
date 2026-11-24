@@ -187,20 +187,28 @@ fun TvoButton(
     icon: ImageVector? = null,
     primary: Boolean = false,
 ) {
+    // Boutons 2.0 : pilule, verre dépoli au repos, blanc éclatant + léger zoom quand on est dessus
     Button(
         onClick = onClick,
-        modifier = modifier,
-        shape = ButtonDefaults.shape(RoundedCornerShape(10.dp)),
+        modifier = modifier.height(48.dp),
+        shape = ButtonDefaults.shape(RoundedCornerShape(50)),
         colors = ButtonDefaults.colors(
-            containerColor = if (primary) Color.White else TvoColors.Surface2,
-            contentColor = if (primary) Color.Black else TvoColors.Text,
-            focusedContainerColor = if (primary) TvoColors.Cyan else Color.White,
-            focusedContentColor = Color.Black,
+            containerColor = if (primary) Color.White else Color.White.copy(alpha = 0.12f),
+            contentColor = if (primary) Color(0xFF0B0A12) else Color.White,
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color(0xFF0B0A12),
+            pressedContainerColor = Color(0xFFE6E6EE),
+            pressedContentColor = Color(0xFF0B0A12),
         ),
-        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+        scale = ButtonDefaults.scale(focusedScale = 1.07f, pressedScale = 0.97f),
+        border = ButtonDefaults.border(
+            border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = if (primary) 0f else 0.22f)), shape = RoundedCornerShape(50)),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.55f)), inset = (-4).dp, shape = RoundedCornerShape(50)),
+        ),
+        contentPadding = PaddingValues(start = if (icon != null) 20.dp else 26.dp, end = 26.dp),
     ) {
-        if (icon != null) { Icon(icon, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)) }
-        Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        if (icon != null) { Icon(icon, null, Modifier.size(22.dp)); Spacer(Modifier.width(10.dp)) }
+        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, maxLines = 1)
     }
 }
 
