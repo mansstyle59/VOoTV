@@ -1619,3 +1619,20 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
   .tr-card { width: min(100%, calc((100dvh - var(--safe-top) - var(--safe-bottom) - 80px) * 16 / 9)); }
   .tr-yt { display: none; }
 }
+
+/* =====================  Découvrir : à l'affiche + tuiles compactes  ===================== */
+.dhero { position: relative; overflow: hidden; border-radius: 12px; aspect-ratio: 16/10; margin-top: 12px; background: var(--surface); isolation: isolate; color: #fff; }
+.dhero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; }
+.dhero-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(5,8,20,0) 25%, rgba(5,8,20,.92) 100%); }
+.dhero-txt { position: absolute; left: 14px; right: 14px; bottom: 14px; display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.dhero-txt small { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--blue-2); }
+.dhero-txt b { font-size: 22px; font-weight: 800; line-height: 1.12; max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.dhero-meta { font-size: 13px; color: #d3dbf2; }
+.dhero-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin-top: 6px; padding: 0 18px; border-radius: 6px; background: #fff; color: #000; font-size: 15px; font-weight: 700; }
+.dhero-btn svg { width: 18px; height: 18px; }
+.dx-grid { gap: 8px; }
+.dx, .dx.big { aspect-ratio: 16/7; }
+.dx.big .dx-txt b { font-size: 19px; }
+.dx-txt svg { display: none; }
+.dx-txt small { display: none; }
+@media (min-width: 700px) { .dhero { aspect-ratio: 21/8; } .dx, .dx.big { aspect-ratio: 16/9; } }

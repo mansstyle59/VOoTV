@@ -4282,13 +4282,14 @@ var qrcode = function() {
     const dtile = (k, href, icon, label, sub, cls = "") => `<a class="dx ${cls}" href="${href}" data-dx="${k}">${di.m[k] ? `<img src="${esc(di.m[k])}" alt="" loading="lazy">` : ""}
       <span class="dx-shade"></span><span class="dx-txt">${icon}<b>${label}</b><small>${sub}</small></span></a>`;
     app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur…</span></button></div>
+      <div class="pad"><div class="dhero skeleton" id="dHero" hidden></div></div>
       <div class="dx-grid pad">
         ${dtile("movie", "#/movies", ICON.clap, "Films", "Nouveautés, tendances, classiques", "big")}
         ${dtile("series", "#/series", ICON.series, "Séries", "Les séries du moment", "big")}
         ${dtile("kids", "#/catalog/" + enc(TMDB.URL + "|movie|kids"), ICON.smile, "Enfants", "Pour toute la famille")}
         ${dtile("saga", "#/collections", ICON.movie, "Sagas", "Collections complètes")}</div>
       <section class="section" id="top10" hidden><h2 class="section-title"><span class="st plain">Top 10 de la semaine</span></h2><div class="row top10" id="top10Row"></div></section>
-      <div id="rows"></div>`;
+      <div id="dRows"></div><div id="rows"></div>`;
     // Images des tuiles et Top 10 : films tendance (rafraîchis une fois par jour)
     if (tmdbOn()) (async () => {
       try {
@@ -4302,6 +4303,30 @@ var qrcode = function() {
           const m = { movie: pick(mv, day), series: pick(tv, day), kids: kidsB, saga: sagaB };
           LS.set("discimg", { t: Date.now(), m });
           Object.entries(m).forEach(([k, u]) => { const t = app.querySelector(`[data-dx="${k}"]`); if (t && u) { const old = t.querySelector("img"); if (old) old.src = u; else t.insertAdjacentHTML("afterbegin", `<img src="${esc(u)}" alt="">`); } });
+        }
+        // À l'affiche : un film tendance du jour, en grand
+        const hp = (mv.results || []).filter((o) => o.backdrop_path && o.overview);
+        const h = hp.length ? hp[day % Math.min(hp.length, 8)] : null, hel = $("#dHero");
+        if (h && hel) {
+          const m = tpreview(h, "movie");
+          hel.classList.remove("skeleton"); hel.hidden = false;
+          hel.innerHTML = `<img src="${esc(timg(h.backdrop_path, "w780"))}" alt=""><span class="dhero-shade"></span>
+            <span class="dhero-txt"><small>À l'affiche cette semaine</small><b>${esc(m.name)}</b>
+            <span class="dhero-meta">${[m.releaseInfo, m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</span>
+            <button class="dhero-btn" data-open="movie|${esc(m.id)}">${ICON.play || ""}<span>Voir la fiche</span></button></span>`;
+        }
+        // Rangées : séries du moment, au cinéma bientôt
+        const dr = $("#dRows");
+        if (dr) {
+          const prow = (t, list, type) => list.length ? `<section class="section"><h2 class="section-title"><span class="st plain">${t}</span></h2><div class="row">${list.map(posterHTML).join("")}</div></section>` : "";
+          const tvl = (tv.results || []).map((o) => tpreview(o, "series")).filter((x) => x && x.poster).slice(0, 16);
+          const mvl = (mv.results || []).map((o) => tpreview(o, "movie")).filter((x) => x && x.poster).slice(0, 16);
+          dr.innerHTML = prow("Films du moment", mvl, "movie") + prow("Séries du moment", tvl, "series");
+          try {
+            const up = await tget("/movie/upcoming", { region: "FR" });
+            const ul = (up.results || []).map((o) => tpreview(o, "movie")).filter((x) => x && x.background).slice(0, 12);
+            if (ul.length) dr.insertAdjacentHTML("beforeend", `<section class="section"><h2 class="section-title"><span class="st plain">Bientôt au cinéma</span></h2><div class="row">${ul.map(landHTML).join("")}</div></section>`);
+          } catch { /* */ }
         }
         const top = [...(mv.results || []).map((o) => tpreview(o, "movie")), ...(tv.results || []).map((o) => tpreview(o, "series"))]
           .filter((x) => x && x.poster).sort(() => 0).slice(0, 20);
