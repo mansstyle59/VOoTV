@@ -96,8 +96,42 @@ fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () 
 
 // ---------------------------------------------------------------- Genre
 
+/** Plateformes : logos officiels (images TMDB, affichés même sans clé). */
+val PLATFORMS = listOf(
+    Triple("8", "Netflix", 0xFFE50914) to "/rK1KljqmbvO9HQa1PBFLILWah72.png",
+    Triple("337", "Disney+", 0xFF113CCF) to "/5eZ872CghnHFLB1j8grszbrx0dx.png",
+    Triple("119", "Prime Video", 0xFF00A8E1) to "/gMZdpavHmxFNnLpMHwVxfqeux2g.png",
+    Triple("381", "Canal+", 0xFF222222) to "/gliWKhLJVdm7QwL1braBCRko5dx.png",
+    Triple("350", "Apple TV+", 0xFF555555) to "/v9SnyvYt0U3KGgBH3Sbh3z4yODe.png",
+    Triple("531", "Paramount+", 0xFF0064FF) to "/pkx3klJlwW5JdtaulvDx6hDNtch.png",
+    Triple("1899", "Max", 0xFF002BE7) to "/skypuy7SXuugIQeYg0IglmzoKaS.png",
+)
+
+@Composable
+private fun ProviderGrid(id: String, nav: Nav) {
+    val name = PLATFORMS.firstOrNull { it.first.first == id }?.first?.second ?: "Plateforme"
+    val items = remember { mutableStateListOf<MetaPreview>() }
+    var loading by remember { mutableStateOf(true) }
+    LaunchedEffect(id) {
+        val lists = listOf("movie", "series").map { t ->
+            runCatching { app.tvo.tv.data.Tmdb.catalog(app.tvo.tv.data.CatalogDef(t, "prov_$id", name), emptyMap()) }.getOrDefault(emptyList())
+        }
+        val merged = mutableListOf<MetaPreview>()
+        for (i in 0 until maxOf(lists[0].size, lists[1].size)) { lists[0].getOrNull(i)?.let { merged += it }; lists[1].getOrNull(i)?.let { merged += it } }
+        items.addAll(merged.distinctBy { it.id }); loading = false
+    }
+    Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
+        when {
+            loading -> CenterMessage("Chargement…")
+            items.isEmpty() -> CenterMessage(name, "Aucun titre trouvé (clé TMDB nécessaire).")
+            else -> PosterGrid("Nouveautés · $name", items, nav)
+        }
+    }
+}
+
 @Composable
 fun GenreScreen(type: String, genre: String, nav: Nav) {
+    if (genre.startsWith("prov:")) return ProviderGrid(genre.removePrefix("prov:"), nav)
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()
     val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, Tvo.store.currentProfile.value?.kids == true) }

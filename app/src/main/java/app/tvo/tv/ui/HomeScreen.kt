@@ -203,6 +203,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     LaunchedEffect(hero, selected) { if (selected == null && hero.size > 1) while (true) { delay(9000); heroIndex = (heroIndex + 1) % hero.size } }
     val watchFr = remember(key) { FocusRequester() }
     val library by Tvo.store.library.collectAsState()
+    var inRows by remember(key) { mutableStateOf(false) }
 
     val m = shown
     Box(Modifier.fillMaxSize()) {
@@ -215,17 +216,18 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.3f to TvoColors.Bg, 0.58f to Color(0x990A0F1E), 1f to Color.Transparent)))
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.4f to Color(0x880A0F1E), 0.62f to TvoColors.Bg)))
         Column(Modifier.fillMaxSize()) {
-            Column(Modifier.padding(start = 48.dp, top = NavBarHeight + 8.dp).width(600.dp).height(268.dp)) {
+            // Infos du titre : version complète avec boutons en haut de page, version compacte quand on parcourt les rangées
+            // (les rangées gagnent de la place et rien ne se chevauche).
+            Column(Modifier.padding(start = 48.dp, top = NavBarHeight + 4.dp).width(620.dp).height(if (inRows) 150.dp else 240.dp)) {
                 if (m != null) {
-                    if (m.logo != null) AsyncImage(m.logo, m.name, Modifier.height(86.dp).fillMaxWidth(0.8f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
-                    else Text(m.name, fontSize = 38.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 42.sp)
-                    Spacer(Modifier.height(10.dp))
+                    if (m.logo != null) AsyncImage(m.logo, m.name, Modifier.height(if (inRows) 52.dp else 70.dp).fillMaxWidth(0.7f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                    else Text(m.name, fontSize = if (inRows) 28.sp else 34.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(8.dp))
                     MetaLine(m.type, m.releaseInfo, m.imdbRating, m.genres, null)
-                    if (!m.description.isNullOrBlank()) Text(m.description, Modifier.padding(top = 10.dp), fontSize = 15.sp,
-                        color = TvoColors.Text.copy(alpha = 0.86f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
-                    Spacer(Modifier.weight(1f))
+                    if (!m.description.isNullOrBlank()) Text(m.description, Modifier.padding(top = 8.dp), fontSize = 14.sp,
+                        color = TvoColors.Text.copy(alpha = 0.86f), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
                     val inList = library.any { it.id == m.id }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (!inRows) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         BlueButton("▶  Regarder", { nav.openMeta(m) }, filled = true, modifier = Modifier.focusRequester(watchFr))
                         BlueButton(if (inList) "✓  Dans ma liste" else "+  Ma liste", {
                             Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(m.id, m.type, m.name, m.poster, m.background))
@@ -235,9 +237,9 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
             }
             androidx.compose.runtime.CompositionLocalProvider(LocalSelect provides { selected = it }) {
                 LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f),
-                    contentPadding = PaddingValues(top = 18.dp, bottom = 60.dp),
-                    verticalArrangement = Arrangement.spacedBy(22.dp),
+                    Modifier.fillMaxWidth().weight(1f).onFocusChanged { inRows = it.hasFocus },
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                     content = rows,
                 )
             }
@@ -329,7 +331,7 @@ fun BrowseSection(type: String?, nav: Nav) {
                             progress = p.fraction,
                             onClick = { nav.openStreams(p.type, p.metaId, p.videoId) },
                             onLongClick = { store.removeFromContinue(p.metaId) },
-                            width = 280.dp,
+                            width = 240.dp,
                             showPlay = true,
                             onFocus = { select(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) },
                         )
@@ -339,6 +341,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         }
         if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { PortraitPanel("Ma liste", lib.map { it.toPreview() }, nav) }
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
+        if (type == null) item(key = "platforms") { PlatformTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
         if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
@@ -362,7 +365,7 @@ fun PortraitPanel(title: String, items: List<MetaPreview>, nav: Nav) {
     val select = LocalSelect.current
     PanelSection(title) {
         LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(items, key = { it.id }) { m -> LandscapeCard(m, { nav.openMeta(m) }, width = 280.dp, onFocus = { select(m) }) }
+            items(items, key = { it.id }) { m -> LandscapeCard(m, { nav.openMeta(m) }, width = 240.dp, onFocus = { select(m) }) }
         }
     }
 }
@@ -379,29 +382,74 @@ private fun CatalogRow(row: RowSource, nav: Nav) {
     }
 }
 
+/** Images des catégories (photos TMDB, visibles même sans clé). */
+private val GENRE_IMG = mapOf(
+    "Action" to "/cKvDv2LpwVEqbdXWoQl4XgGN6le.jpg",
+    "Adventure" to "/c7btGYblBnfAaw713WvFM0Kimc7.jpg",
+    "Comedy" to "/sMmG82PtjK8A9rVc34gwKQtCm3A.jpg",
+    "Drama" to "/bybAHw5fenKXRFI4phanPhpljlT.jpg",
+    "Thriller" to "/yE766yhgg98tKwTKd8CyNvAtmn6.jpg",
+    "Crime" to "/axRYPjeLD4zjJNaIw4TPopbKVfs.jpg",
+    "Sci-Fi" to "/subj7knTn4DeS6KS7qI66EQKe9i.jpg",
+    "Fantasy" to "/hofnlIyF6bePkgQOpcuRWLvzf15.jpg",
+    "Horror" to "/3icyRAqgakNcQn6aDVz9libFmBA.jpg",
+    "Romance" to "/sCzcYW9h55WcesOqA12cgEr9Exw.jpg",
+    "Animation" to "/qjTqY5coNiz6sVtPng40IzltsoN.jpg",
+    "Family" to "/rueyXwlewVPAP5NkqCUJx4RjhqB.jpg",
+    "Mystery" to "/qqHFLg90IUSoTmSMpKOOW5RyqN3.jpg",
+    "History" to "/neeNHeXjMF5fXoCJRsOmkNGC7q.jpg",
+    "War" to "/zb6fM1CX41D9rF9hdgclu0peUmy.jpg",
+    "Western" to "/2oZklIzUbvZXXzIFzv7Hi68d6xf.jpg",
+    "Documentary" to "/dUbP1HNdI0aCq1zgRJw28PWSqmk.jpg",
+)
+private const val TMDB_IMG = "https://image.tmdb.org/t/p/"
+
 @Composable
 private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
-    val palette = listOf(
-        listOf(Color(0xFF7C3AED), Color(0xFF2563EB)), listOf(Color(0xFFDB2777), Color(0xFFF97316)),
-        listOf(Color(0xFF059669), Color(0xFF22D3EE)), listOf(Color(0xFF1E3A8A), Color(0xFF7C3AED)),
-        listOf(Color(0xFF7F1D1D), Color(0xFF111827)), listOf(Color(0xFF0F766E), Color(0xFF1E293B)),
-        listOf(Color(0xFFB45309), Color(0xFF7C2D12)), listOf(Color(0xFF334155), Color(0xFF0EA5E9)),
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle("Explorer par catégorie")
-        LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            itemsIndexed(homeGenres) { i, g ->
+    PanelSection("Catégories") {
+        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(homeGenres) { g ->
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("movie", g) },
-                    modifier = Modifier.width(200.dp).height(100.dp).onFocused(onFocus),
+                    modifier = Modifier.width(240.dp).height(135.dp).onFocused(onFocus),
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.07f),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, focusedContainerColor = TvoColors.Surface),
                 ) {
-                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(palette[i % palette.size])), contentAlignment = Alignment.Center) {
-                        Text(genreLabel(g), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Box(Modifier.fillMaxSize()) {
+                        GENRE_IMG[g]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xE6000000))))
+                        Text(genreLabel(g), Modifier.align(Alignment.BottomStart).padding(12.dp), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlatformTiles(nav: Nav) {
+    PanelSection("Plateformes") {
+        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(PLATFORMS) { (pl, logo) ->
+                val (id, name, color) = pl
+                val shape = RoundedCornerShape(12.dp)
+                Surface(
+                    onClick = { nav.openGenre("all", "prov:$id") },
+                    modifier = Modifier.width(240.dp).height(110.dp),
+                    shape = ClickableSurfaceDefaults.shape(shape),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+                    border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(color), focusedContainerColor = Color(color)),
+                ) {
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(color), Color(0xFF0A0F1E)))).padding(horizontal = 16.dp)) {
+                        Row(Modifier.align(Alignment.CenterStart), verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(64.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop)
+                            Spacer(Modifier.width(14.dp))
+                            Text(name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
