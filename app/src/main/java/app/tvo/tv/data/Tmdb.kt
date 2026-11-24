@@ -176,6 +176,25 @@ object Tmdb {
         return runCatching { get("/${kind(type)}/$tid/external_ids").s("imdb_id") }.getOrNull()
     }
 
+    private val logos = ConcurrentHashMap<String, String>()
+    /** Logo officiel du titre (français de préférence, sinon anglais), mis en cache. "" = aucun logo. */
+    suspend fun logo(type: String, id: String): String? {
+        logos[id]?.let { return it.ifEmpty { null } }
+        val r = runCatching {
+            val k = kind(type)
+            val tid = when {
+                id.startsWith("tmdb:") -> id.split(":").getOrNull(2)
+                id.startsWith("tt") -> (get("/find/${id.substringBefore(":")}", mapOf("external_source" to "imdb_id"))
+                    .arr(if (k == "tv") "tv_results" else "movie_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
+                else -> null
+            } ?: return@runCatching ""
+            val l = get("/$k/$tid/images", mapOf("include_image_language" to "fr,en,null")).arr("logos")?.mapNotNull { it as? JsonObject } ?: emptyList()
+            ((l.firstOrNull { it.s("iso_639_1") == "fr" } ?: l.firstOrNull { it.s("iso_639_1") == "en" } ?: l.firstOrNull())?.s("file_path"))?.let { img(it, "w500") } ?: ""
+        }.getOrDefault("")
+        logos[id] = r
+        return r.ifEmpty { null }
+    }
+
     /** Recherche d'acteurs et d'actrices (avec photo). */
     suspend fun searchPeople(q: String): List<Person> = runCatching {
         get("/search/person", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject }

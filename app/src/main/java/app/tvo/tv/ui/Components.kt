@@ -1,5 +1,15 @@
 package app.tvo.tv.ui
 
+import androidx.compose.runtime.remember
+
+import androidx.compose.runtime.getValue
+
+import androidx.compose.runtime.setValue
+
+import androidx.compose.runtime.produceState
+
+import androidx.compose.runtime.mutableStateOf
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -374,6 +384,46 @@ fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Mo
             Text(item.imdbRating?.let { "★ $it" } ?: "—", fontSize = 12.sp, color = TvoColors.Cyan, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             Text(item.releaseInfo ?: typeLabel(item.type, plural = false), fontSize = 12.sp, color = TvoColors.Muted, maxLines = 1)
+        }
+    }
+}
+
+
+/**
+ * Carte « affiche qui s'ouvre » : affiche en portrait, et quand on se place dessus elle s'élargit
+ * en grande image paysage avec le logo du titre.
+ */
+@Composable
+fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {}, height: Dp = 180.dp) {
+    var focused by remember { mutableStateOf(false) }
+    val tv = item.type == "tv" || item.type == "channel"
+    val w by androidx.compose.animation.core.animateDpAsState(
+        if (focused && !tv && item.background != null) height * 16f / 9f else height * 2f / 3f,
+        androidx.compose.animation.core.tween(220), label = "w")
+    val logo by produceState<String?>(item.logo, item.id, focused) {
+        if (focused && value == null && !tv && app.tvo.tv.data.Tmdb.enabled) value = app.tvo.tv.data.Tmdb.logo(item.type, item.id)
+    }
+    val shape = RoundedCornerShape(12.dp)
+    Card(
+        onClick = onClick,
+        modifier = Modifier.width(w).height(height).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() },
+        shape = CardDefaults.shape(shape),
+        scale = CardDefaults.scale(focusedScale = 1.03f),
+        border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
+        colors = CardDefaults.colors(containerColor = TvoColors.Surface),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            if (focused && !tv && item.background != null) {
+                AsyncImage(item.background, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xCC000000))))
+                if (logo != null) AsyncImage(logo, item.name, Modifier.align(Alignment.BottomStart).padding(12.dp).height(46.dp).fillMaxWidth(0.55f),
+                    contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
+                else Text(item.name, Modifier.align(Alignment.BottomStart).padding(12.dp), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else {
+                AsyncImage(item.poster ?: item.background, item.name, if (tv) Modifier.fillMaxSize().padding(16.dp) else Modifier.fillMaxSize(),
+                    contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
+                if (item.poster == null || tv) Text(item.name, Modifier.align(Alignment.BottomStart).padding(8.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2)
+            }
         }
     }
 }

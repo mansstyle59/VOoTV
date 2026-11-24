@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -103,6 +104,9 @@ class Nav(
 /** Item shown in the right-hand detail panel (follows the focused card). */
 val LocalSelect = androidx.compose.runtime.staticCompositionLocalOf<(MetaPreview) -> Unit> { {} }
 
+/** Barre du haut masquée quand on parcourt les rangées (elle revient en remontant). */
+val LocalNavHidden = androidx.compose.runtime.staticCompositionLocalOf { androidx.compose.runtime.mutableStateOf(false) }
+
 /** Hauteur de la barre de navigation du haut (façon Netflix). */
 val NavBarHeight = 76.dp
 
@@ -113,7 +117,10 @@ fun HomeScreen(nav: Nav) {
     BackHandler(enabled = section != Section.HOME) { section = Section.HOME }
     val immersive = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES || section == Section.LIVE
 
+    val navHidden = remember { mutableStateOf(false) }
+    LaunchedEffect(section) { navHidden.value = false }
     Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
+      androidx.compose.runtime.CompositionLocalProvider(LocalNavHidden provides navHidden) {
         Box(Modifier.fillMaxSize().padding(top = if (immersive) 0.dp else NavBarHeight)) {
             when (section) {
                 Section.HOME -> BrowseSection(null, nav)
@@ -125,16 +132,17 @@ fun HomeScreen(nav: Nav) {
                 Section.SETTINGS -> SettingsSection(nav)
             }
         }
-        TopNav(section, profile, onSelect = { section = it }, onProfile = nav.switchProfile)
+        TopNav(section, profile, onSelect = { section = it }, onProfile = nav.switchProfile, hidden = navHidden.value && immersive)
+      }
     }
 }
 
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> Unit, onProfile: () -> Unit) {
+private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> Unit, onProfile: () -> Unit, hidden: Boolean = false) {
     val currentFr = remember { FocusRequester() }
     Row(
-        Modifier.fillMaxWidth().height(NavBarHeight)
+        Modifier.fillMaxWidth().height(NavBarHeight).alpha(if (hidden) 0f else 1f)
             .background(Brush.verticalGradient(0f to Color(0xF20A0F1E), 0.7f to Color(0x990A0F1E), 1f to Color.Transparent))
             .padding(horizontal = 48.dp).focusProperties { enter = { currentFr } },
         verticalAlignment = Alignment.CenterVertically,
@@ -206,28 +214,40 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     var inRows by remember(key) { mutableStateOf(false) }
 
     val m = shown
+    val navHidden = LocalNavHidden.current
+    LaunchedEffect(inRows) { navHidden.value = inRows }
+    val logo by produceState<String?>(m?.logo, m?.id) {
+        val mm = m
+        value = mm?.logo ?: if (mm != null && mm.type != "tv" && mm.type != "channel" && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
+    }
     Box(Modifier.fillMaxSize()) {
         if (m != null) {
             val tv = m.type == "tv" || m.type == "channel"
+            // Grande image à droite, fondue vers la gauche (façon Nuvio / Netflix)
             AsyncImage(m.background ?: m.poster, null,
-                Modifier.fillMaxWidth(0.74f).fillMaxHeight(0.7f).align(Alignment.TopEnd).let { if (tv) it.padding(80.dp) else it },
+                Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).let { if (tv) it.padding(60.dp) else it },
                 contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
+            Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
+                .background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.35f to Color(0x990A0F1E), 1f to Color.Transparent)))
+            Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
+                .background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to TvoColors.Bg)))
         }
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.3f to TvoColors.Bg, 0.58f to Color(0x990A0F1E), 1f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.4f to Color(0x880A0F1E), 0.62f to TvoColors.Bg)))
         Column(Modifier.fillMaxSize()) {
-            // Infos du titre : version complète avec boutons en haut de page, version compacte quand on parcourt les rangées
-            // (les rangées gagnent de la place et rien ne se chevauche).
-            Column(Modifier.padding(start = 48.dp, top = NavBarHeight + 4.dp).width(620.dp).height(if (inRows) 150.dp else 240.dp)) {
+            Column(Modifier.padding(start = 48.dp, top = if (inRows) 22.dp else NavBarHeight + 4.dp).width(470.dp).height(if (inRows) 250.dp else 240.dp)) {
                 if (m != null) {
-                    if (m.logo != null) AsyncImage(m.logo, m.name, Modifier.height(if (inRows) 52.dp else 70.dp).fillMaxWidth(0.7f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
-                    else Text(m.name, fontSize = if (inRows) 28.sp else 34.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Spacer(Modifier.height(8.dp))
-                    MetaLine(m.type, m.releaseInfo, m.imdbRating, m.genres, null)
-                    if (!m.description.isNullOrBlank()) Text(m.description, Modifier.padding(top = 8.dp), fontSize = 14.sp,
-                        color = TvoColors.Text.copy(alpha = 0.86f), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
+                    if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
+                    else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
+                    if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("TMDB", Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF01B4E4)).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0D253F))
+                        Text("  ★ ${m.imdbRating}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFACC15))
+                    }
+                    if (!m.description.isNullOrBlank()) Text(m.description, Modifier.padding(top = 8.dp), fontSize = 13.sp,
+                        color = TvoColors.Text.copy(alpha = 0.85f), maxLines = if (inRows) 4 else 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
                     val inList = library.any { it.id == m.id }
-                    if (!inRows) Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (!inRows) Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         BlueButton("▶  Regarder", { nav.openMeta(m) }, filled = true, modifier = Modifier.focusRequester(watchFr))
                         BlueButton(if (inList) "✓  Dans ma liste" else "+  Ma liste", {
                             Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(m.id, m.type, m.name, m.poster, m.background))
@@ -365,7 +385,7 @@ fun PortraitPanel(title: String, items: List<MetaPreview>, nav: Nav) {
     val select = LocalSelect.current
     PanelSection(title) {
         LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            items(items, key = { it.id }) { m -> LandscapeCard(m, { nav.openMeta(m) }, width = 240.dp, onFocus = { select(m) }) }
+            items(items, key = { it.id }) { m -> ExpandCard(m, { nav.openMeta(m) }, onFocus = { select(m) }) }
         }
     }
 }
