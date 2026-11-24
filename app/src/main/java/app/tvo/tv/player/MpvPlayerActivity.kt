@@ -236,7 +236,8 @@ class MpvPlayerActivity : ComponentActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             lastInput = System.currentTimeMillis()
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-                when { options -> { options = false; return true }; else -> { save(); finish(); return true } }
+                // Retour : 1er appui = cacher les boutons, 2e appui = quitter
+                when { options -> { options = false; return true }; uiVisible && error == null -> { uiVisible = false; return true }; else -> { save(); app.tvo.tv.data.Sync.syncInBackground(); finish(); return true } }
             }
             if (!options && error == null) {
                 val step = if (event.repeatCount > 2) 30_000L else 10_000L

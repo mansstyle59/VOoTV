@@ -5309,7 +5309,7 @@ var qrcode = function() {
     if (CapApp && CapApp.addListener) CapApp.addListener("backButton", () => {
       const open = document.querySelector(".tr-sheet, .as-sheet, .pin-sheet");
       if (open) return open.remove();
-      if (!$("#player").hidden) return closePlayer();
+      if (!$("#player").hidden) { const pl = $("#player"); if (!pl.classList.contains("idle")) { pl.classList.add("idle"); return; } return closePlayer(); } // 1er appui : cacher les boutons, 2e : quitter
       const h = location.hash || "#/home";
       if (h === "#/home" || h === "#/" || h === "" || !acctOk()) return CapApp.exitApp();
       history.length > 1 ? history.back() : (location.hash = "#/home");

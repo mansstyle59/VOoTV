@@ -179,6 +179,7 @@ class PlayerActivity : ComponentActivity() {
             player = this@PlayerActivity.player
             useController = true
             controllerShowTimeoutMs = 4500
+            controllerAutoShow = false
             setShowSubtitleButton(true)
             setShowNextButton(false)
             setShowPreviousButton(false)
@@ -206,6 +207,8 @@ class PlayerActivity : ComponentActivity() {
                 when {
                     options -> closeOptions()
                     nextUp != null -> { nextUp = null; nextDismissed = true; playerView.requestFocus() }
+                    // 1er appui : cacher les boutons ; 2e appui (boutons déjà cachés) : quitter
+                    controllerVisible && error == null -> { playerView.hideController(); controllerVisible = false; playerView.requestFocus() }
                     else -> { saveProgress(); app.tvo.tv.data.Sync.syncInBackground(); finish() }
                 }
             }
