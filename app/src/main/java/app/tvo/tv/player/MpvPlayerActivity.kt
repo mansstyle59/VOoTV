@@ -327,6 +327,18 @@ class MpvPlayerActivity : ComponentActivity() {
                         if (subs.isEmpty()) item { Text("Aucun", color = TvoColors.Muted, fontSize = 14.sp) }
                     }
                 }
+                item { Text("Décalage des sous-titres", fontSize = 15.sp, color = TvoColors.Cyan) }
+                item {
+                    fun shift(d: Double) { val cur = runCatching { MPVLib.getPropertyDouble("sub-delay") ?: 0.0 }.getOrDefault(0.0); MPVLib.setPropertyDouble("sub-delay", if (d == 0.0) 0.0 else cur + d); v++ }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Chip("− 0,5 s", false, { shift(-0.5) }); Chip("− 0,1 s", false, { shift(-0.1) })
+                        Text(if (v >= 0) "%+.1f s".format(java.util.Locale.FRANCE, runCatching { MPVLib.getPropertyDouble("sub-delay") ?: 0.0 }.getOrDefault(0.0)) else "", fontSize = 16.sp, color = Color.White)
+                        Chip("+ 0,1 s", false, { shift(0.1) }); Chip("+ 0,5 s", false, { shift(0.5) }); Chip("Réinitialiser", false, { shift(0.0) })
+                    }
+                }
+                item { Text("Taille des sous-titres", fontSize = 15.sp, color = TvoColors.Cyan) }
+                item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Petite" to 0.8, "Normale" to 1.0, "Grande" to 1.25, "Très grande" to 1.5).forEach { (l, k) -> Chip(l, false, { MPVLib.setPropertyDouble("sub-scale", k); v++ }) } } }
                 item { Text("Format de l'image", fontSize = 15.sp, color = TvoColors.Cyan) }
                 item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { scales.forEachIndexed { i, (l, sc) -> Chip(l, scaleIdx == i, { scaleIdx = i
                     MPVLib.setPropertyDouble("panscan", if (sc == 1) 1.0 else 0.0)

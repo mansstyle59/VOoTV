@@ -197,6 +197,8 @@ class PlayerActivity : ComponentActivity() {
         }
         setContentView(root)
         playerView.requestFocus()
+        getSharedPreferences("tvo_ui", MODE_PRIVATE).let { subSize = it.getFloat("sub_size", 1f); subBox = it.getBoolean("sub_box", false) }
+        applySubStyle()
 
         // Retour : ferme le menu ouvert, sinon quitte le lecteur (un seul appui, jamais de boucle).
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -365,7 +367,7 @@ class PlayerActivity : ComponentActivity() {
 
     // ------------------------------------------------------------ options (audio, sous-titres, format, vitesse)
 
-    private data class TrackChoice(val label: String, val group: androidx.media3.common.TrackGroup?, val index: Int, val selected: Boolean)
+    private data class TrackChoice(val label: String, val group: androidx.media3.common.TrackGroup?, val index: Int, val selected: Boolean, val lang: String = "")
 
     private fun trackChoices(type: Int): List<TrackChoice> {
         val out = mutableListOf<TrackChoice>()
@@ -373,17 +375,45 @@ class PlayerActivity : ComponentActivity() {
             for (i in 0 until g.length) {
                 if (!g.isTrackSupported(i)) continue
                 val f = g.getTrackFormat(i)
-                val lang = f.language?.let { langLabel(it) }
-                val extra = when {
-                    type == C.TRACK_TYPE_AUDIO && f.channelCount >= 6 -> " · 5.1"
-                    type == C.TRACK_TYPE_AUDIO && f.channelCount == 2 -> " · Stéréo"
-                    else -> ""
+                val lang = f.language?.let { langLabel(it) } ?: f.label?.takeIf { it.isNotBlank() } ?: "Piste ${out.size + 1}"
+                val tags = mutableListOf<String>()
+                if (type == C.TRACK_TYPE_AUDIO) {
+                    when { f.channelCount >= 8 -> tags += "7.1"; f.channelCount >= 6 -> tags += "5.1"; f.channelCount == 2 -> tags += "Stéréo"; f.channelCount == 1 -> tags += "Mono" }
+                    codecName(f.sampleMimeType)?.let { tags += it }
+                    if (f.roleFlags and C.ROLE_FLAG_DESCRIBES_VIDEO != 0) tags += "Audiodescription"
+                } else {
+                    if (f.selectionFlags and C.SELECTION_FLAG_FORCED != 0) tags += "Forcés"
+                    if (f.roleFlags and (C.ROLE_FLAG_DESCRIBES_MUSIC_AND_SOUND or C.ROLE_FLAG_CAPTION) != 0) tags += "Sourds et malentendants"
+                    val l = f.label.orEmpty().lowercase()
+                    if ("forc" in l && "Forcés" !in tags) tags += "Forcés"
+                    if (("sdh" in l || "malentend" in l) && "Sourds et malentendants" !in tags) tags += "Sourds et malentendants"
+                    if (f.id?.contains(":") == true || f.sampleMimeType?.contains("vtt") == true) tags += "externe"
                 }
-                val label = listOfNotNull(f.label?.takeIf { it.isNotBlank() }, lang).distinct().joinToString(" – ").ifBlank { "Piste ${out.size + 1}" } + extra
-                out += TrackChoice(label, g.mediaTrackGroup, i, g.isTrackSelected(i))
+                val label = (listOf(lang) + tags).joinToString(" · ")
+                out += TrackChoice(label, g.mediaTrackGroup, i, g.isTrackSelected(i), f.language ?: "")
             }
         }
-        return out
+        // Français d'abord, puis anglais, puis le reste
+        return out.sortedBy { c -> when (c.lang.lowercase().take(2)) { "fr" -> 0; "en" -> 1; else -> 2 } }
+    }
+
+    private fun codecName(m: String?): String? = when {
+        m == null -> null
+        "eac3" in m || "ec-3" in m -> "Dolby Digital Plus"; "ac3" in m || "ac-3" in m -> "Dolby Digital"
+        "truehd" in m -> "Dolby TrueHD"; "dts" in m -> "DTS"; "aac" in m || "mp4a" in m -> "AAC"; "opus" in m -> "Opus"; "mpeg" in m -> "MP3"
+        else -> null
+    }
+
+    private var subSize by mutableStateOf(1f)
+    private var subBox by mutableStateOf(false)
+    private fun applySubStyle() {
+        val sv = playerView.subtitleView ?: return
+        sv.setFractionalTextSize(androidx.media3.ui.SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * subSize)
+        sv.setStyle(androidx.media3.ui.CaptionStyleCompat(android.graphics.Color.WHITE,
+            if (subBox) 0xB3000000.toInt() else android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT,
+            if (subBox) androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_NONE else androidx.media3.ui.CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
+            android.graphics.Color.BLACK, null))
+        getSharedPreferences("tvo_ui", MODE_PRIVATE).edit().putFloat("sub_size", subSize).putBoolean("sub_box", subBox).apply()
     }
 
     private fun selectTrack(type: Int, c: TrackChoice?) {
@@ -432,6 +462,26 @@ class PlayerActivity : ComponentActivity() {
                         item { Chip("Désactivés", textOff, { selectTrack(C.TRACK_TYPE_TEXT, null); tracksVersion++ },
                             if (audio.isEmpty()) Modifier.focusRequester(fr) else Modifier) }
                         items(text.size) { i -> val c = text[i]; Chip(c.label, c.selected && !textOff, { selectTrack(C.TRACK_TYPE_TEXT, c); tracksVersion++ }) }
+                    }
+                }
+                item { OptTitle("Taille des sous-titres") }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Petite" to 0.8f, "Normale" to 1f, "Grande" to 1.25f, "Très grande" to 1.5f).forEach { (l, k) ->
+                            Chip(l, subSize == k, { subSize = k; applySubStyle() }) }
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip("Texte avec ombre", !subBox, { subBox = false; applySubStyle() })
+                        Chip("Fond noir (plus lisible)", subBox, { subBox = true; applySubStyle() })
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Sous-titres en avance ou en retard ?", fontSize = 13.sp, color = TvoColors.Muted)
+                        Chip("Régler le décalage (VLC)", false, {
+                            VlcPlayerActivity.start(this@PlayerActivity, req.copy(startPosition = player.currentPosition)); finish() })
                     }
                 }
                 item { OptTitle("Format de l'image") }

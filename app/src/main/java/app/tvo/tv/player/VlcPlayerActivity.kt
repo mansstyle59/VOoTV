@@ -260,6 +260,18 @@ class VlcPlayerActivity : ComponentActivity() {
                         if (subs.isEmpty()) item { Text("Aucun", color = TvoColors.Muted, fontSize = 14.sp) }
                     }
                 }
+                item { Text("Décalage des sous-titres", fontSize = 15.sp, color = TvoColors.Cyan) }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Chip("− 0,5 s", false, { mp.spuDelay = mp.spuDelay - 500_000; v++ })
+                        Chip("− 0,1 s", false, { mp.spuDelay = mp.spuDelay - 100_000; v++ })
+                        Text(if (v >= 0) "%+.1f s".format(java.util.Locale.FRANCE, mp.spuDelay / 1_000_000.0) else "", fontSize = 16.sp, color = Color.White)
+                        Chip("+ 0,1 s", false, { mp.spuDelay = mp.spuDelay + 100_000; v++ })
+                        Chip("+ 0,5 s", false, { mp.spuDelay = mp.spuDelay + 500_000; v++ })
+                        Chip("Réinitialiser", false, { mp.spuDelay = 0; v++ })
+                    }
+                }
+                item { Text("Négatif : les sous-titres arrivent plus tôt. Positif : plus tard.", fontSize = 12.sp, color = TvoColors.Muted) }
                 item { Text("Format de l'image", fontSize = 15.sp, color = TvoColors.Cyan) }
                 item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { scales.forEachIndexed { i, (l, sc) -> Chip(l, scaleIdx == i, { scaleIdx = i; mp.videoScale = sc }) } } }
                 item { Text("Vitesse", fontSize = 15.sp, color = TvoColors.Cyan) }

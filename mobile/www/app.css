@@ -1286,3 +1286,15 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .tvl-codebox { display: grid; gap: 10px; margin-top: 18px; }
 .tvl-link { margin-top: 18px; padding: 6px 0; border: 0; background: none; color: #8fc2ff; font: inherit; font-size: 14px; cursor: pointer; }
 @media (max-width: 800px) { .tvl-main { grid-template-columns: 1fr; justify-items: center; text-align: left; } }
+
+/* Lecteur : options audio / sous-titres */
+#player video::cue { font-size: calc(clamp(15px, 3.4vw, 34px) * var(--sub-size, 1)); color: #fff; background: transparent; text-shadow: 0 1px 3px #000, 0 0 6px rgba(0,0,0,.85); font-family: inherit; }
+#player.sub-box video::cue { background: rgba(0,0,0,.72); text-shadow: none; }
+.pl-opts .col button { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; text-align: left; }
+.pl-opts .col button .ck { width: 16px; color: #8fc2ff; font-weight: 800; }
+.pl-opts .col button i { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.12); color: #cfe0ff; }
+.pl-seg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.pl-seg button, .pl-shift button { padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #fff; font: inherit; font-size: 13px; font-weight: 600; }
+.pl-seg button.on { background: var(--blue, #3d7cff); border-color: transparent; }
+.pl-shift { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pl-shift b { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }

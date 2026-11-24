@@ -5012,18 +5012,49 @@ var qrcode = function() {
     $("#pSpeed").addEventListener("click", (e) => { e.stopPropagation(); const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.querySelector("span").textContent = `Vitesse (x${speeds[i]})`; flash("Vitesse x" + speeds[i]); wake(); });
     $("#pFit").addEventListener("click", (e) => { e.stopPropagation(); const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.querySelector("span").textContent = cover ? "Remplir" : "Ajuster"; wake(); });
     const nx = $("#pNext"); if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); playNext(ctx); });
-    // Feuille audio + sous-titres
+    // Feuille audio + sous-titres : langues claires (français d'abord), taille, fond, décalage précis
+    const subPref = LS.get("subpref", { size: 1, box: false });
+    let subShift = 0;
+    const applySubStyle = () => {
+      el.style.setProperty("--sub-size", subPref.size);
+      el.classList.toggle("sub-box", !!subPref.box);
+      LS.set("subpref", subPref);
+    };
+    applySubStyle();
+    const shiftCues = (d) => {
+      subShift = Math.round((subShift + d) * 10) / 10;
+      [...video.textTracks].forEach((t) => { const c = t.cues; if (!c) return;
+        for (let i = 0; i < c.length; i++) { c[i].startTime = Math.max(0, c[i].startTime + d); c[i].endTime = Math.max(0, c[i].endTime + d); } });
+    };
+    const langName = (code, label) => {
+      const l = String(label || ""), c = String(code || "").toLowerCase();
+      const base = LANG[c] || LANG[c.slice(0, 2)] || (l && l.length < 30 ? l : "") || "Inconnue";
+      const tags = [];
+      if (/forc/i.test(l)) tags.push("Forcés");
+      if (/sdh|malentend|cc\b/i.test(l)) tags.push("Sourds et malentendants");
+      if (/5\.1|6ch/i.test(l)) tags.push("5.1");
+      if (/ad\b|audiodesc/i.test(l)) tags.push("Audiodescription");
+      return { name: base, tags, rank: /^fr/.test(c) || /fran|vf/i.test(l) ? 0 : /^en/.test(c) || /angl|english/i.test(l) ? 1 : 2 };
+    };
     $("#pSubs").addEventListener("click", (e) => {
       e.stopPropagation();
       const sh = $("#pSheet");
       const tt = [...video.textTracks];
       const at = video.audioTracks ? [...video.audioTracks] : [];
       const hlsAudio = hls ? hls.audioTracks : [];
-      const audioItems = hlsAudio.length > 1 ? hlsAudio.map((t, i) => [`ha${i}`, t.name || LANG[(t.lang || "").toLowerCase()] || "Piste " + (i + 1), hls.audioTrack === i])
-        : at.map((t, i) => [`a${i}`, t.label || LANG[(t.language || "").toLowerCase()] || "Piste " + (i + 1), t.enabled]);
-      sh.innerHTML = `<div class="nf-sheet-in"><div class="col"><h3>Audio</h3>${audioItems.length ? audioItems.map(([k, l, on]) => `<button data-k="${k}" class="${on ? "on" : ""}">${on ? "✓ " : ""}${esc(l)}</button>`).join("") : '<p class="muted">Piste unique</p>'}</div>
-        <div class="col"><h3>Sous-titres</h3><button data-k="off" class="${tt.every((t) => t.mode !== "showing") ? "on" : ""}">${tt.every((t) => t.mode !== "showing") ? "✓ " : ""}Désactivés</button>
-        ${tt.map((t, i) => `<button data-k="t${i}" class="${t.mode === "showing" ? "on" : ""}">${t.mode === "showing" ? "✓ " : ""}${esc(t.label || "Sous-titres " + (i + 1))}</button>`).join("")}</div>
+      const audioItems = (hlsAudio.length > 1 ? hlsAudio.map((t, i) => [`ha${i}`, langName(t.lang, t.name), hls.audioTrack === i])
+        : at.map((t, i) => [`a${i}`, langName(t.language, t.label), t.enabled])).sort((x, y) => x[1].rank - y[1].rank);
+      const subItems = tt.map((t, i) => [`t${i}`, langName(t.language, t.label), t.mode === "showing"]).sort((x, y) => x[1].rank - y[1].rank);
+      const off = tt.every((t) => t.mode !== "showing");
+      const row = ([k, n, on]) => `<button data-k="${k}" class="${on ? "on" : ""}"><span class="ck">${on ? "✓" : ""}</span><b>${esc(n.name)}</b>${n.tags.map((g) => `<i>${esc(g)}</i>`).join("")}</button>`;
+      sh.innerHTML = `<div class="nf-sheet-in pl-opts">
+        <div class="col"><h3>Audio</h3>${audioItems.length ? audioItems.map(row).join("") : '<p class="muted">Une seule langue</p>'}</div>
+        <div class="col"><h3>Sous-titres</h3><button data-k="off" class="${off ? "on" : ""}"><span class="ck">${off ? "✓" : ""}</span><b>Désactivés</b></button>${subItems.map(row).join("")}</div>
+        <div class="col"><h3>Réglages des sous-titres</h3>
+          <div class="pl-seg">${[["Petite", 0.8], ["Normale", 1], ["Grande", 1.25], ["Très grande", 1.5]].map(([l, k]) => `<button data-size="${k}" class="${subPref.size === k ? "on" : ""}">${l}</button>`).join("")}</div>
+          <div class="pl-seg"><button data-box="0" class="${!subPref.box ? "on" : ""}">Ombre</button><button data-box="1" class="${subPref.box ? "on" : ""}">Fond noir</button></div>
+          <div class="pl-shift"><button data-sh="-0.5">−0,5 s</button><button data-sh="-0.1">−0,1 s</button><b>${subShift > 0 ? "+" : ""}${subShift.toFixed(1).replace(".", ",")} s</b><button data-sh="0.1">+0,1 s</button><button data-sh="0.5">+0,5 s</button></div>
+          <p class="muted small">Décalage : en arrière si les sous-titres arrivent trop tard, en avant s'ils arrivent trop tôt.</p></div>
         <button class="btn blue block" id="shClose">Fermer</button></div>`;
       sh.hidden = false;
       sh.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => {
@@ -5034,6 +5065,9 @@ var qrcode = function() {
         else if (k[0] === "a") at.forEach((t, i) => (t.enabled = "a" + i === k));
         $("#pSubs").click();
       }));
+      sh.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { subPref.size = Number(b.dataset.size); applySubStyle(); $("#pSubs").click(); }));
+      sh.querySelectorAll("[data-box]").forEach((b) => b.addEventListener("click", () => { subPref.box = b.dataset.box === "1"; applySubStyle(); $("#pSubs").click(); }));
+      sh.querySelectorAll("[data-sh]").forEach((b) => b.addEventListener("click", () => { shiftCues(Number(b.dataset.sh)); $("#pSubs").click(); }));
       $("#shClose").addEventListener("click", (ev) => { ev.stopPropagation(); sh.hidden = true; });
       sh.addEventListener("click", (ev) => ev.stopPropagation());
     });
