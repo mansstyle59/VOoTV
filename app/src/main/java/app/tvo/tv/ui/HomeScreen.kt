@@ -29,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -89,6 +90,7 @@ enum class Section(val label: String, val icon: ImageVector?, val res: Int = 0, 
     HOME("Accueil", Icons.Default.Home),
     MOVIES("Films", null, R.drawable.ic_movie),
     SERIES("Séries", null, R.drawable.ic_series),
+    KIDS("Kids", Icons.Default.Face),
     LIVE("Live TV", null, R.drawable.ic_live),
     LIST("Ma liste", Icons.Default.Favorite),
     SEARCH("Recherche", Icons.Default.Search, inRail = false),
@@ -157,7 +159,7 @@ fun HomeScreen(nav: Nav) {
     var section by rememberSaveable { mutableStateOf(Section.HOME) }
     val profile by Tvo.store.currentProfile.collectAsState()
     BackHandler(enabled = section != Section.HOME) { section = Section.HOME }
-    val immersive = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES || section == Section.LIVE
+    val immersive = section == Section.HOME || section == Section.MOVIES || section == Section.SERIES || section == Section.KIDS || section == Section.LIVE
 
     // Live TV n'apparaît que si un add-on de chaînes TV est installé
     val addonsAll by Tvo.store.addons.collectAsState()
@@ -173,6 +175,7 @@ fun HomeScreen(nav: Nav) {
                 Section.HOME -> BrowseSection(null, nav)
                 Section.MOVIES -> BrowseSection("movie", nav)
                 Section.SERIES -> BrowseSection("series", nav)
+                Section.KIDS -> BrowseSection("kids", nav)
                 Section.LIVE -> LiveSection(nav)
                 Section.LIST -> LibrarySection(nav)
                 Section.SEARCH -> SearchSection(nav)
@@ -374,10 +377,10 @@ data class RowSource(val key: String, val title: String, val addon: Addon, val c
 
 private val homeGenres = listOf("Action", "Comedy", "Animation", "Sci-Fi", "Horror", "Thriller", "Drama", "Documentary")
 
-fun buildRows(addons: List<Addon>, type: String?): List<RowSource> {
+fun buildRows(addons: List<Addon>, type: String?, kidsAllowed: Boolean = addons.isNotEmpty() && addons.all { a -> a.manifest.catalogs.all { it.id.startsWith("kids") } }): List<RowSource> {
     val rows = mutableListOf<RowSource>()
     addons.forEach { a ->
-        a.manifest.catalogs.filter { !it.requiresExtra && (type == null || it.type == type) }.forEach { c ->
+        a.manifest.catalogs.filter { !it.requiresExtra && (type == null || it.type == type) && (kidsAllowed || !it.id.startsWith("kids")) }.forEach { c ->
             val title = when (a.manifest.id) {
                 "com.linvo.cinemeta" -> catalogTitle(c.type, c.name)
                 "tmdb", "tvo.freetv.fr" -> c.name
@@ -412,10 +415,14 @@ fun BrowseSection(type: String?, nav: Nav) {
     val progress by store.progress.collectAsState()
     val library by store.library.collectAsState()
     val home by store.home.collectAsState()
-    val rows = remember(addons, type, home) { buildRows(addons, type).let { if (type == null) applyHome(it, home) else it } }
+    val kidsPage = type == "kids"
+    val rows = remember(addons, type, home) {
+        if (kidsPage) buildRows(addons, null, true).filter { it.cat.id.startsWith("kids") }
+        else buildRows(addons, type).let { if (type == null) applyHome(it, home) else it }
+    }
     val hidden = if (type == null) home.hidden else emptyList()
-    val cont = remember(progress, type) { store.continueWatching(progress).filter { type == null || it.type == type } }
-    val lib = remember(library, type) { library.filter { type == null || it.type == type } }
+    val cont = remember(progress, type) { if (kidsPage) emptyList() else store.continueWatching(progress).filter { type == null || it.type == type } }
+    val lib = remember(library, type) { if (kidsPage) emptyList() else library.filter { type == null || it.type == type } }
     val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key) {
         val r = rows.firstOrNull()
         value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(5) ?: emptyList()

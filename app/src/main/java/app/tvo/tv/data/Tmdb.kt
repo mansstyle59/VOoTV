@@ -36,31 +36,31 @@ object Tmdb {
         catalogs = listOf(
             *seasonCats().toTypedArray(),
             cat("movie", "latest", "Derniers films sortis"),
-            cat("movie", "kids", "Films pour enfants"),
-            cat("series", "kids", "Dessins animés et séries enfants"),
+            cat("movie", "now_playing", "Au cinéma en ce moment"),
+            cat("movie", "recent_pop", "Nouveautés populaires"),
             cat("movie", "trending", "Films tendance cette semaine"),
-            cat("series", "trending", "Séries tendance cette semaine"),
             cat("movie", "popular", "Films populaires", MOVIE_GENRES.keys, search = true),
-            cat("series", "popular", "Séries populaires", TV_GENRES.keys, search = true),
             cat("movie", "prov_8", "Nouveaux films sur Netflix"),
-            cat("series", "prov_8", "Nouvelles séries sur Netflix"),
             cat("movie", "prov_119", "Nouveaux films sur Prime Video"),
-            cat("series", "prov_119", "Nouvelles séries sur Prime Video"),
             cat("movie", "prov_337", "Nouveautés Disney+"),
+            cat("series", "latest_tv", "Nouvelles séries"),
+            cat("series", "trending", "Séries tendance cette semaine"),
+            cat("series", "on_the_air", "Séries en cours de diffusion"),
+            cat("series", "popular", "Séries populaires", TV_GENRES.keys, search = true),
+            cat("series", "prov_8", "Nouvelles séries sur Netflix"),
+            cat("series", "prov_119", "Nouvelles séries sur Prime Video"),
             cat("series", "prov_381", "Nouveautés Canal+"),
             cat("series", "prov_350", "Nouveautés Apple TV+"),
-            cat("movie", "top_rated", "Films les mieux notés"),
-            cat("series", "top_rated", "Séries les mieux notées"),
-            cat("series", "tvtype_2", "Mini-séries"),
-            cat("series", "tvtype_3", "Téléréalité"),
-            cat("series", "tvtype_0", "Séries documentaires"),
-            cat("series", "tvtype_5", "Talk-shows"),
             cat("series", "anime", "Animés et mangas"),
-            cat("series", "latest_tv", "Nouvelles séries"),
-            cat("series", "on_the_air", "Séries en cours de diffusion"),
-            cat("series", "prov_337", "Séries Disney+"),
-            cat("series", "prov_1899", "Séries Max"),
-            cat("series", "prov_531", "Séries Paramount+"),
+            // Page Kids : beaucoup de films récents, peu de séries
+            cat("movie", "kids_new", "Nouveaux films pour enfants"),
+            cat("movie", "kids", "Films pour enfants du moment"),
+            cat("movie", "kids_anim", "Films d'animation récents"),
+            cat("movie", "kids_disney", "Disney+ pour enfants"),
+            cat("movie", "kids_netflix", "Films famille sur Netflix"),
+            cat("movie", "kids_prime", "Films famille sur Prime Video"),
+            cat("series", "kids_tv", "Dessins animés récents"),
+            cat("series", "kids", "Séries pour enfants"),
         ),
     ))
 
@@ -95,10 +95,12 @@ object Tmdb {
         return proxyOk
     }
     private val cache = ConcurrentHashMap<String, JsonObject>()
+    private fun today() = java.time.LocalDate.now().toString()
+    private fun monthsAgo(n: Long) = java.time.LocalDate.now().minusMonths(n).toString()
 
     /** Add-ons as seen by catalogs: TMDB first, Cinemeta catalogs hidden (Cinemeta still provides episodes). */
     fun withTmdb(addons: List<Addon>, tmdbKey: String?, kids: Boolean = false): List<Addon> {
-        if (kids) return listOf(addon.copy(manifest = addon.manifest.copy(catalogs = addon.manifest.catalogs.filter { it.id == "kids" })))
+        if (kids) return listOf(addon.copy(manifest = addon.manifest.copy(catalogs = addon.manifest.catalogs.filter { it.id.startsWith("kids") })))
         if (tmdbKey.isNullOrBlank() && !proxyOk) return addons
         return listOf(addon) + addons.map {
             if (it.manifest.id == "com.linvo.cinemeta") it.copy(manifest = it.manifest.copy(catalogs = emptyList())) else it
@@ -158,8 +160,15 @@ object Tmdb {
             cat.id == "trending" -> get("/trending/$k/week", mapOf("page" to page))
             cat.id == "now_playing" -> get("/movie/now_playing", mapOf("page" to page, "region" to "FR"))
             cat.id == "upcoming" -> get("/movie/upcoming", mapOf("page" to page, "region" to "FR"))
-            cat.id == "kids" -> get("/discover/$k", if (k == "tv") mapOf("page" to page, "with_genres" to "10762", "sort_by" to "popularity.desc")
-                else mapOf("page" to page, "with_genres" to "10751", "without_genres" to "27,53,80", "certification_country" to "FR", "certification.lte" to "U", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
+            cat.id == "kids" -> get("/discover/$k", if (k == "tv") mapOf("page" to page, "with_genres" to "10762", "sort_by" to "popularity.desc", "first_air_date.gte" to monthsAgo(36))
+                else mapOf("page" to page, "with_genres" to "10751", "without_genres" to "27,53,80", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(30), "primary_release_date.lte" to today(), "vote_count.gte" to "30"))
+            cat.id == "kids_new" -> get("/discover/movie", mapOf("page" to page, "with_genres" to "10751|16", "without_genres" to "27,53,80,10749", "sort_by" to "primary_release_date.desc", "primary_release_date.gte" to monthsAgo(14), "primary_release_date.lte" to today(), "vote_count.gte" to "8"))
+            cat.id == "kids_anim" -> get("/discover/movie", mapOf("page" to page, "with_genres" to "16", "without_genres" to "27,53,80,10749", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(30), "primary_release_date.lte" to today(), "vote_count.gte" to "30"))
+            cat.id == "kids_tv" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16|10762", "without_genres" to "18,10768", "sort_by" to "popularity.desc", "first_air_date.gte" to monthsAgo(30), "first_air_date.lte" to today(), "vote_count.gte" to "10"))
+            cat.id in listOf("kids_disney", "kids_netflix", "kids_prime") -> get("/discover/movie", mapOf("page" to page, "watch_region" to "FR",
+                "with_watch_providers" to mapOf("kids_disney" to "337", "kids_netflix" to "8", "kids_prime" to "119").getValue(cat.id), "with_watch_monetization_types" to "flatrate",
+                "with_genres" to "10751|16", "without_genres" to "27,53,80,10749", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(36), "primary_release_date.lte" to today(), "vote_count.gte" to "20"))
+            cat.id == "recent_pop" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(8), "primary_release_date.lte" to today(), "vote_count.gte" to "40"))
             cat.id.startsWith("tvtype_") -> get("/discover/tv", mapOf("page" to page, "with_type" to cat.id.removePrefix("tvtype_"), "sort_by" to "popularity.desc", "vote_count.gte" to "20"))
             cat.id == "anime" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16", "with_original_language" to "ja", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
             cat.id.startsWith("ev_") -> {
@@ -170,8 +179,8 @@ object Tmdb {
             }
             cat.id == "latest" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "primary_release_date.desc",
                 "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20", "with_release_type" to "3|4|6"))
-            cat.id == "latest_tv" -> get("/discover/tv", mapOf("page" to page, "sort_by" to "first_air_date.desc",
-                "first_air_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20"))
+            cat.id == "latest_tv" -> get("/discover/tv", mapOf("page" to page, "sort_by" to "popularity.desc",
+                "first_air_date.gte" to monthsAgo(8), "first_air_date.lte" to today(), "vote_count.gte" to "15"))
             cat.id.startsWith("prov_") -> get("/discover/$k", mapOf("page" to page, "watch_region" to "FR",
                 "with_watch_providers" to cat.id.removePrefix("prov_"), "with_watch_monetization_types" to "flatrate",
                 "sort_by" to if (k == "tv") "first_air_date.desc" else "primary_release_date.desc",
