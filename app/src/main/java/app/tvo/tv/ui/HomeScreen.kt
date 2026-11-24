@@ -428,13 +428,15 @@ fun BrowseSection(type: String?, nav: Nav) {
                 val rf = rememberRowFocus()
                 LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     itemsIndexed(cont, key = { _, it -> it.metaId }) { idx, p -> RowItem(rf, idx) {
+                        var menu by remember { mutableStateOf(false) }
+                        ContinueMenuHost(p, menu, nav, ctx, scope) { menu = false }
                         WideCard(
                             image = p.background ?: p.poster,
                             title = p.name,
                             subtitle = (if (p.season != null) "S${p.season} : É${p.episode} · " else "") + "Reprendre à ${fmtTime(p.position)} · reste ${((p.duration - p.position) / 60000).coerceAtLeast(1)} min",
                             progress = p.fraction,
                             onClick = { resumeFast(ctx, scope, nav, p.type, p.metaId, p.videoId) },
-                            onLongClick = { store.removeFromContinue(p.metaId) },
+                            onLongClick = { menu = true },
                             width = 240.dp,
                             showPlay = true,
                             onFocus = { select(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) },

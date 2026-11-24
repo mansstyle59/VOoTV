@@ -547,3 +547,32 @@ fun QuickMenuHost(item: MetaPreview, onOpen: () -> Unit, show: Boolean, onDismis
         }
     }
 }
+
+
+/** Menu d'appui long sur « Continuer à regarder » : reprendre, fiche, ma liste, retirer de la rangée. */
+@Composable
+fun ContinueMenuHost(p: app.tvo.tv.data.Progress, show: Boolean, nav: Nav, ctx: android.content.Context,
+                     scope: kotlinx.coroutines.CoroutineScope, onDismiss: () -> Unit) {
+    if (!show) return
+    val lib by Tvo.store.library.collectAsState()
+    val inList = lib.any { it.id == p.metaId }
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.width(460.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xF2161622)).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(p.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
+            if (p.season != null) Text("S${p.season} : É${p.episode}", fontSize = 15.sp, color = Color(0xCCFFFFFF))
+            Spacer(Modifier.height(4.dp))
+            TvoButton("Reprendre", { onDismiss(); resumeFast(ctx, scope, nav, p.type, p.metaId, p.videoId) },
+                Modifier.focusRequester(first).fillMaxWidth(), androidx.compose.material.icons.Icons.Filled.PlayArrow, primary = true, wide = true)
+            TvoButton("Ouvrir la fiche", { onDismiss(); nav.openMeta(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) }, Modifier.fillMaxWidth(), wide = true)
+            TvoButton(if (inList) "Retirer de ma liste" else "Ajouter à ma liste", {
+                Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(p.metaId, p.type, p.name, p.poster, p.background))
+                android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }, Modifier.fillMaxWidth(), if (inList) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add, wide = true)
+            TvoButton("Retirer de « Continuer à regarder »", { Tvo.store.removeFromContinue(p.metaId); onDismiss() }, Modifier.fillMaxWidth(), wide = true)
+        }
+    }
+}
