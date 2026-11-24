@@ -106,12 +106,20 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     var trailerOn by remember(p.id) { mutableStateOf(false) }
     LaunchedEffect(trailer) { if (trailer != null) { delay(2500); trailerOn = true } }
 
+    var trailerFull by remember(p.id) { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = trailerFull) { trailerFull = false }
+    if (trailerFull && trailer != null) {
+        // Bande-annonce en plein écran, sans rien par-dessus. Retour pour revenir à la fiche.
+        Box(Modifier.fillMaxSize().background(Color.Black)) { TrailerView(trailer!!, Modifier.fillMaxSize()) }
+        return
+    }
     Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
         Box(Modifier.fillMaxSize()) {
-            AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxWidth(0.78f).fillMaxHeight(0.72f).align(Alignment.TopEnd), contentScale = ContentScale.Crop)
-            if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxWidth(0.78f).fillMaxHeight(0.72f).align(Alignment.TopEnd))
-            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.0f to TvoColors.Bg, 0.25f to TvoColors.Bg, 0.6f to Color(0x660B0B12), 1f to Color.Transparent)))
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Transparent, 0.45f to Color(0x990B0B12), 0.7f to TvoColors.Bg)))
+            // Image puis bande-annonce sur tout l'écran, avec un dégradé à gauche et en bas pour lire le texte.
+            AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.0f to Color(0xEE0A0F1E), 0.38f to Color(0xAA0A0F1E), 0.7f to Color.Transparent)))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Transparent, 0.55f to Color(0x660A0F1E), 1f to Color(0xF20A0F1E))))
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 48.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item {
@@ -132,7 +140,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
                             store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                         }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
-                        if (trailer != null) TvoButton(if (trailerOn) "Arrêter la bande-annonce" else "Bande-annonce VF", { trailerOn = !trailerOn })
+                        if (trailer != null) TvoButton("Bande-annonce plein écran", { trailerOn = true; trailerFull = true })
+                        if (trailer != null && trailerOn) TvoButton("Couper", { trailerOn = false })
                     }
                     if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                         val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
