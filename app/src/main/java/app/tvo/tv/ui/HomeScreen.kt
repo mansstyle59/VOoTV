@@ -1,5 +1,7 @@
 package app.tvo.tv.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.ui.graphics.compositeOver
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
@@ -493,6 +495,13 @@ internal val GENRE_IMG = mapOf(
     "Western" to "/2oZklIzUbvZXXzIFzv7Hi68d6xf.jpg",
     "Documentary" to "/dUbP1HNdI0aCq1zgRJw28PWSqmk.jpg",
 )
+/** Couleur de chaque catégorie (teinte du voile et du liseré). */
+internal val GENRE_COLOR = mapOf(
+    "Action" to 0xFFE5484D, "Adventure" to 0xFFF59E0B, "Comedy" to 0xFFFACC15, "Drama" to 0xFF8B5CF6, "Thriller" to 0xFF64748B,
+    "Crime" to 0xFFB91C1C, "Sci-Fi" to 0xFF06B6D4, "Fantasy" to 0xFFA855F7, "Horror" to 0xFF7F1D1D, "Romance" to 0xFFEC4899,
+    "Animation" to 0xFF22C55E, "Family" to 0xFF38BDF8, "Mystery" to 0xFF6366F1, "History" to 0xFFB45309, "War" to 0xFF65A30D,
+    "Western" to 0xFFD97706, "Documentary" to 0xFF14B8A6,
+)
 internal const val TMDB_IMG = "https://image.tmdb.org/t/p/"
 /** Image de fond de chaque plateforme (série populaire chez elle). */
 internal val PROV_BG = mapOf(
@@ -535,10 +544,16 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, focusedContainerColor = TvoColors.Surface),
                 ) {
-                    Box(Modifier.fillMaxSize()) {
-                        GENRE_IMG[g]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
-                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color(0xE6000000))))
-                        Text(genreLabel(g), Modifier.align(Alignment.BottomStart).padding(12.dp), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    val gc = Color(GENRE_COLOR[g] ?: 0xFF3D7CFF)
+                    Box(Modifier.fillMaxSize().background(gc.copy(alpha = 0.35f))) {
+                        GENRE_IMG[g]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.85f) }
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to Color(0xF2000000))))
+                        Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to gc.copy(alpha = 0.55f), 0.6f to Color.Transparent)))
+                        Column(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 10.dp)) {
+                            Box(Modifier.width(28.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(gc))
+                            Spacer(Modifier.height(6.dp))
+                            Text(genreLabel(g), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             } }
@@ -566,17 +581,18 @@ private fun PlatformTiles(nav: Nav) {
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color(color), focusedContainerColor = Color(color)),
                 ) {
-                    // Image d'une série populaire de la plateforme, teinte de la marque, logo officiel et nom
-                    Box(Modifier.fillMaxSize().background(Color(color))) {
-                        PROV_BG[id]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.8f) }
-                        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(color), 0.5f to Color(color).copy(alpha = 0.55f), 1f to Color(0x22000000))))
-                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0x88000000))))
-                        Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(58.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop)
-                            Spacer(Modifier.width(12.dp))
+                    // Carte de marque : dégradé de la couleur de la plateforme, grand logo officiel, nom
+                    val bc = Color(color)
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to bc, 1f to bc.copy(alpha = 0.55f).compositeOver(Color(0xFF0A0F1E))))) {
+                        PROV_BG[id]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.28f) }
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color(0x99000000))))
+                        Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)).border(2.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
+                            Spacer(Modifier.width(14.dp))
                             Column {
-                                Text(name, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("Films et séries", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xDDFFFFFF))
+                                Text(name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Spacer(Modifier.height(2.dp))
+                                Text("Films et séries", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xCCFFFFFF))
                             }
                         }
                     }
