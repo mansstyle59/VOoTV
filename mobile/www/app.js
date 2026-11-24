@@ -2521,9 +2521,10 @@ var qrcode = function() {
       tcat("series", "prov_381", "Nouveautés Canal+"), tcat("series", "prov_350", "Nouveautés Apple TV+"),
       // Page Kids (jamais mélangés au reste) : beaucoup de films récents, peu de séries
       tcat("movie", "kids_new", "Nouveaux films pour enfants"), tcat("movie", "kids", "Films pour enfants du moment"),
-      tcat("movie", "kids_anim", "Films d'animation récents"), tcat("movie", "kids_disney", "Disney+ pour enfants"),
+      tcat("movie", "kids_anim", "Films d'animation récents"), tcat("movie", "kids_fun", "Comédies en famille"),
+      tcat("movie", "kids_adv", "Aventures en famille"), tcat("movie", "kids_disney", "Disney+ pour enfants"),
       tcat("movie", "kids_netflix", "Films famille sur Netflix"), tcat("movie", "kids_prime", "Films famille sur Prime Video"),
-      tcat("series", "kids_tv", "Dessins animés récents"), tcat("series", "kids", "Séries pour enfants")] } };
+      tcat("series", "kids_tv", "Dessins animés récents"), tcat("series", "kids", "Séries pour enfants"), tcat("series", "kids_tiny", "Pour les tout-petits")] } };
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
   /** Administrateur : le profil marqué admin, sinon le premier profil. Il choisit les add-ons de chaque profil. */
   const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
@@ -2593,6 +2594,9 @@ var qrcode = function() {
           : { page, with_genres: "10751", without_genres: "27,53,80", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(30), "primary_release_date.lte": today(), "vote_count.gte": "30" })
       : c.id === "kids_new" ? await tget("/discover/movie", { page, with_genres: "10751|16", without_genres: "27,53,80,10749", sort_by: "primary_release_date.desc", "primary_release_date.gte": monthsAgo(14), "primary_release_date.lte": today(), "vote_count.gte": "8" })
       : c.id === "kids_anim" ? await tget("/discover/movie", { page, with_genres: "16", without_genres: "27,53,80,10749", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(30), "primary_release_date.lte": today(), "vote_count.gte": "30" })
+      : c.id === "kids_fun" ? await tget("/discover/movie", { page, with_genres: "35,10751", without_genres: "27,53,80", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(30), "primary_release_date.lte": today(), "vote_count.gte": "20" })
+      : c.id === "kids_adv" ? await tget("/discover/movie", { page, with_genres: "10751", without_genres: "27,53,80,35,10749", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(30), "primary_release_date.lte": today(), "vote_count.gte": "20" })
+      : c.id === "kids_tiny" ? await tget("/discover/tv", { page, with_genres: "10762", without_genres: "10768,18", sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(48), "first_air_date.lte": today(), "vote_count.gte": "5" })
       : c.id === "kids_tv" ? await tget("/discover/tv", { page, with_genres: "16|10762", without_genres: "18,10768", sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(30), "first_air_date.lte": today(), "vote_count.gte": "10" })
       : c.id.startsWith("kids_") && ["disney", "netflix", "prime"].includes(c.id.slice(5)) ? await tget("/discover/movie", { page, watch_region: "FR", with_watch_providers: { disney: "337", netflix: "8", prime: "119" }[c.id.slice(5)], with_watch_monetization_types: "flatrate",
           with_genres: "10751|16", without_genres: "27,53,80,10749", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(36), "primary_release_date.lte": today(), "vote_count.gte": "20" })

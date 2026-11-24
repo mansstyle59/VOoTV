@@ -56,11 +56,14 @@ object Tmdb {
             cat("movie", "kids_new", "Nouveaux films pour enfants"),
             cat("movie", "kids", "Films pour enfants du moment"),
             cat("movie", "kids_anim", "Films d'animation récents"),
+            cat("movie", "kids_fun", "Comédies en famille"),
+            cat("movie", "kids_adv", "Aventures en famille"),
             cat("movie", "kids_disney", "Disney+ pour enfants"),
             cat("movie", "kids_netflix", "Films famille sur Netflix"),
             cat("movie", "kids_prime", "Films famille sur Prime Video"),
             cat("series", "kids_tv", "Dessins animés récents"),
             cat("series", "kids", "Séries pour enfants"),
+            cat("series", "kids_tiny", "Pour les tout-petits"),
         ),
     ))
 
@@ -164,6 +167,9 @@ object Tmdb {
                 else mapOf("page" to page, "with_genres" to "10751", "without_genres" to "27,53,80", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(30), "primary_release_date.lte" to today(), "vote_count.gte" to "30"))
             cat.id == "kids_new" -> get("/discover/movie", mapOf("page" to page, "with_genres" to "10751|16", "without_genres" to "27,53,80,10749", "sort_by" to "primary_release_date.desc", "primary_release_date.gte" to monthsAgo(14), "primary_release_date.lte" to today(), "vote_count.gte" to "8"))
             cat.id == "kids_anim" -> get("/discover/movie", mapOf("page" to page, "with_genres" to "16", "without_genres" to "27,53,80,10749", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(30), "primary_release_date.lte" to today(), "vote_count.gte" to "30"))
+            cat.id == "kids_fun" -> get("/discover/movie", mapOf("page" to page, "with_genres" to "35,10751", "without_genres" to "27,53,80", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(30), "primary_release_date.lte" to today(), "vote_count.gte" to "20"))
+            cat.id == "kids_adv" -> get("/discover/movie", mapOf("page" to page, "with_genres" to "10751", "without_genres" to "27,53,80,35,10749", "sort_by" to "popularity.desc", "primary_release_date.gte" to monthsAgo(30), "primary_release_date.lte" to today(), "vote_count.gte" to "20"))
+            cat.id == "kids_tiny" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "10762", "without_genres" to "10768,18", "sort_by" to "popularity.desc", "first_air_date.gte" to monthsAgo(48), "first_air_date.lte" to today(), "vote_count.gte" to "5"))
             cat.id == "kids_tv" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16|10762", "without_genres" to "18,10768", "sort_by" to "popularity.desc", "first_air_date.gte" to monthsAgo(30), "first_air_date.lte" to today(), "vote_count.gte" to "10"))
             cat.id in listOf("kids_disney", "kids_netflix", "kids_prime") -> get("/discover/movie", mapOf("page" to page, "watch_region" to "FR",
                 "with_watch_providers" to mapOf("kids_disney" to "337", "kids_netflix" to "8", "kids_prime" to "119").getValue(cat.id), "with_watch_monetization_types" to "flatrate",

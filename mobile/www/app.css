@@ -1639,8 +1639,7 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 
 /* Accueil : avatar, titre, recherche, réglages */
 .homebar { grid-template-columns: 44px 1fr 44px 44px; gap: 6px; }
-/* Page Kids */
-.kidspage .section-title .st { color: #ffd166; }
+/* Page Kids : mêmes titres que les autres pages (comme sur la télé) */
 
 /* Sources : bouton Signaler */
 .card.source { position: relative; }
