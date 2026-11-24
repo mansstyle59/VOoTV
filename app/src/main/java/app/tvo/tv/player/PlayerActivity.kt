@@ -70,6 +70,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.focusable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.focus.onFocusChanged
@@ -657,11 +661,11 @@ class PlayerActivity : ComponentActivity() {
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    CtlBtn(if (playing) PIcons.Pause else androidx.compose.material.icons.Icons.Filled.PlayArrow, if (playing) "Pause" else "Lecture", 58.dp, big = true, modifier = Modifier.focusRequester(playFr)) {
+                    CtlBtn(if (playing) PIcons.Pause else Icons.Filled.PlayArrow, if (playing) "Pause" else "Lecture", 58.dp, big = true, modifier = Modifier.focusRequester(playFr)) {
                         if (player.isPlaying) player.pause() else player.play(); playing = player.isPlaying; ctrlTick++ }
                     CtlBtn(PIcons.Subs, "Sous-titres") { openSubs() }
                     CtlBtn(PIcons.Audio, "Audio") { openAudio() }
-                    if (req.type == "series") CtlBtn(androidx.compose.material.icons.automirrored.filled.List, "Épisodes") { openEpisodes() }
+                    if (req.type == "series") CtlBtn(Icons.AutoMirrored.Filled.List, "Épisodes") { openEpisodes() }
                     CtlBtn(PIcons.More, "Plus") { openOptions() }
                     Spacer(Modifier.weight(1f))
                     Text("${fmtTime(pos)} / ${fmtTime(dur)}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
@@ -688,7 +692,7 @@ class PlayerActivity : ComponentActivity() {
                     detail?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, maxLines = 1, modifier = Modifier.padding(top = 2.dp)) }
                 }
                 badge?.let { Box(Modifier.clip(androidx.compose.foundation.shape.CircleShape).background(TvoColors.Blue).padding(horizontal = 9.dp, vertical = 3.dp)) { Text(it, fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold) } }
-                if (selected) androidx.tv.material3.Icon(androidx.compose.material.icons.Icons.Filled.Check, null, Modifier.size(24.dp).padding(start = 6.dp))
+                if (selected) androidx.tv.material3.Icon(Icons.Filled.Check, null, Modifier.size(24.dp).padding(start = 6.dp))
             }
         }
     }
