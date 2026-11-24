@@ -3806,7 +3806,7 @@ var qrcode = function() {
     const sec = document.createElement("section");
     sec.className = "section";
     sec.innerHTML = `<h2 class="section-title"><span class="st">${rowIcon(row.title)}${esc(row.title)}</span><a href="#/catalog/${enc(row.key)}">Voir tout →</a></h2>
-      <div class="row">${Array.from({ length: 4 }, () => '<div class="pcard"><span class="pimg skeleton"></span></div>').join("")}</div>`;
+      <div class="row">${Array.from({ length: 4 }, () => isLandRow(row.title) && !isDesk() ? '<div class="lcard"><span class="limg skeleton"></span></div>' : '<div class="pcard"><span class="pimg skeleton"></span></div>').join("")}</div>`;
     return sec;
   }
   function lazyRows(container, rows, onFirst) {

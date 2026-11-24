@@ -799,7 +799,7 @@ details.qgroup[open] .chev { transform: rotate(-135deg); }
 details.qgroup .list { padding: 0 10px 10px; }
 
 /* Fluidité : les rangées hors écran ne sont pas dessinées tant qu'on n'y arrive pas */
-#rows > .section { content-visibility: auto; contain-intrinsic-size: auto 300px; }
+#rows > .section { content-visibility: visible; }
 .row, .gtiles, .ptiles, .carousel { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
 
 /* ---------- Live TV : programme en direct et suggestions ---------- */
@@ -1660,3 +1660,8 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 /* Pas d'effets de zoom au toucher ni au survol sur les cartes, boutons et onglets */
 .card, .btn, .tab, .tab .ico, .dx img, .cslide { transition: none !important; }
 .card:active, .btn:active, .cslide:active { transform: none !important; }
+
+/* Rangées : hauteur exacte (plus de vides au-dessus/au-dessous des cartes), titres un peu plus compacts sur téléphone */
+#rows > .section { margin-top: 18px; }
+.section .row { padding-top: 2px; padding-bottom: 4px; }
+@media (max-width: 700px) { .section-title .st, .section-title .st.plain { font-size: 18px; } .section-title a { font-size: 13px; } }
