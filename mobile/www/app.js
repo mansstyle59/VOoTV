@@ -5225,8 +5225,6 @@ var qrcode = function() {
           <div class="nf-row">
             ${m.type === "series" ? `<button class="nf-opt" id="pNext" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4v16l11-8zM17 4h2v16h-2z"/></svg><span>Épisode suivant</span></button>` : ""}
             <button class="nf-opt" id="pSubs" aria-label="Sous-titres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17.5 10.2a2.2 2.2 0 1 0 0 3.6" stroke-linecap="round"/></svg><span>Audio et sous-titres</span></button>
-            <button class="nf-opt" id="pAudio" aria-label="Audio"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 2h8a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3zm4 3.2a2.1 2.1 0 1 0 0 4.2 2.1 2.1 0 0 0 0-4.2zm0 7.3a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z" fill-rule="evenodd"/></svg><span>Audio</span></button>
-            <button class="nf-opt" id="pSrc" aria-label="Changer de source"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M7 19a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.75 4.75 0 0 1-.5 9.5z"/></svg><span>Source</span></button>
             <button class="nf-opt" id="pSpeed" aria-label="Vitesse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 14l4-5"/><path d="M3.5 17a9 9 0 1 1 17 0"/></svg><span>Vitesse (x1)</span></button>
             <button class="nf-opt" id="pFit" aria-label="Ajuster l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Ajuster</span></button>
             <span class="nf-time" id="pTime">0:00</span>
@@ -5269,8 +5267,6 @@ var qrcode = function() {
     $("#pSpeed").addEventListener("click", (e) => { e.stopPropagation(); const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.querySelector("span").textContent = `Vitesse (x${speeds[i]})`; flash("Vitesse x" + speeds[i]); wake(); });
     $("#pFit").addEventListener("click", (e) => { e.stopPropagation(); const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.querySelector("span").textContent = cover ? "Remplir" : "Ajuster"; wake(); });
     $("#pLock").addEventListener("click", (e) => { e.stopPropagation(); const on = el.classList.toggle("locked"); flash(on ? "Commandes verrouillées" : "Commandes déverrouillées"); wake(); });
-    $("#pAudio").addEventListener("click", (e) => { e.stopPropagation(); $("#pSubs").click(); });
-    $("#pSrc").addEventListener("click", (e) => { e.stopPropagation(); const nxs = nextSource(s); if (nxs) { closePlayer(); playStream(m, nxs, ctx.videoId); } else toast("Aucune autre source"); });
     const nx = $("#pNext"); if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); playNext(ctx); });
     // Feuille audio + sous-titres : langues claires (français d'abord), taille, fond, décalage précis
     const subPref = LS.get("subpref", { size: 1, box: false });

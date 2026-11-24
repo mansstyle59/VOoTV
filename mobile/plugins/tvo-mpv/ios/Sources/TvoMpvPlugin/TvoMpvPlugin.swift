@@ -116,14 +116,17 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func setOrientation(_ call: CAPPluginCall) {
         let mode = call.getString("mode") ?? "auto"
         DispatchQueue.main.async { [weak self] in
-            let mask: UIInterfaceOrientationMask = mode == "landscape" ? .landscape : (mode == "portrait" ? .portrait : .allButUpsideDown)
+            let phone = UIDevice.current.userInterfaceIdiom == .phone
+            let mask: UIInterfaceOrientationMask = mode == "landscape" ? .landscape : (mode == "portrait" || phone ? .portrait : .allButUpsideDown)
+            // Masque global lu par AppDelegate : iOS ne repasse pas en portrait, même avec le verrou de rotation activé (comme Nuvio)
+            (UIApplication.shared.delegate as? NSObject)?.setValue(NSNumber(value: mask.rawValue), forKey: "tvoOrientMask")
             if #available(iOS 16.0, *) {
                 if let vc = self?.bridge?.viewController, let scene = vc.view.window?.windowScene {
                     vc.setNeedsUpdateOfSupportedInterfaceOrientations()
                     scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
                 }
-            } else if mode != "auto" {
-                let o: UIInterfaceOrientation = mode == "portrait" ? .portrait : .landscapeRight
+            } else {
+                let o: UIInterfaceOrientation = mode == "landscape" ? .landscapeRight : .portrait
                 UIDevice.current.setValue(o.rawValue, forKey: "orientation")
                 UIViewController.attemptRotationToDeviceOrientation()
             }

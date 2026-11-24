@@ -6,6 +6,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
+    /// Orientations autorisées, réglées par le lecteur (paysage pendant un film, portrait ailleurs sur iPhone).
+    @objc dynamic var tvoOrientMask: NSNumber = NSNumber(value: UIDevice.current.userInterfaceIdiom == .phone
+        ? UIInterfaceOrientationMask.portrait.rawValue : UIInterfaceOrientationMask.allButUpsideDown.rawValue)
+
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        UIInterfaceOrientationMask(rawValue: tvoOrientMask.uintValue)
+    }
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         return true
