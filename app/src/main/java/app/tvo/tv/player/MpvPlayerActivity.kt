@@ -269,6 +269,13 @@ class MpvPlayerActivity : ComponentActivity() {
                     req.subtitle?.let { Text(it, fontSize = 15.sp, color = TvoColors.Muted) }
                     Text("Lecteur MPV intégré", fontSize = 12.sp, color = TvoColors.Cyan)
                 }
+                // Heure actuelle et heure de fin, en haut à droite
+                Column(Modifier.align(Alignment.TopEnd).padding(top = 28.dp, end = 48.dp), horizontalAlignment = Alignment.End) {
+                    val now = System.currentTimeMillis() + 0 * position
+                    val fmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.FRANCE)
+                    Text(fmt.format(java.util.Date(now)), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    if (length > 0) Text("Fin à ${fmt.format(java.util.Date(now + ((length - position) / rate).toLong()))}", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Cyan)
+                }
                 Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 48.dp, vertical = 30.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (length > 0) {
                         Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0x55FFFFFF))) {

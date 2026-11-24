@@ -343,14 +343,21 @@ class PlayerActivity : ComponentActivity() {
                     Column {
                         Text(req.title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         req.subtitle?.let { Text(it, fontSize = 16.sp, color = TvoColors.Muted) }
-                        val remaining = (player.duration - player.currentPosition).takeIf { player.duration > 0 }
-                        if (remaining != null) {
-                            val end = SimpleDateFormat("HH:mm", Locale.FRANCE).format(Date(System.currentTimeMillis() + remaining))
-                            Text("Se termine à $end", fontSize = 14.sp, color = TvoColors.Cyan, modifier = Modifier.padding(top = 4.dp))
-                        }
                         Text("▲ Options (audio, sous-titres, format, vitesse)   ◀ ▶ reculer / avancer de 10 s", fontSize = 12.sp,
                             color = Color(0xB3FFFFFF), modifier = Modifier.padding(top = 6.dp))
                     }
+                }
+            }
+            // Heure actuelle et heure de fin (vitesse comprise), en haut à droite, mises à jour chaque seconde
+            AnimatedVisibility(controllerVisible && error == null, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopEnd)) {
+                var tick by remember { mutableStateOf(0L) }
+                LaunchedEffect(Unit) { while (true) { tick = System.currentTimeMillis(); delay(1000) } }
+                val fmt = remember { SimpleDateFormat("HH:mm", Locale.FRANCE) }
+                val now = if (tick > 0) tick else System.currentTimeMillis()
+                val remaining = (player.duration - player.currentPosition).takeIf { player.duration > 0 }?.let { (it / player.playbackParameters.speed).toLong() }
+                Column(Modifier.padding(top = 28.dp, end = 48.dp), horizontalAlignment = Alignment.End) {
+                    Text(fmt.format(Date(now)), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    if (remaining != null) Text("Fin à ${fmt.format(Date(now + remaining))}", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Cyan)
                 }
             }
             seekFlash?.let { f ->

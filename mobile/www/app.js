@@ -4991,6 +4991,7 @@ var qrcode = function() {
       <div class="nf" id="nf">
         <div class="nf-top"><button class="nf-ic" id="pClose" aria-label="Fermer">${ICON.back}</button>
           <div class="t"><b>${esc(m.name)}</b><span>${v && v.season != null ? `S${v.season} : É${v.episode} · ${esc(v.title)}` : esc(s.addonName)}</span></div>
+          <div class="pl-clock" id="pClock"><b id="pNow"></b><span id="pEnd"></span></div>
           ${document.pictureInPictureEnabled || isIOS ? `<button class="nf-ic" id="pPip" aria-label="Image dans l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>` : ""}</div>
         <div class="nf-mid">
           <button class="nf-big" id="pBack" aria-label="Reculer de 10 secondes">${R10(-1)}<i>10</i></button>
@@ -5028,6 +5029,15 @@ var qrcode = function() {
       if (isFinite(video.duration) && video.duration > 0) { seekEl.value = String(Math.round(video.currentTime / video.duration * 1000)); timeEl.textContent = fmt(video.currentTime) + " / " + fmt(video.duration); seekEl.style.setProperty("--p", (video.currentTime / video.duration * 100) + "%"); }
       else { timeEl.textContent = "● En direct"; seekEl.disabled = true; }
     });
+    // Heure actuelle et heure de fin (tient compte de la vitesse), en haut à droite, à la seconde près
+    const hm = (d) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    const tickClock = () => {
+      if (!$("#pNow")) return clearInterval(clockT);
+      const now = new Date(); $("#pNow").textContent = hm(now);
+      const rest = isFinite(video.duration) && video.duration > 0 ? (video.duration - video.currentTime) / (video.playbackRate || 1) : null;
+      $("#pEnd").textContent = rest != null ? "Fin à " + hm(new Date(now.getTime() + rest * 1000)) : "";
+    };
+    const clockT = setInterval(tickClock, 1000); tickClock();
     const speeds = [1, 1.25, 1.5, 2, 0.75];
     $("#pSpeed").addEventListener("click", (e) => { e.stopPropagation(); const i = (speeds.indexOf(video.playbackRate) + 1) % speeds.length; video.playbackRate = speeds[i]; e.currentTarget.querySelector("span").textContent = `Vitesse (x${speeds[i]})`; flash("Vitesse x" + speeds[i]); wake(); });
     $("#pFit").addEventListener("click", (e) => { e.stopPropagation(); const cover = video.style.objectFit !== "cover"; video.style.objectFit = cover ? "cover" : "contain"; e.currentTarget.querySelector("span").textContent = cover ? "Remplir" : "Ajuster"; wake(); });
