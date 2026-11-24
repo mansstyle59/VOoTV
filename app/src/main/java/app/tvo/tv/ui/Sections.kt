@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -113,18 +114,72 @@ val PLATFORMS = listOf(
     Triple("1899", "Max", 0xFF002BE7) to "/skypuy7SXuugIQeYg0IglmzoKaS.png",
 )
 
+/**
+ * Page « univers » commune aux plateformes et aux catégories : en-tête fixe (image, logo, titre),
+ * onglets Films / Séries qui changent dès qu'on bouge avec les flèches (pas besoin de cliquer), puis la grille.
+ */
+@Composable
+private fun UniversePage(
+    title: String, subtitle: String, logo: String?, bg: String?, brand: Color,
+    type: String, onType: (String) -> Unit, items: List<MetaPreview>, loading: Boolean, nav: Nav, onNearEnd: () -> Unit,
+) {
+    val tabFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(120); runCatching { tabFocus.requestFocus() } }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (bg != null) coil.compose.AsyncImage(bg, null, Modifier.align(Alignment.TopEnd).fillMaxWidth(0.7f).fillMaxHeight(0.62f),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.7f).fillMaxHeight(0.62f).background(
+            androidx.compose.ui.graphics.Brush.horizontalGradient(0f to Color.Black, 0.4f to Color.Black.copy(alpha = 0.5f), 1f to Color.Transparent)))
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Transparent, 0.6f to Color.Black)))
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(brand.copy(alpha = 0.35f), Color.Transparent),
+            center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1100f)))
+        Column(Modifier.fillMaxSize()) {
+            // En-tête fixe : jamais coupé, toujours visible
+            Row(Modifier.padding(start = 56.dp, top = 40.dp, end = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (logo != null) {
+                    coil.compose.AsyncImage(logo, title, Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)).background(Color.Black))
+                    Spacer(Modifier.width(20.dp))
+                }
+                Column {
+                    Text(title, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, lineHeight = 48.sp, maxLines = 1)
+                    Text(subtitle, fontSize = 17.sp, color = Color.White.copy(alpha = 0.82f), maxLines = 1)
+                }
+            }
+            Spacer(Modifier.weight(0.25f))
+            Row(Modifier.padding(start = 56.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                TvoButton("Films", { onType("movie") }, Modifier.focusRequester(tabFocus).onFocusChanged { if (it.isFocused) onType("movie") }, primary = type == "movie")
+                TvoButton("Séries", { onType("series") }, Modifier.onFocusChanged { if (it.isFocused) onType("series") }, primary = type == "series")
+                Text("◀ ▶  pour changer", Modifier.padding(start = 10.dp), fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
+            }
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                if (items.isEmpty()) Text(if (loading) "Chargement…" else "Aucun titre trouvé pour le moment.",
+                    Modifier.padding(start = 56.dp, top = 20.dp), fontSize = 17.sp, color = Color.White.copy(alpha = 0.7f))
+                else androidx.compose.runtime.key(type) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(136.dp),
+                        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 18.dp, bottom = 40.dp),
+                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(22.dp),
+                    ) {
+                        itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
+                            PosterCard(item, { nav.openMeta(item) }, Modifier, width = 136.dp, onFocus = { if (i >= items.size - 14) onNearEnd() })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ProviderGrid(id: String, nav: Nav) {
-    // Page « comme si j'étais sur Netflix » : image, logo et couleur de la plateforme, Films et Séries séparés
     val p = PLATFORMS.firstOrNull { it.first.first == id }
     val name = p?.first?.second ?: "Plateforme"
-    val brand = Color(p?.first?.third ?: 0xFF2F5BFF)
     var type by rememberSaveable { mutableStateOf("movie") }
     val items = remember { mutableStateListOf<MetaPreview>() }
     var loading by remember { mutableStateOf(false) }
     var end by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val tabFocus = remember { FocusRequester() }
     fun more() {
         if (loading || end) return
         loading = true
@@ -138,52 +193,8 @@ private fun ProviderGrid(id: String, nav: Nav) {
         }
     }
     LaunchedEffect(type) { items.clear(); end = false; loading = false; more() }
-    LaunchedEffect(Unit) { delay(120); runCatching { tabFocus.requestFocus() } }
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        PROV_BG[id]?.let {
-            coil.compose.AsyncImage(TMDB_IMG + "w1280" + it, null, Modifier.align(Alignment.TopEnd).fillMaxWidth(0.72f).fillMaxHeight(0.7f),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-        }
-        Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.72f).fillMaxHeight(0.7f).background(
-            androidx.compose.ui.graphics.Brush.horizontalGradient(0f to Color.Black, 0.45f to Color.Black.copy(alpha = 0.55f), 1f to Color.Transparent)))
-        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Transparent, 0.7f to Color.Black)))
-        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(brand.copy(alpha = 0.38f), Color.Transparent),
-            center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1100f)))
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(136.dp),
-            contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 40.dp, bottom = 40.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
-        ) {
-            item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.padding(bottom = 8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        p?.second?.let {
-                            coil.compose.AsyncImage(TMDB_IMG + "w300" + it, name, Modifier.size(84.dp).clip(RoundedCornerShape(20.dp)).background(Color.Black))
-                            Spacer(Modifier.width(20.dp))
-                        }
-                        Column {
-                            Text(name, fontSize = 46.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, lineHeight = 50.sp)
-                            Text("Films et séries disponibles sur $name en France", fontSize = 17.sp, color = Color.White.copy(alpha = 0.8f))
-                        }
-                    }
-                    Spacer(Modifier.height(150.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        TvoButton("Films", { type = "movie" }, Modifier.focusRequester(tabFocus), primary = type == "movie")
-                        TvoButton("Séries", { type = "series" }, primary = type == "series")
-                    }
-                    Text(if (type == "movie") "Films sur $name" else "Séries sur $name", Modifier.padding(top = 22.dp),
-                        fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
-            if (items.isEmpty()) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                Text(if (loading) "Chargement…" else "Aucun titre trouvé pour le moment.", fontSize = 17.sp, color = Color.White.copy(alpha = 0.7f))
-            }
-            itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
-                PosterCard(item, { nav.openMeta(item) }, Modifier, width = 136.dp, onFocus = { if (i >= items.size - 14) more() })
-            }
-        }
-    }
+    UniversePage(name, "Films et séries disponibles sur $name en France", p?.second?.let { TMDB_IMG + "w300" + it },
+        PROV_BG[id]?.let { TMDB_IMG + "w1280" + it }, Color(p?.first?.third ?: 0xFF2F5BFF), type, { type = it }, items, loading, nav) { more() }
 }
 
 @Composable
@@ -192,32 +203,31 @@ fun GenreScreen(type: String, genre: String, nav: Nav) {
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()
     val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, Tvo.store.currentProfile.value?.kids == true) }
+    var t by rememberSaveable { mutableStateOf(if (type == "series") "series" else "movie") }
     val items = remember { mutableStateListOf<MetaPreview>() }
     var loading by remember { mutableStateOf(false) }
     var end by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val src = remember(addons) {
-        addons.firstNotNullOfOrNull { a -> a.manifest.catalogs.firstOrNull { it.type == type && it.supports("genre") && it.onlyRequires("genre") }?.let { a to it } }
+    val src = remember(addons, t) {
+        addons.firstNotNullOfOrNull { a -> a.manifest.catalogs.firstOrNull { it.type == t && it.supports("genre") && it.onlyRequires("genre") }?.let { a to it } }
     }
     fun more() {
-        if (loading || end || src == null) return
+        val sc = src
+        if (loading || end || sc == null) return
         loading = true
         scope.launch {
-            val extra = buildMap { put("genre", genre); if (items.isNotEmpty() && src.second.supports("skip")) put("skip", items.size.toString()) }
-            val page = runCatching { Tvo.client.catalog(src.first, src.second, extra) }.getOrDefault(emptyList())
+            val extra = buildMap { put("genre", genre); if (items.isNotEmpty() && sc.second.supports("skip")) put("skip", items.size.toString()) }
+            val page = runCatching { Tvo.client.catalog(sc.first, sc.second, extra) }.getOrDefault(emptyList())
+            if (sc != src) return@launch
             val fresh = page.filter { p -> items.none { it.id == p.id } }
-            if (fresh.isEmpty() || !src.second.supports("skip")) end = true
+            if (fresh.isEmpty() || !sc.second.supports("skip")) end = true
             items.addAll(fresh); loading = false
         }
     }
-    LaunchedEffect(src) { more() }
-    Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
-        when {
-            src == null -> CenterMessage("Catégorie indisponible", "Aucun add-on ne propose de tri par genre.")
-            items.isEmpty() && loading -> CenterMessage("Chargement…")
-            else -> PosterGrid("${genreLabel(genre)} · ${typeLabel(type)}", items, nav, onNearEnd = { more() })
-        }
-    }
+    LaunchedEffect(src) { items.clear(); end = false; loading = false; more() }
+    val label = genreLabel(genre)
+    UniversePage(label, "Les meilleurs films et séries « ${label.lowercase()} »", null,
+        GENRE_IMG[genre]?.let { TMDB_IMG + "w1280" + it }, Color(0xFF2F5BFF), t, { t = it }, items, loading, nav) { more() }
 }
 
 // ---------------------------------------------------------------- Recherche

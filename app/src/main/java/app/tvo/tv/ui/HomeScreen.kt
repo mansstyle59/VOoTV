@@ -474,7 +474,7 @@ private fun CatalogRow(row: RowSource, nav: Nav) {
 }
 
 /** Images des catégories (photos TMDB, visibles même sans clé). */
-private val GENRE_IMG = mapOf(
+internal val GENRE_IMG = mapOf(
     "Action" to "/cKvDv2LpwVEqbdXWoQl4XgGN6le.jpg",
     "Adventure" to "/c7btGYblBnfAaw713WvFM0Kimc7.jpg",
     "Comedy" to "/sMmG82PtjK8A9rVc34gwKQtCm3A.jpg",
