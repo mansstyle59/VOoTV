@@ -1150,18 +1150,13 @@ html.glass {
   --g-edge-top: rgba(255,255,255,.30);
   --g-shine: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.22);
   --g-shadow: 0 10px 30px rgba(2,6,23,.35);
-  --surface: #17234a; --panel: #121b3a;
+  --bg: #141414; --surface: #2b2b2b; --panel: #181818;
 }
 /* Fond « aurore » fixe (fonctionne aussi sur iPhone, contrairement à background-attachment: fixed) */
 html.glass body { background: var(--bg); }
 html.glass body::before {
-  content: ""; position: fixed; inset: -10vmax; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(38vmax 30vmax at 12% 8%, rgba(52,228,216,.20), transparent 70%),
-    radial-gradient(42vmax 34vmax at 92% 18%, rgba(61,124,255,.30), transparent 70%),
-    radial-gradient(46vmax 36vmax at 70% 96%, rgba(42,79,230,.22), transparent 70%),
-    radial-gradient(30vmax 26vmax at 6% 78%, rgba(120,90,255,.14), transparent 70%),
-    var(--bg);
+  /* Fond noir uni comme sur Netflix (télé) : plus de halos bleus */
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: var(--bg);
 }
 html.glass .header, html.glass .header.topbar { background: var(--bg); }
 html.glass .header.topbar:not(.scrolled), html.glass .header.homebar:not(.scrolled) { background: transparent; }

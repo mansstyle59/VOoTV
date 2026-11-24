@@ -67,7 +67,7 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
         return
     }
 
-    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1A1530), TvoColors.Bg), radius = 1400f))) {
+    Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1F1F1F), TvoColors.Bg), radius = 1400f))) {
         Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.padding(start = 48.dp, top = 32.dp).height(40.dp))
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (manage) "Gérer les profils" else "Qui regarde ?", fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)

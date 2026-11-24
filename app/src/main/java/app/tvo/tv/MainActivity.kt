@@ -237,7 +237,7 @@ private fun AccountGate(onOk: () -> Unit) {
         req = app.tvo.tv.data.Sync.loginStart()
     }
     val fr = remember { FocusRequester() }
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF17357F), TvoColors.Bg), radius = 1300f)),
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF1F1F1F), TvoColors.Bg), radius = 1300f)),
         contentAlignment = androidx.compose.ui.Alignment.Center) {
         Row(horizontalArrangement = Arrangement.spacedBy(56.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Column(Modifier.width(560.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -329,7 +329,7 @@ private fun SplashScreen(onDone: () -> Unit) {
         onDone()
     }
     androidx.compose.foundation.layout.Box(
-        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF17357F), TvoColors.Bg), radius = 1100f)),
+        Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0xFF1F1F1F), TvoColors.Bg), radius = 1100f)),
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(22.dp)) {

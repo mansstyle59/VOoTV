@@ -639,7 +639,7 @@ private fun PlatformTiles(nav: Nav) {
                 ) {
                     // Carte de marque : dégradé de la couleur de la plateforme, grand logo officiel, nom
                     val bc = Color(color)
-                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to bc, 1f to bc.copy(alpha = 0.55f).compositeOver(Color(0xFF0A0F1E))))) {
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to bc, 1f to bc.copy(alpha = 0.55f).compositeOver(Color(0xFF141414))))) {
                         (fresh[id] ?: PROV_BG[id])?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.45f) }
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color(0x99000000))))
                         Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {

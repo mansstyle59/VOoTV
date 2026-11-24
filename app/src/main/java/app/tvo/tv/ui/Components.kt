@@ -192,7 +192,7 @@ fun LoadingRow(title: String) {
 /** Fond coloré commun aux pages (plus de navy plat) : teinte d'accent en haut à gauche, lueur opposée en bas à droite. */
 fun tvoBrush(accent: Color, accent2: Color = Color(0xFF0EA5E9)): androidx.compose.ui.graphics.Brush =
     androidx.compose.ui.graphics.Brush.linearGradient(
-        colors = listOf(accent.copy(alpha = 0.5f), Color(0xFF0A0F1E), accent2.copy(alpha = 0.32f)),
+        colors = listOf(accent.copy(alpha = 0.5f), Color(0xFF141414), accent2.copy(alpha = 0.32f)),
         start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(1600f, 1000f))
 
 @Composable
@@ -323,7 +323,7 @@ private fun Key(label: String, onClick: () -> Unit, modifier: Modifier = Modifie
             containerColor = TvoColors.Surface2, contentColor = TvoColors.Text,
             focusedContainerColor = Color.White, focusedContentColor = Color.Black,
         ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
             Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -477,7 +477,7 @@ fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onFocus: () -> Unit = {}, onClick: (
         shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1E2A4F), focusedContainerColor = Color(0xFF1E2A4F)),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF333333), focusedContainerColor = Color(0xFF333333)),
     ) {
         Box(Modifier.fillMaxSize()) {
             (sg.backdrop ?: sg.poster)?.let { AsyncImage(it.replace("/w1280/", "/w500/"), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }

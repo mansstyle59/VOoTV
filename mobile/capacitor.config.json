@@ -2,11 +2,11 @@
   "appId": "app.tvo.mobile",
   "appName": "TVO",
   "webDir": "www",
-  "backgroundColor": "#0B0B12",
+  "backgroundColor": "#141414",
   "plugins": {
     "CapacitorHttp": { "enabled": true }
   },
   "android": { "allowMixedContent": true },
-  "ios": { "contentInset": "never", "backgroundColor": "#0B0B12" },
+  "ios": { "contentInset": "never", "backgroundColor": "#141414" },
   "server": { "androidScheme": "https", "cleartext": true }
 }
