@@ -206,7 +206,7 @@ class PlayerActivity : ComponentActivity() {
                 when {
                     options -> closeOptions()
                     nextUp != null -> { nextUp = null; nextDismissed = true; playerView.requestFocus() }
-                    else -> { saveProgress(); finish() }
+                    else -> { saveProgress(); app.tvo.tv.data.Sync.syncInBackground(); finish() }
                 }
             }
         })
@@ -582,6 +582,7 @@ class PlayerActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         saveProgress()
+        app.tvo.tv.data.Sync.syncInBackground()
         player.pause()
         app.tvo.tv.data.Sync.syncInBackground()
     }

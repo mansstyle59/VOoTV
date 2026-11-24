@@ -2424,6 +2424,7 @@ var qrcode = function() {
     if (p.limit && usedToday(p.id) >= p.limit) return `Temps d'écran atteint pour aujourd'hui (${fmtMin(p.limit)}).`;
     return null;
   }
+  const fmtClock = (t) => { t = Math.max(0, Math.floor(t || 0)); const h = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return (h ? h + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0"); };
   const fmtMin = (m) => (m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? " " + String(Math.round(m % 60)).padStart(2, "0") : ""}` : `${Math.round(m)} min`);
   function profileStatus(p) {
     if (isAdmin(p)) return ["Profil principal", "admin"];
@@ -2450,7 +2451,8 @@ var qrcode = function() {
   const saveLib = () => { if (S.profile) { LS.set("lib." + S.profile.id, S.lib); changed(); } };
   const saveProg = () => { if (S.profile) { LS.set("prog." + S.profile.id, S.prog); changed(); } };
   let syncTimer = null;
-  function changed() { clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 15000); }
+  // Synchro au plus toutes les 10 s, même pendant la lecture (la position arrive vite sur les autres appareils)
+  function changed() { if (syncTimer) return; syncTimer = setTimeout(() => { syncTimer = null; syncNow(); }, 10000); }
   const inLib = (id) => S.lib.some((x) => x.id === id);
   function toggleLib(m) {
     const del = LS.get("libdel." + S.profile.id, {});
@@ -3797,6 +3799,8 @@ var qrcode = function() {
   function screenBrowse(type) {
     setTabs(type === "movie" ? "movies" : type === "series" ? "series" : "home");
     const p = S.profile;
+    // Récupère la position exacte venant de la télé / des autres appareils (au plus toutes les 20 s)
+    if (!type && Date.now() - (window.__homePull || 0) > 20000) { window.__homePull = Date.now(); syncNow().then((ch) => { if (ch && $("#player").hidden && /^#\/(home)?$/.test(location.hash || "#/")) route(); }); }
     app.innerHTML = (type ? topBar(typeLabel(type)) : `<header class="header homebar">
         <button data-go="#/profiles" aria-label="Changer de profil">${avatar(p, "sm")}</button>
         <h1>Tendances pour toi</h1>
@@ -3812,7 +3816,7 @@ var qrcode = function() {
         <button class="ccard" data-resume="${esc(x.type)}|${esc(x.metaId)}|${esc(x.videoId)}" data-menu="cont|${esc(x.videoId)}">
           <span class="cimg">${x.background || x.poster ? `<img src="${esc(x.background || x.poster)}" alt="" loading="lazy">` : ""}</span><span class="cshade"></span>
           <span class="cplay">${ICON.play}</span>
-          <span class="cinfo"><b>${esc(x.name)}</b><span>${x.season != null ? `S${x.season} · É${x.episode}${x.episodeTitle ? " · " + esc(x.episodeTitle) : ""}` : `Il reste ${fmtMin(Math.max(1, (x.duration - x.position) / 60000))}`}</span></span>
+          <span class="cinfo"><b>${esc(x.name)}</b><span>${x.season != null ? `S${x.season} · É${x.episode} · ` : ""}Reprendre à ${fmtClock(x.position / 1000)} · reste ${fmtMin(Math.max(1, (x.duration - x.position) / 60000))}</span></span>
           <span class="cbar"><i style="width:${Math.round(fraction(x) * 100)}%"></i></span>
         </button>`).join("")}</div>`;
       sec.querySelectorAll("[data-resume]").forEach((b) => b.addEventListener("click", () => {
@@ -4081,11 +4085,27 @@ var qrcode = function() {
       PROV_LOGOS = { t: Date.now(), m }; LS.set("provlogos", PROV_LOGOS); return m;
     } catch { return {}; }
   }
+  /** Image de fond de chaque plateforme (une série populaire chez elle), visible même sans clé. */
+  const PROV_BG = {"8": "/dg3OindVAGZBjlT3xYKqIAdukPL.jpg", "119": "/mo9bfYdewzmHxnaeURB2jRPvGuX.jpg", "337": "/jbTqU6BJMufoMnPSlO4ThrcXs3Y.jpg", "381": "/AdlDrgoNCDu3naYjZMwmiklBHnV.jpg", "350": "/gPQppUnLx9vqPDLz3WwZ2HJsNbt.jpg", "531": "/tUtXfyVy54BY7eJnRtI8Xnmr1ZL.jpg", "1899": "/aQTtua5pG490fMfeKgtYg5B853e.jpg"};
+  let PROV_IMG = LS.get("provimg", { t: 0, m: {} });
   function provTile(id, n, c) {
     const logo = (PROV_LOGOS && PROV_LOGOS.m[id]) || (PROV_DEF[id] ? "https://image.tmdb.org/t/p/w154" + PROV_DEF[id] : null);
-    return `<a class="prov ptile" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}"><span class="plogo">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : esc(n.slice(0, 1))}</span><b>${esc(n)}</b></a>`;
+    const bg = PROV_IMG.m[id] || (PROV_BG[id] ? "https://image.tmdb.org/t/p/w500" + PROV_BG[id] : null);
+    return `<a class="prov ptile rich" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}">${bg ? `<img class="pbg" src="${esc(bg)}" alt="" loading="lazy">` : ""}<span class="pshade"></span>
+      <span class="plogo">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : esc(n.slice(0, 1))}</span><span class="ptx"><b>${esc(n)}</b><small>Films et séries</small></span></a>`;
+  }
+  /** Met à jour l'image de fond avec la série la plus populaire du moment (une fois par semaine). */
+  async function fillProvImages() {
+    if (!tmdbOn() || Date.now() - PROV_IMG.t < 7 * 864e5) return;
+    const m = {};
+    for (const [id] of PROVIDERS) {
+      try { const d = await tget("/discover/tv", { watch_region: "FR", with_watch_providers: id, with_watch_monetization_types: "flatrate", sort_by: "popularity.desc" });
+        const r = (d.results || []).find((x) => x.backdrop_path); if (r) m[id] = timg(r.backdrop_path, "w500"); } catch { /* */ }
+    }
+    if (Object.keys(m).length) { PROV_IMG = { t: Date.now(), m }; LS.set("provimg", PROV_IMG); }
   }
   function refreshProvTiles() {
+    fillProvImages();
     if (PROV_LOGOS && Object.keys(PROV_LOGOS.m).length) return;
     provLogos().then(() => document.querySelectorAll(".prov.ptile").forEach((a) => { const id = a.getAttribute("href").split("/").pop(); const p = PROVIDERS.find((x) => x[0] === id); if (p) a.outerHTML = provTile(...p); }));
   }

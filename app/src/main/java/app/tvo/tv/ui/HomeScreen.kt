@@ -338,6 +338,7 @@ fun buildRows(addons: List<Addon>, type: String?): List<RowSource> {
 @Composable
 fun BrowseSection(type: String?, nav: Nav) {
     val store = Tvo.store
+    LaunchedEffect(Unit) { app.tvo.tv.data.Sync.syncInBackground() } // récupère la position exacte venant des autres appareils
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val rawAddons by store.addons.collectAsState()
@@ -365,7 +366,7 @@ fun BrowseSection(type: String?, nav: Nav) {
                         WideCard(
                             image = p.background ?: p.poster,
                             title = p.name,
-                            subtitle = if (p.season != null) "S${p.season} : É${p.episode} · ${p.episodeTitle ?: ""}" else "Il reste ${((p.duration - p.position) / 60000).coerceAtLeast(1)} min",
+                            subtitle = (if (p.season != null) "S${p.season} : É${p.episode} · " else "") + "Reprendre à ${fmtTime(p.position)} · reste ${((p.duration - p.position) / 60000).coerceAtLeast(1)} min",
                             progress = p.fraction,
                             onClick = { resumeFast(ctx, scope, nav, p.type, p.metaId, p.videoId) },
                             onLongClick = { store.removeFromContinue(p.metaId) },
@@ -442,6 +443,16 @@ private val GENRE_IMG = mapOf(
     "Documentary" to "/dUbP1HNdI0aCq1zgRJw28PWSqmk.jpg",
 )
 private const val TMDB_IMG = "https://image.tmdb.org/t/p/"
+/** Image de fond de chaque plateforme (série populaire chez elle). */
+private val PROV_BG = mapOf(
+    "8" to "/dg3OindVAGZBjlT3xYKqIAdukPL.jpg",
+    "119" to "/mo9bfYdewzmHxnaeURB2jRPvGuX.jpg",
+    "337" to "/jbTqU6BJMufoMnPSlO4ThrcXs3Y.jpg",
+    "381" to "/AdlDrgoNCDu3naYjZMwmiklBHnV.jpg",
+    "350" to "/gPQppUnLx9vqPDLz3WwZ2HJsNbt.jpg",
+    "531" to "/tUtXfyVy54BY7eJnRtI8Xnmr1ZL.jpg",
+    "1899" to "/aQTtua5pG490fMfeKgtYg5B853e.jpg",
+)
 
 @Composable
 private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
@@ -477,16 +488,25 @@ private fun PlatformTiles(nav: Nav) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("all", "prov:$id") },
-                    modifier = Modifier.width(220.dp).height(124.dp),
+                    modifier = Modifier.width(250.dp).height(124.dp),
                     shape = ClickableSurfaceDefaults.shape(shape),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color(color), focusedContainerColor = Color(color)),
                 ) {
-                    // Logo officiel en grand au centre, sur la couleur de la plateforme, reflet léger en haut
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(color), Color(0xFF0A0F1E)))), contentAlignment = Alignment.Center) {
-                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x2EFFFFFF), 0.5f to Color.Transparent)))
-                        AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(78.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
+                    // Image d'une série populaire de la plateforme, teinte de la marque, logo officiel et nom
+                    Box(Modifier.fillMaxSize().background(Color(color))) {
+                        PROV_BG[id]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.8f) }
+                        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(color), 0.5f to Color(color).copy(alpha = 0.55f), 1f to Color(0x22000000))))
+                        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.5f to Color.Transparent, 1f to Color(0x88000000))))
+                        Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(58.dp).clip(RoundedCornerShape(14.dp)), contentScale = ContentScale.Crop)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(name, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("Films et séries", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xDDFFFFFF))
+                            }
+                        }
                     }
                 }
             }
@@ -622,3 +642,8 @@ private fun LiveSuggestions() {
         msg?.let { Text(it, Modifier.padding(start = 48.dp), fontSize = 14.sp, color = TvoColors.Cyan) }
     }
 }
+
+
+/** 4213000 ms → « 1:10:13 », 133000 → « 2:13 ». */
+fun fmtTime(ms: Long): String { val t = ms / 1000; val h = t / 3600; val m = (t % 3600) / 60; val sec = t % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%d:%02d".format(m, sec) }

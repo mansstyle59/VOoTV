@@ -36,7 +36,7 @@ object Sync {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
-    private val requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val requests = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     val status = MutableStateFlow("")
     private var started = false
 
@@ -45,7 +45,8 @@ object Sync {
         if (started) return
         started = true
         Tvo.store.onChange = { requests.tryEmit(Unit) }
-        scope.launch { requests.debounce(15_000).collect { syncNow() } }
+        // Au plus une synchro toutes les 10 s, même pendant la lecture (position envoyée en continu)
+        scope.launch { requests.collect { kotlinx.coroutines.delay(3_000); syncNow(); kotlinx.coroutines.delay(7_000) } }
         scope.launch { syncNow() }
     }
 

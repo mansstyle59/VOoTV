@@ -1298,3 +1298,40 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .pl-seg button.on { background: var(--blue, #3d7cff); border-color: transparent; }
 .pl-shift { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .pl-shift b { min-width: 64px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* ---------- Accueil mobile : en-tête totalement transparent sur le carrousel ---------- */
+@media (max-width: 1023px) {
+  /* Le carrousel remonte sous l'en-tête et sous l'heure : on voit l'image floutée derrière */
+  #app.is-home .header.homebar { position: sticky; background: transparent !important; border-bottom: 0; z-index: 30; }
+  #app.is-home #hero .car-wrap { margin-top: calc(-1 * (var(--header-h) + var(--safe-top) + 8px)); padding-top: calc(var(--header-h) + var(--safe-top) + 8px); }
+  #app.is-home .car-bg { inset: 0 -40px 30%; }
+  #app.is-home .car-bg img { opacity: .7; }
+  #app.is-home .car-bg::after { background: linear-gradient(180deg, rgba(10,15,30,.25) 0%, rgba(10,15,30,.1) 30%, var(--bg) 94%); }
+  /* En défilant : léger voile dégradé (pas de flou, texte toujours net) au lieu d'un bandeau opaque */
+  body.scrolled-bg #app.is-home .header.homebar { background: linear-gradient(180deg, rgba(10,15,30,.92) 0%, rgba(10,15,30,.72) 70%, rgba(10,15,30,0) 100%) !important; }
+  body:has(#app.is-home)::after { background: transparent; }
+  body.scrolled-bg:has(#app.is-home)::after { background: rgba(10,15,30,.92); }
+  #app.is-home .homebar h1 { text-shadow: 0 1px 12px rgba(0,0,0,.45); }
+  #app.is-home .homebar .icon-btn { background: rgba(255,255,255,.12) !important; border: 1px solid rgba(255,255,255,.22); }
+}
+/* Un peu de transparence partout, avec mesure */
+html.glass .tabs { background: linear-gradient(180deg, rgba(40,62,130,.5), rgba(14,22,52,.66)); }
+html.glass .card, html.glass .sect-group, html.glass .acc-group { background: linear-gradient(160deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.035) 55%, rgba(255,255,255,.025) 100%); }
+
+/* Plateformes enrichies : image d'une série populaire, teinte de la marque, logo officiel */
+.prov.ptile.rich { position: relative; overflow: hidden; isolation: isolate; background: var(--c); }
+.ptile.rich .pbg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; opacity: .75; }
+.ptile.rich .pshade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 92%, #000) 0%, color-mix(in srgb, var(--c) 55%, transparent) 55%, rgba(0,0,0,.15) 100%), linear-gradient(0deg, rgba(0,0,0,.35), transparent 60%); }
+.ptile.rich .plogo { box-shadow: 0 4px 14px rgba(0,0,0,.4); background: #000; }
+.ptile.rich .ptx { display: grid; gap: 1px; min-width: 0; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+.ptile.rich .ptx small { font-size: 11.5px; font-weight: 600; opacity: .85; }
+
+/* ---------- Haut de l'appli totalement transparent, partout (cohérent sur toutes les pages) ----------
+   Les images passent sous l'heure et la batterie ; les boutons et textes restent sous la zone de sécurité.
+   En défilant, un léger dégradé (sans flou) garde l'heure lisible. */
+body::after { background: transparent !important; height: calc(var(--safe-top) + 14px); transition: background .2s; }
+body.scrolled-bg::after { background: linear-gradient(180deg, rgba(10,15,30,.9) 0%, rgba(10,15,30,.6) 70%, rgba(10,15,30,0) 100%) !important; }
+.header, html.glass .header, html.glass .header.topbar, .header.topbar { background: transparent !important; border-bottom-color: transparent !important; }
+.header.scrolled, html.glass .header.scrolled, body.scrolled-bg .header.topbar, html.glass .header.topbar.scrolled {
+  background: linear-gradient(180deg, rgba(10,15,30,.94) 0%, rgba(10,15,30,.8) 65%, rgba(10,15,30,0) 100%) !important; }
+.car-bg { -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%); mask-image: linear-gradient(180deg, #000 70%, transparent 100%); }
