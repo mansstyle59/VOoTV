@@ -22,7 +22,6 @@ final class TvoMpvView: UIView {
         metalLayer.framebufferOnly = true
         metalLayer.backgroundColor = UIColor.black.cgColor
         metalLayer.contentsGravity = .resize
-        metalLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
         autoresizesSubviews = true
         layer.addSublayer(metalLayer)
     }
