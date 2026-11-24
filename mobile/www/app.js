@@ -178,6 +178,10 @@
   const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
   const myAddons = () => { const off = (S.profile && S.profile.off) || []; return S.addons.filter((a) => !off.includes(a.manifest.id)); };
   function catalogAddons() {
+    if (S.profile && S.profile.kids) {
+      // Profil enfant : seulement les catalogues jeunesse
+      return [{ ...TMDB.addon, manifest: { ...TMDB.addon.manifest, catalogs: TMDB.addon.manifest.catalogs.filter((c) => c.id === "kids") } }];
+    }
     if (!tmdbOn()) return myAddons();
     return [TMDB.addon, ...myAddons().map((a) => (a.manifest.id === "com.linvo.cinemeta" ? { ...a, manifest: { ...a.manifest, catalogs: [] } } : a))];
   }
@@ -702,7 +706,7 @@
 
   function exportDoc() {
     const profiles = {};
-    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0, ...(p.off && p.off.length ? { off: p.off } : {}), ...(p.admin ? { admin: true } : {}) }));
+    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0, ...(p.off && p.off.length ? { off: p.off } : {}), ...(p.admin ? { admin: true } : {}), ...(p.kids ? { kids: true } : {}), ...(p.pin ? { pin: p.pin } : {}), ...(p.icon ? { icon: p.icon } : {}) }));
     Object.entries(LS.get("profdel", {})).forEach(([id, t]) => { if (!profiles[id]) profiles[id] = { id, name: "", color: "#8B5CF6", t, del: true }; });
     const lib = {}, prog = {};
     S.profiles.forEach((p) => {
@@ -781,7 +785,30 @@
     clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), ms);
   }
   const go = (hash) => { location.hash = hash; };
-  const avatar = (p, cls = "") => `<div class="avatar ${cls}" style="background:linear-gradient(135deg, ${p.color}, ${p.color}99)">${esc((p.name || "?").slice(0, 1).toUpperCase())}</div>`;
+  const AVATAR_ICONS = ["", "🦊", "🐼", "🐯", "🦁", "🐸", "🐙", "🦄", "🐶", "🐱", "🚀", "⭐", "🎮", "⚽", "🎧", "🍿"];
+  const avatar = (p, cls = "") => `<div class="avatar ${cls} ${p.icon ? "emoji" : ""}" style="background:linear-gradient(135deg, ${p.color}, ${p.color}99)">${p.icon ? esc(p.icon) : esc((p.name || "?").slice(0, 1).toUpperCase())}</div>`;
+  async function pinHash(pin) {
+    try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("tvo-pin:" + pin)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
+    catch { let h = 0; for (const ch of "tvo-pin:" + pin) h = (h * 31 + ch.charCodeAt(0)) | 0; return "j" + (h >>> 0).toString(16); }
+  }
+  /** Code PIN à 4 chiffres : fenêtre de saisie ; renvoie le code ou null. */
+  function askPin(title) {
+    return new Promise((done) => {
+      const box = document.createElement("div"); box.className = "pin-sheet";
+      box.innerHTML = `<div class="pin-card"><b>${esc(title)}</b><div class="pin-dots"><i></i><i></i><i></i><i></i></div>
+        <div class="pin-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((k) => `<button ${k === "" ? "disabled" : ""} data-k="${k}">${k}</button>`).join("")}</div>
+        <button class="btn block" data-x>Annuler</button></div>`;
+      document.body.appendChild(box); let v = "";
+      const dots = () => box.querySelectorAll(".pin-dots i").forEach((d, i) => d.classList.toggle("on", i < v.length));
+      const close = (r) => { box.remove(); done(r); };
+      box.addEventListener("click", (e) => {
+        if (e.target === box || e.target.closest("[data-x]")) return close(null);
+        const k = e.target.closest("[data-k]"); if (!k) return;
+        if (k.dataset.k === "⌫") v = v.slice(0, -1); else if (v.length < 4) v += k.dataset.k;
+        dots(); if (v.length === 4) setTimeout(() => close(v), 120);
+      });
+    });
+  }
   const posterHTML = (m) => `<button class="poster" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
       <span class="fallback">${esc(m.name)}</span>${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</button>`;
   const landHTML = (m) => `<button class="land ${m.type === "tv" || m.type === "channel" ? "channel" : ""}" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
@@ -900,15 +927,25 @@
       app.innerHTML = `<div class="profiles-screen">${LOGO}
         <h1>${manage ? "Gérer les profils" : "Qui regarde ?"}</h1>
         <div class="profiles">
-          ${S.profiles.map((p) => `<button class="profile" data-p="${esc(p.id)}">${avatar(p).replace("</div>", manage ? `<span class="edit">${ICON.edit}</span></div>` : "</div>")}<span>${esc(p.name)}</span></button>`).join("")}
+          ${S.profiles.map((p) => `<button class="profile" data-p="${esc(p.id)}">${avatar(p).replace(/<\/div>$/, (manage ? `<span class="edit">${ICON.edit}</span>` : "") + (p.pin && !manage ? '<span class="pbadge">🔒</span>' : "") + "</div>")}<span>${esc(p.name)}</span>
+            ${isAdmin(p) ? '<small class="prole">Administrateur</small>' : p.kids ? '<small class="prole kid">Enfant</small>' : ""}</button>`).join("")}
           ${S.profiles.length < 6 ? `<button class="profile" data-new><div class="avatar add-avatar">${ICON.plus}</div><span>Ajouter</span></button>` : ""}
         </div>
         <div style="margin-top:36px"><button class="btn" id="manage">${manage ? ICON.check + " Terminé" : ICON.edit + " Gérer les profils"}</button></div>
       </div>`;
       app.querySelectorAll("[data-p]").forEach((b) => b.addEventListener("click", () => {
         const p = S.profiles.find((x) => x.id === b.dataset.p);
-        if (manage) return go("#/profile/" + enc(p.id));
-        selectProfile(p); go("#/home");
+        if (manage) {
+          // Seul l'administrateur modifie les autres profils (et chaque profil se modifie lui-même, avec son code)
+          return (async () => {
+            if (p.pin && !(S.profile && isAdmin(S.profile) && S.profile.id !== p.id)) { const c = await askPin(`Code de ${p.name}`); if (c === null) return; if (await pinHash(c) !== p.pin) return toast("Code incorrect"); }
+            go("#/profile/" + enc(p.id));
+          })();
+        }
+        (async () => {
+          if (p.pin) { const c = await askPin(`Code de ${p.name}`); if (c === null) return; if (await pinHash(c) !== p.pin) return toast("Code incorrect"); }
+          selectProfile(p); go("#/home");
+        })();
       }));
       const n = app.querySelector("[data-new]"); if (n) n.addEventListener("click", () => go("#/profile/new"));
       $("#manage").addEventListener("click", () => { manage = !manage; draw(); });
@@ -920,26 +957,47 @@
     setTabs(null);
     const existing = S.profiles.find((p) => p.id === id);
     let color = existing ? existing.color : COLORS[S.profiles.length % COLORS.length];
+    let icon = existing ? existing.icon || "" : "";
+    let kids = !!(existing && existing.kids), pin = existing ? existing.pin || null : null;
+    const admin = !!(existing && isAdmin(existing));
+    const canAdmin = !S.profiles.length || (S.profile && isAdmin(S.profile));
     app.innerHTML = `<div class="profiles-screen">
       <h1>${existing ? "Modifier le profil" : "Nouveau profil"}</h1>
-      <div id="av" style="width:120px">${avatar({ name: existing ? existing.name : "?", color })}</div>
+      <div id="av" style="width:120px">${avatar({ name: existing ? existing.name : "?", color, icon })}</div>
       <div style="width:100%;max-width:360px;margin-top:24px;display:grid;gap:18px">
         <input class="field" id="name" maxlength="16" placeholder="Prénom" value="${esc(existing ? existing.name : "")}" autocomplete="off">
         <div class="swatches">${COLORS.map((c) => `<button class="swatch ${c === color ? "on" : ""}" data-c="${c}" style="background:${c}" aria-label="Couleur"></button>`).join("")}</div>
+        <div class="icons">${AVATAR_ICONS.map((ic) => `<button class="iconpick ${ic === icon ? "on" : ""}" data-ic="${ic}" aria-label="Avatar">${ic || esc((existing ? existing.name : "A").slice(0, 1).toUpperCase())}</button>`).join("")}</div>
+        <div class="card popt"><label class="sw"><span><b>Profil enfant</b><small>Uniquement films et dessins animés pour enfants</small></span><input type="checkbox" id="kids" ${kids ? "checked" : ""}><i></i></label>
+          <label class="sw"><span><b>Code PIN</b><small>${pin ? "Code actif. Décoche pour le retirer." : "Protège ce profil par un code à 4 chiffres"}</small></span><input type="checkbox" id="pinOn" ${pin ? "checked" : ""}><i></i></label>
+          ${canAdmin ? `<label class="sw"><span><b>Administrateur</b><small>Gère les add-ons et les accès de chaque profil</small></span><input type="checkbox" id="adm" ${admin ? "checked" : ""}><i></i></label>` : ""}</div>
         <button class="btn primary block" id="save">${ICON.check} Enregistrer</button>
         ${existing ? `<button class="btn danger block" id="del">${ICON.trash} Supprimer ce profil</button>` : ""}
         ${S.profiles.length ? `<button class="btn block" id="cancel">Annuler</button>` : ""}
       </div></div>`;
     const name = $("#name");
-    const redraw = () => ($("#av").innerHTML = avatar({ name: name.value || "?", color }));
+    const redraw = () => ($("#av").innerHTML = avatar({ name: name.value || "?", color, icon }));
+    app.querySelectorAll("[data-ic]").forEach((b) => b.addEventListener("click", () => {
+      icon = b.dataset.ic; app.querySelectorAll("[data-ic]").forEach((x) => x.classList.toggle("on", x === b)); redraw();
+    }));
+    $("#kids").addEventListener("change", (e) => (kids = e.target.checked));
+    $("#pinOn").addEventListener("change", async (e) => {
+      if (!e.target.checked) { pin = null; return; }
+      const a = await askPin("Choisis un code"); if (a === null) { e.target.checked = !!pin; return; }
+      const b = await askPin("Confirme le code"); if (a !== b) { e.target.checked = !!pin; return toast("Les codes ne correspondent pas"); }
+      pin = await pinHash(a); toast("Code enregistré");
+    });
     name.addEventListener("input", redraw);
     app.querySelectorAll("[data-c]").forEach((b) => b.addEventListener("click", () => {
       color = b.dataset.c; app.querySelectorAll("[data-c]").forEach((x) => x.classList.toggle("on", x === b)); redraw();
     }));
     $("#save").addEventListener("click", () => {
       const v = name.value.trim(); if (!v) { name.focus(); return toast("Indique un prénom"); }
-      if (existing) Object.assign(existing, { name: v, color, t: Date.now() });
-      else S.profiles.push({ id: "p" + Date.now().toString(36), name: v, color, t: Date.now() });
+      const admEl = $("#adm"); const wantAdmin = admEl ? admEl.checked : admin;
+      if (wantAdmin) S.profiles.forEach((x) => { if (x.admin && (!existing || x.id !== existing.id)) { x.admin = false; x.t = Date.now(); } });
+      const extra = { icon, kids, pin, admin: wantAdmin, t: Date.now() };
+      if (existing) Object.assign(existing, { name: v, color, ...extra });
+      else S.profiles.push({ id: "p" + Date.now().toString(36), name: v, color, ...extra, admin: wantAdmin || !S.profiles.length });
       saveProfiles();
       if (S.profile && existing && S.profile.id === existing.id) S.profile = existing;
       go("#/profiles");
@@ -994,9 +1052,9 @@
       fillGenreImages(sec);
       rowsEl.appendChild(sec);
       const ps = document.createElement("section"); ps.className = "section";
-      ps.innerHTML = `<h2 class="section-title"><span class="st">${ICON.series}Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
+      ps.innerHTML = `<h2 class="section-title"><span class="st">${ICON.series}Plateformes</span></h2><div class="ptiles">${PROVIDERS.map(([id, n, c]) =>
         provTile(id, n, c)).join("")}</div>`;
-      rowsEl.appendChild(ps);
+      rowsEl.appendChild(ps); refreshProvTiles();
     }
     const rows = type ? buildRows(type) : applyHome(buildRows(null));
     if (!rows.length) rowsEl.insertAdjacentHTML("beforeend", `<div class="empty"><h2>Aucun catalogue</h2>Ajoute un add-on de catalogue dans Réglages.</div>`);
@@ -1082,9 +1140,12 @@
   }
   function provTile(id, n, c) {
     const logo = PROV_LOGOS && PROV_LOGOS.m[id];
-    return `<a class="prov ${logo ? "has-logo" : ""}" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : ""}<span>${esc(n)}</span></a>`;
+    return `<a class="prov ptile" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}"><span class="plogo">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : esc(n.slice(0, 1))}</span><b>${esc(n)}</b></a>`;
   }
-  if (!PROV_LOGOS) provLogos().then(() => { if (/^#\/(|home|discover)?$/.test(location.hash)) document.querySelectorAll(".prov").forEach((a) => { const id = a.getAttribute("href").split("/").pop(); const p = PROVIDERS.find((x) => x[0] === id); if (p) a.outerHTML = provTile(...p); }); });
+  function refreshProvTiles() {
+    if (PROV_LOGOS && Object.keys(PROV_LOGOS.m).length) return;
+    provLogos().then(() => document.querySelectorAll(".prov.ptile").forEach((a) => { const id = a.getAttribute("href").split("/").pop(); const p = PROVIDERS.find((x) => x[0] === id); if (p) a.outerHTML = provTile(...p); }));
+  }
 
   const PROV_GENRES = [["28|10759", "Action et aventure"], ["35", "Comédies"], ["18", "Drames"], ["53|80", "Thrillers et policiers"], ["878|10765", "Science-fiction et fantastique"],
     ["16", "Animation"], ["10751|10762", "En famille"], ["27", "Horreur"], ["10749", "Romance"], ["99", "Documentaires"]];
@@ -1205,11 +1266,15 @@
         <a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a><a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a></div>
       <div id="rows"></div>`;
     const rowsEl = $("#rows");
-    rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories · Films</span></h2>${genreTilesHTML("movie")}</section>
-      <section class="section"><h2 class="section-title"><span class="st plain">Catégories · Séries</span></h2>${genreTilesHTML("series")}</section>
-      <section class="section"><h2 class="section-title"><span class="st plain">Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
+    rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories</span>
+        <span class="seg" id="catSeg"><button class="on" data-t="movie">Films</button><button data-t="series">Séries</button></span></h2>
+        <div id="catTiles">${genreTilesHTML("movie")}</div></section>
+      <section class="section"><h2 class="section-title"><span class="st plain">Plateformes</span></h2><div class="ptiles">${PROVIDERS.map(([id, n, c]) =>
       provTile(id, n, c)).join("")}</div></section>`;
-    fillGenreImages(rowsEl);
+    fillGenreImages(rowsEl); refreshProvTiles();
+    $("#catSeg").addEventListener("click", (e) => { const b = e.target.closest("[data-t]"); if (!b) return;
+      $("#catSeg").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      $("#catTiles").innerHTML = genreTilesHTML(b.dataset.t); fillGenreImages($("#catTiles")); });
   }
 
   // Live TV : toutes les catégories de chaînes

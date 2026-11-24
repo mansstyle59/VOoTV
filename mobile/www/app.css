@@ -751,3 +751,43 @@ details.sect[open] .chev { transform: rotate(-135deg); }
 /* ---------- Accès des add-ons par profil ---------- */
 .ptog { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
 .ptog .chip { min-height: 32px; padding: 0 12px; font-size: 13px; }
+
+/* ---------- Profils ---------- */
+.avatar.emoji { font-size: 52px; line-height: 1; } .avatar.sm.emoji { font-size: 18px; } #av .avatar.emoji { font-size: 60px; }
+.avatar { position: relative; }
+.pbadge { position: absolute; right: 6px; bottom: 6px; font-size: 16px; filter: drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
+.prole { display: block; font-size: 11px; color: var(--cyan); font-weight: 700; margin-top: 2px; }
+.prole.kid { color: #4ade80; }
+.icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.iconpick { aspect-ratio: 1; border-radius: 12px; border: 2px solid transparent; background: var(--surface-2); color: #fff; font-size: 20px; font-weight: 800; }
+.iconpick.on { border-color: var(--blue); background: rgba(91,75,255,.2); }
+.popt { display: grid; gap: 4px; padding: 6px 14px; text-align: left; }
+.sw { display: flex; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; }
+.sw + .sw { border-top: 1px solid rgba(255,255,255,.06); }
+.sw span { flex: 1; display: grid; gap: 2px; } .sw small { color: var(--muted); font-size: 12.5px; }
+.sw input { position: absolute; opacity: 0; pointer-events: none; }
+.sw i { flex: none; width: 46px; height: 28px; border-radius: 14px; background: var(--surface-2); position: relative; transition: background .2s; }
+.sw i::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.sw input:checked + i { background: var(--blue); } .sw input:checked + i::after { transform: translateX(18px); }
+.pin-sheet { position: fixed; inset: 0; z-index: 600; background: rgba(8,6,20,.7); backdrop-filter: none; display: grid; place-items: center; padding: 20px; }
+.pin-card { width: min(340px, 100%); background: var(--surface); border-radius: 22px; padding: 22px; display: grid; gap: 18px; text-align: center; }
+.pin-card > b { font-size: 18px; }
+.pin-dots { display: flex; justify-content: center; gap: 14px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); }
+.pin-dots i.on { background: var(--blue); border-color: var(--blue); }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pin-pad button { height: 58px; border-radius: 16px; border: 0; background: var(--surface-2); color: #fff; font-size: 22px; font-weight: 700; }
+.pin-pad button:disabled { visibility: hidden; }
+
+/* ---------- Plateformes en rectangles ---------- */
+.ptiles { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, 72px); grid-auto-columns: 176px; gap: 10px; overflow-x: auto; padding: 2px var(--pad) 6px; scrollbar-width: none; }
+.ptiles::-webkit-scrollbar { display: none; }
+.prov.ptile { min-width: 0; height: auto; padding: 0 12px; border-radius: 14px; display: flex; align-items: center; gap: 12px; color: #fff; text-decoration: none;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--c) 70%, #13111f), color-mix(in srgb, var(--c) 22%, #13111f)); border: 1px solid rgba(255,255,255,.08); box-shadow: 0 6px 18px rgba(0,0,0,.28); }
+.ptile .plogo { flex: none; width: 46px; height: 46px; border-radius: 12px; overflow: hidden; display: grid; place-items: center; background: rgba(0,0,0,.25); font-weight: 800; font-size: 20px; }
+.ptile .plogo img { width: 100%; height: 100%; object-fit: cover; }
+.ptile b { font-size: 15px; font-weight: 800; line-height: 1.15; }
+@media (min-width: 900px) { .ptiles { grid-template-rows: repeat(2, 90px); grid-auto-columns: 230px; } .ptile .plogo { width: 58px; height: 58px; } }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; color: var(--muted); font-weight: 700; font-size: 13px; padding: 6px 14px; border-radius: 999px; }
+.seg button.on { background: var(--blue); color: #fff; }
