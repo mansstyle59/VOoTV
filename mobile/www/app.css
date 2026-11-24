@@ -1645,3 +1645,8 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 /* Sources : bouton Signaler */
 .card.source { position: relative; }
 .srep { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; margin-left: 4px; border-radius: 8px; color: #ffb4a8; background: rgba(255,90,70,.12); font-size: 18px; }
+
+/* Titres de rangée : le titre ne passe plus sur 2 lignes et « Voir tout → » ne se casse plus */
+.section-title { gap: 12px; }
+.section-title .st { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-title a, .section-title .linkbtn { flex: none; white-space: nowrap; margin-left: auto; }
