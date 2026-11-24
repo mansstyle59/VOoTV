@@ -4278,12 +4278,39 @@ var qrcode = function() {
   /** Découvrir : recherche + Films / Séries + catégories + plateformes. */
   function screenDiscover() {
     setTabs("discover");
+    const di = LS.get("discimg", { t: 0, m: {} });
+    const dtile = (k, href, icon, label, sub, cls = "") => `<a class="dx ${cls}" href="${href}" data-dx="${k}">${di.m[k] ? `<img src="${esc(di.m[k])}" alt="" loading="lazy">` : ""}
+      <span class="dx-shade"></span><span class="dx-txt">${icon}<b>${label}</b><small>${sub}</small></span></a>`;
     app.innerHTML = topBar("Découvrir") + `<div class="pad"><button class="search-pill big" data-go="#/search">${ICON.search}<span>Film, série, acteur…</span></button></div>
-      <div class="disc-grid pad">
-        <a class="disc" href="#/movies">${ICON.clap}<b>Films</b></a><a class="disc" href="#/series">${ICON.series}<b>Séries</b></a>
-        ${hasLive() ? `<a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a>` : ""}<a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a>
-        <a class="disc wide" href="#/collections">${ICON.movie}<b>Sagas et collections</b></a></div>
+      <div class="dx-grid pad">
+        ${dtile("movie", "#/movies", ICON.clap, "Films", "Nouveautés, tendances, classiques", "big")}
+        ${dtile("series", "#/series", ICON.series, "Séries", "Les séries du moment", "big")}
+        ${dtile("kids", "#/catalog/" + enc(TMDB.URL + "|movie|kids"), ICON.smile, "Enfants", "Pour toute la famille")}
+        ${dtile("saga", "#/collections", ICON.movie, "Sagas", "Collections complètes")}</div>
+      <section class="section" id="top10" hidden><h2 class="section-title"><span class="st plain">Top 10 de la semaine</span></h2><div class="row top10" id="top10Row"></div></section>
       <div id="rows"></div>`;
+    // Images des tuiles et Top 10 : films tendance (rafraîchis une fois par jour)
+    if (tmdbOn()) (async () => {
+      try {
+        const [mv, tv] = await Promise.all([tget("/trending/movie/week"), tget("/trending/tv/week")]);
+        const pick = (l, n) => { const x = (l.results || []).filter((o) => o.backdrop_path); return x.length ? timg(x[n % x.length].backdrop_path, "w780") : null; };
+        const day = new Date().getDate();
+        if (Date.now() - di.t > 6 * 36e5 || !di.m.movie) {
+          let kidsB = null, sagaB = null;
+          try { kidsB = pick(await tget("/discover/movie", { with_genres: "16", sort_by: "popularity.desc", "vote_count.gte": "300" }), day); } catch { /* */ }
+          try { sagaB = pick(await tget("/discover/movie", { with_genres: "12", sort_by: "popularity.desc", "vote_count.gte": "3000" }), day + 3); } catch { /* */ }
+          const m = { movie: pick(mv, day), series: pick(tv, day), kids: kidsB, saga: sagaB };
+          LS.set("discimg", { t: Date.now(), m });
+          Object.entries(m).forEach(([k, u]) => { const t = app.querySelector(`[data-dx="${k}"]`); if (t && u) { const old = t.querySelector("img"); if (old) old.src = u; else t.insertAdjacentHTML("afterbegin", `<img src="${esc(u)}" alt="">`); } });
+        }
+        const top = [...(mv.results || []).map((o) => tpreview(o, "movie")), ...(tv.results || []).map((o) => tpreview(o, "series"))]
+          .filter((x) => x && x.poster).sort(() => 0).slice(0, 20);
+        const mix = []; for (let i = 0; i < 10; i++) { const a = top[i % 2 ? 10 + Math.floor(i / 2) : Math.floor(i / 2)]; if (a) mix.push(a); }
+        const row = $("#top10Row"); if (!row) return;
+        row.innerHTML = mix.slice(0, 10).map((m, i) => `<button class="t10" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}"><span class="t10n">${i + 1}</span><img src="${esc(m.poster)}" alt="" loading="lazy"></button>`).join("");
+        $("#top10").hidden = false;
+      } catch { /* hors ligne */ }
+    })();
     const rowsEl = $("#rows");
     rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories</span>
         <span class="seg" id="catSeg"><button class="on" data-t="movie">Films</button><button data-t="series">Séries</button></span></h2>
@@ -4375,6 +4402,31 @@ var qrcode = function() {
       : `<div class="empty"><h2>Ta liste est vide</h2>Ouvre un film ou une série et appuie sur « Ma liste ».</div>`);
   }
 
+  /** Recherche vide : recherches récentes, idées de recherche, genres et tendances. */
+  function searchHome(res, pickQ) {
+    const hist = LS.get("qhist", []);
+    const genres = [["Action", "movie", "Action"], ["Comédie", "movie", "Comedy"], ["Animation", "movie", "Animation"], ["Horreur", "movie", "Horror"],
+      ["Science-fiction", "movie", "Science Fiction"], ["Romance", "movie", "Romance"], ["Thriller", "movie", "Thriller"], ["Documentaire", "movie", "Documentary"]]
+      .filter(([, t, g]) => (TMDB.MOVIE || {})[g]);
+    res.innerHTML = `${hist.length ? `<section class="section"><h2 class="section-title"><span class="st plain">Recherches récentes</span><button class="linkbtn" id="qClear">Effacer</button></h2>
+        <div class="qchips pad">${hist.map((h) => `<button class="qchip" data-q="${esc(h)}">${ICON.search}<span>${esc(h)}</span></button>`).join("")}</div></section>` : ""}
+      <section class="section" id="qIdeas" hidden><h2 class="section-title"><span class="st plain">Idées de recherche</span></h2><div class="qchips pad" id="qIdeasL"></div></section>
+      ${genres.length ? `<section class="section"><h2 class="section-title"><span class="st plain">Par genre</span></h2><div class="qchips pad">${genres.map(([l, t, g]) =>
+        `<a class="qchip g" href="#/genre/${t}/${enc(g)}">${esc(l)}</a>`).join("")}</div></section>` : ""}
+      <section class="section" id="qTrend" hidden><h2 class="section-title"><span class="st plain">Tendances en ce moment</span></h2><div class="row" id="qTrendR"></div></section>`;
+    res.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => pickQ(b.dataset.q)));
+    const qc = $("#qClear"); if (qc) qc.addEventListener("click", () => { LS.set("qhist", []); searchHome(res, pickQ); });
+    if (!tmdbOn()) return;
+    tget("/trending/all/day").then((d) => {
+      const l = (d.results || []).filter((o) => o.media_type === "movie" || o.media_type === "tv");
+      const ideas = $("#qIdeasL"), tr = $("#qTrendR"); if (!ideas || !tr) return;
+      ideas.innerHTML = l.slice(0, 8).map((o) => `<button class="qchip i" data-q="${esc(o.title || o.name)}">${ICON.trend || ICON.search}<span>${esc(o.title || o.name)}</span></button>`).join("");
+      ideas.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => pickQ(b.dataset.q)));
+      $("#qIdeas").hidden = !l.length;
+      tr.innerHTML = l.map((o) => tpreview(o, o.media_type === "tv" ? "series" : "movie")).filter((m) => m && m.poster).map(posterHTML).join("");
+      $("#qTrend").hidden = !tr.innerHTML;
+    }).catch(() => {});
+  }
   function screenSearch() {
     setTabs("search");
     const last = sessionStorage.getItem("tvo.q") || "";
@@ -4386,7 +4438,7 @@ var qrcode = function() {
     const run = async () => {
       const v = q.value.trim(); sessionStorage.setItem("tvo.q", v);
       const my = ++seq;
-      if (v.length < 2) { res.innerHTML = `<div class="empty"><h2>Que veux-tu regarder ?</h2>Tape au moins deux lettres.</div>`; return; }
+      if (v.length < 2) { searchHome(res, (t) => { q.value = t; run(); }); return; }
       res.innerHTML = `<div class="empty">Recherche…</div>`;
       const cats = [];
       catalogAddons().forEach((a) => a.manifest.catalogs.filter((c) => catSupports(c, "search") && catOnlyRequires(c, "search")).forEach((c) => cats.push({ a, c })));
@@ -4398,6 +4450,7 @@ var qrcode = function() {
       if (tmdbOn()) try { people = ((await tget("/search/person", { query: v })).results || []).filter((x) => x.profile_path && x.popularity > 0.5).slice(0, 15); } catch { /* */ }
       if (my !== seq) return;
       const found = out.filter((x) => x.list.length);
+      if (found.length || people.length) { const h = LS.get("qhist", []).filter((x) => x.toLowerCase() !== v.toLowerCase()); h.unshift(v); LS.set("qhist", h.slice(0, 8)); }
       const ppl = people.length ? `<section class="section"><h2 class="section-title"><span>Acteurs et actrices</span></h2><div class="row ppl-row">${people.map((pp) =>
         `<a class="bubble" href="#/person/${enc(String(pp.id))}"><span class="ph"><img src="${esc(timg(pp.profile_path, "w185"))}" alt="" loading="lazy"></span><b>${esc(pp.name)}</b>${pp.known_for && pp.known_for[0] ? `<small>${esc(pp.known_for[0].title || pp.known_for[0].name || "")}</small>` : ""}</a>`).join("")}</div></section>` : "";
       res.innerHTML = (found.length || people.length) ? ppl + found.map((x) => `<section class="section"><h2 class="section-title"><span>${esc(x.title)}</span></h2>
