@@ -943,3 +943,22 @@ input.selectable, .field { -webkit-user-select: text; user-select: text; }
 .card.pm .chips { flex-wrap: wrap; overflow: visible; gap: 6px; }
 .card.pm .chip:not(.on) { background: rgba(255,255,255,.07); border: 1px solid rgba(160,190,255,.12); }
 .card.pm .btn.sm { background: rgba(255,255,255,.07); border: 1px solid rgba(160,190,255,.14); justify-self: stretch; justify-content: center; }
+
+/* ---------- Réglages épurés : un seul bloc groupé, sous-cartes à plat ---------- */
+.sect-group { margin: 14px var(--pad) 0; border-radius: 20px; overflow: hidden; background: var(--surface); border: 1px solid rgba(160,190,255,.10); }
+.sect-group details.sect { margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.sect-group details.sect + details.sect { border-top: 1px solid rgba(160,190,255,.09); }
+.sect-group .sect-head { padding: 15px 16px; }
+.sect-group .sect-t b { font-size: 15.5px; }
+.sect-group details.sect[open] { background: rgba(255,255,255,.025); }
+.sect-body { padding: 0 16px 14px; }
+.sect-body > .list, .sect-body > .chips, .sect-body > p { padding-left: 0; padding-right: 0; margin-left: 0; margin-right: 0; }
+.sect-body .list { gap: 0; }
+.sect-body .card { background: none !important; border: 0 !important; border-radius: 0; box-shadow: none; padding: 12px 0; }
+.sect-body .list > .card + .card, .sect-body .list > .card + .hrow, .sect-body .hrow + .hrow { border-top: 1px solid rgba(160,190,255,.08) !important; }
+.sect-body .card.small.muted { padding: 4px 0 10px; }
+.sect-body .list > .btn, .sect-body .list > .two-btn, .sect-body .list > input, .sect-body .list > .keybox, .sect-body .list > div[style*="grid"], .sect-body .list > .seg { margin: 6px 0; }
+.sect-body .card.pm { border-top: 1px solid rgba(160,190,255,.08) !important; padding: 14px 0; }
+.sect-body .card.pm:first-child { border-top: 0 !important; }
+.sect-body details.card { padding: 12px 0; }
+.two-btn .btn.primary, .card .btn.primary, .wn-card .btn.primary, .as-card .btn.primary { background: var(--blue-grad); color: #fff; }

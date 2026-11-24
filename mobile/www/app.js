@@ -1887,6 +1887,9 @@
       while (n && !n.matches("h2.section-title.section")) { const nx = n.nextElementSibling; body.appendChild(n); n = nx; }
       d.addEventListener("toggle", () => { st[title] = d.open; LS.set("setopen", st); });
     });
+    // Un seul bloc groupé (style réglages iPhone) au lieu d'une pile de cartes
+    const all = [...root.querySelectorAll("details.sect")];
+    if (all.length) { const g = document.createElement("div"); g.className = "sect-group"; all[0].before(g); all.forEach((d) => g.appendChild(d)); }
   }
   function screenSettings() {
     setTabs(null);
