@@ -44,7 +44,7 @@ jobs:
         working-directory: mobile
         run: |
           npm ci
-          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
           cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
           npx cap sync android
       - name: Compiler l'APK mobile
@@ -59,7 +59,7 @@ jobs:
 
   ios:
     name: IPA iPhone (non signé, pour ESign / KSign)
-    needs: [release]
+    needs: [tv, mobile]
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -70,16 +70,16 @@ jobs:
         working-directory: mobile
         run: |
           npm ci
-          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
           cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
           npx cap sync ios
       - name: Compiler l'IPA
         working-directory: mobile/ios/App
         run: |
-          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
-            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            MARKETING_VERSION="1.0.${BUILD_NUMBER}" CURRENT_PROJECT_VERSION="${BUILD_NUMBER}" \
-            ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS=YES \
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \\
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \\
+            MARKETING_VERSION="1.0.${BUILD_NUMBER}" CURRENT_PROJECT_VERSION="${BUILD_NUMBER}" \\
+            ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS=YES \\
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/App.app Payload/
@@ -88,36 +88,10 @@ jobs:
           cp "../../../dist/TVO-iOS-1.0.${BUILD_NUMBER}.ipa" ../../../dist/TVO-iOS.ipa
       - uses: actions/upload-artifact@v4
         with: { name: ios, path: dist/* }
-      - name: Ajouter l'IPA à la version
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          files: dist/*.ipa
-
-  release:
-    name: Publier la version
-    needs: [tv, mobile]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with: { path: dist, merge-multiple: true }
-      - run: ls -la dist
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: TVO 1.0.${{ github.run_number }}
-          body: |
-            ${{ github.event.head_commit.message }}
-
-            - TVO-TV : Android TV / box (télécommande)
-            - Android-Mobile : téléphone Android
-            - TVO-iOS : iPhone (à installer avec ESign ou KSign)
-          files: dist/*
-          make_latest: true
 
   macos:
-    name: App macOS
-    needs: release
+    name: Application macOS
+    needs: [tv, mobile]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -127,7 +101,7 @@ jobs:
         working-directory: mobile
         run: |
           npm ci
-          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
+          printf 'window.TVO_VERSION = { code: %s, name: "1.0.%s", repo: "%s" };\\n' "$BUILD_NUMBER" "$BUILD_NUMBER" "$UPDATE_REPO" > www/version.js
           cp node_modules/hls.js/dist/hls.min.js www/vendor/hls.min.js
           rm -rf ../desktop/www && cp -R www ../desktop/www
       - name: Compiler l'app Mac (Apple Silicon + Intel)
@@ -140,8 +114,32 @@ jobs:
           npx electron-builder --mac dmg --universal --publish never
           cp dist/TVO-macOS-*.dmg dist/TVO-macOS.dmg
           ls -la dist
-      - name: Ajouter l'app Mac à la version
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: desktop/dist/*.dmg }
+
+  release:
+    name: Publier la version complète
+    needs: [tv, mobile, ios, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Vérifier les fichiers avant publication
+        run: |
+          ls -lh dist
+          test -n "$(find dist -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -name '*.ipa' -print -quit)"
+          test -n "$(find dist -maxdepth 1 -name '*.dmg' -print -quit)"
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          files: desktop/dist/*.dmg
+          name: TVO 1.0.${{ github.run_number }}
+          body: |
+            ${{ github.event.head_commit.message }}
+
+            - TVO-TV : Android TV / box (télécommande)
+            - Android-Mobile : téléphone Android
+            - TVO-iOS : iPhone (à installer avec ESign ou KSign)
+            - TVO-macOS : application Mac
+          files: dist/*
+          make_latest: true
