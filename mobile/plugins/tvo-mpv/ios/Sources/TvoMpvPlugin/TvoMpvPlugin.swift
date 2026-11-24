@@ -23,6 +23,7 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "addSubDelay", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getTracks", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setOrientation", returnType: CAPPluginReturnPromise),
     ]
 
     private var player: TvoMpvPlayer?
@@ -111,5 +112,24 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
         var s = p.state(); s["active"] = true
         call.resolve(s)
     }
+    /// Lecture : passe l'écran en paysage ; en quittant : revient en portrait (la rotation reste libre ensuite).
+    @objc func setOrientation(_ call: CAPPluginCall) {
+        let mode = call.getString("mode") ?? "auto"
+        DispatchQueue.main.async { [weak self] in
+            let mask: UIInterfaceOrientationMask = mode == "landscape" ? .landscape : (mode == "portrait" ? .portrait : .allButUpsideDown)
+            if #available(iOS 16.0, *) {
+                if let vc = self?.bridge?.viewController, let scene = vc.view.window?.windowScene {
+                    vc.setNeedsUpdateOfSupportedInterfaceOrientations()
+                    scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+                }
+            } else if mode != "auto" {
+                let o: UIInterfaceOrientation = mode == "portrait" ? .portrait : .landscapeRight
+                UIDevice.current.setValue(o.rawValue, forKey: "orientation")
+                UIViewController.attemptRotationToDeviceOrientation()
+            }
+            call.resolve()
+        }
+    }
+
     @objc func getTracks(_ call: CAPPluginCall) { call.resolve(["tracks": player?.tracks() ?? []]) }
 }

@@ -4237,7 +4237,13 @@ var qrcode = function() {
     let cur = -1, user = 0;
     const show = (i) => {
       if (i === cur || !items[i]) return; cur = i; const m = items[i];
-      bg.innerHTML = `<img src="${esc(m.background || m.poster)}" alt="">`;
+      // Fond cinématique : fondu enchaîné + lent zoom (Ken Burns) sur l'image du film
+      const img = new Image(); img.alt = ""; img.className = "kb kb" + (i % 3); img.decoding = "async";
+      img.src = m.background || m.poster;
+      const old = [...bg.querySelectorAll("img")];
+      const reveal = () => { bg.appendChild(img); requestAnimationFrame(() => img.classList.add("in")); old.forEach((o) => { o.classList.remove("in"); setTimeout(() => o.remove(), 1400); }); };
+      if (img.complete) reveal(); else { img.onload = reveal; img.onerror = reveal; }
+      info.classList.remove("swap"); void info.offsetWidth; info.classList.add("swap");
       info.innerHTML = `<b>${esc(m.name)}</b><span>${[m.releaseInfo, (m.genres || []).slice(0, 2).map(genreLabel).join(", "), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join("  ·  ")}</span>
         <div class="car-act"><button class="btn primary sm" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play || "▶"} Regarder</button>
         <button class="btn sm" id="carList">${inLib(m.id) ? "✓ Ma liste" : "+ Ma liste"}</button></div>`;
@@ -4265,7 +4271,7 @@ var qrcode = function() {
       if (!document.body.contains(car)) return clearInterval(carTimer);
       if (document.hidden || Date.now() - user < 8000) return;
       goTo(cur + 1 >= slides.length ? 0 : cur + 1);
-    }, 5500);
+    }, 7000);
   }
 
 
@@ -5044,6 +5050,24 @@ var qrcode = function() {
   const srtToVtt = (t) => "WEBVTT\n\n" + t.replace(/\r/g, "").replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, "$1.$2");
 
   /** Objet qui imite un <video> mais pilote le lecteur MPV natif : les commandes TVO restent les mêmes. */
+  /** Rotation de l'écran : iPhone via le module natif, Android via l'API du navigateur. */
+  let orientT = null;
+  function setOrient(mode) {
+    // Changement de source / épisode suivant : on ne repasse pas en portrait entre deux vidéos
+    clearTimeout(orientT);
+    if (mode === "portrait") { orientT = setTimeout(() => applyOrient("portrait"), 600); return; }
+    applyOrient(mode);
+  }
+  function applyOrient(mode) {
+    try {
+      const P = window.Capacitor && Capacitor.isPluginAvailable && Capacitor.isPluginAvailable("TvoMpv") && Capacitor.Plugins.TvoMpv;
+      if (P && P.setOrientation) { P.setOrientation({ mode }).catch(() => {}); return; }
+      if (screen.orientation) {
+        if (mode === "landscape" && screen.orientation.lock) screen.orientation.lock("landscape").catch(() => {});
+        else if (screen.orientation.unlock) screen.orientation.unlock();
+      }
+    } catch { /* */ }
+  }
   let mpvVid = null;
   class MpvVideo extends EventTarget {
     constructor() {
@@ -5118,7 +5142,7 @@ var qrcode = function() {
     if (hls) { hls.destroy(); hls = null; }
     el.innerHTML = ""; el.hidden = true;
     document.body.style.overflow = "";
-    if (screen.orientation && screen.orientation.unlock) try { screen.orientation.unlock(); } catch { /* */ }
+    setOrient("portrait");
   }
 
   function openPlayer(ctx) {
@@ -5342,8 +5366,8 @@ var qrcode = function() {
     video.addEventListener("playing", () => clearTimeout(watchdog), { once: true });
     // Vidéo factice de 8 s envoyée par certains add-ons à la place du film (lien expiré ou débrideur manquant)
     video.addEventListener("loadedmetadata", () => { if (video.duration > 0 && video.duration < 20 && m.type !== "tv") setTimeout(() => fail("Cette source envoie une vidéo d'erreur"), 1500); }, { once: true });
-    // Orientation automatique : le lecteur suit la rotation du téléphone (portrait ou paysage), sans forcer le paysage
-    if (screen.orientation && screen.orientation.unlock) try { screen.orientation.unlock(); } catch { /* */ }
+    // Comme une vraie vidéo : le film démarre à l'horizontale (on peut ensuite tourner librement)
+    setOrient("landscape");
   }
 
   function showNext(ctx, video) {

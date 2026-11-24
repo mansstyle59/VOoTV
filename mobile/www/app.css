@@ -1501,3 +1501,28 @@ html.mpv-on #player { background: transparent !important; }
 .auth2 .auth-card > * { min-width: 0; max-width: 100%; box-sizing: border-box; }
 .auth2 .showpw { display: block; position: relative; padding-left: 32px; line-height: 1.45; font-size: 13px; }
 .auth2 .showpw input { position: absolute; left: 0; top: 1px; width: 20px; height: 20px; margin: 0; accent-color: var(--blue, #3d7cff); }
+
+/* ---------- Accueil cinématique : fondu enchaîné, zoom lent, barre de progression ---------- */
+#app .car-bg { overflow: hidden; }
+#app .car-bg img.kb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.15) brightness(.8); opacity: 0;
+  transition: opacity 1.3s ease; transform-origin: 60% 40%; will-change: transform, opacity; animation: kbA 14s ease-out forwards; }
+#app .car-bg img.kb1 { transform-origin: 30% 50%; animation-name: kbB; }
+#app .car-bg img.kb2 { transform-origin: 50% 30%; animation-name: kbC; }
+#app .car-bg img.kb.in { opacity: .8; }
+@keyframes kbA { from { transform: scale(1.04) translate3d(0, 0, 0); } to { transform: scale(1.18) translate3d(-2%, -1%, 0); } }
+@keyframes kbB { from { transform: scale(1.16) translate3d(-2%, 0, 0); } to { transform: scale(1.04) translate3d(1.5%, -1%, 0); } }
+@keyframes kbC { from { transform: scale(1.05) translate3d(1%, 1%, 0); } to { transform: scale(1.17) translate3d(0, -2%, 0); } }
+#app .car-bg::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 35%, transparent 45%, rgba(5,8,20,.65) 100%); }
+#app .car-bg::after { z-index: 2; }
+.car-info.swap > * { animation: carIn .7s cubic-bezier(.2,.7,.2,1) both; }
+.car-info.swap > *:nth-child(2) { animation-delay: .08s; }
+.car-info.swap > *:nth-child(3) { animation-delay: .16s; }
+@keyframes carIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.car-info b { font-size: 23px; text-shadow: 0 2px 16px rgba(0,0,0,.6); }
+.car-dots i { position: relative; overflow: hidden; }
+.car-dots i.on { width: 28px; background: rgba(255,255,255,.28); }
+.car-dots i.on::after { content: ""; position: absolute; inset: 0; background: var(--blue-grad, #3d7cff); transform-origin: left; animation: carProg 7s linear forwards; }
+@keyframes carProg { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.cslide.center { box-shadow: 0 30px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.1), 0 0 40px rgba(61,124,255,.18); }
+@media (prefers-reduced-motion: reduce) { #app .car-bg img.kb, .car-info.swap > *, .car-dots i.on::after { animation: none; } }
