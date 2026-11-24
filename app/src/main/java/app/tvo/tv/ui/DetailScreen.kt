@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import app.tvo.tv.data.MetaPreview
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.border
@@ -168,25 +169,44 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
                         else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
                         Spacer(Modifier.height(10.dp))
-                        MetaLine(p.type, p.releaseInfo, p.imdbRating, p.genres, meta.runtime)
-                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 12.dp), fontSize = 15.sp,
-                            color = Color.White.copy(alpha = 0.92f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 22.sp)
-                        if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
-                        if (meta.cast.isNotEmpty() && meta.people.isEmpty()) Text("Avec : " + meta.cast.joinToString(", "), Modifier.padding(top = 10.dp),
-                            fontSize = 14.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (meta.director.isNotEmpty()) Text("Réalisation : " + meta.director.joinToString(", "), Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1)
-                        Spacer(Modifier.height(16.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            TvoButton(playLabel, {
+                        // Boutons d'abord (pilule « Regarder » + boutons ronds), comme sur la maquette
+                        Spacer(Modifier.height(14.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            PillButton(if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) "Reprendre" else "Regarder", {
                                 if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
                                 else nav.openStreams(p.type, p.id, target)
-                            }, Modifier.focusRequester(playFr), Icons.Default.PlayArrow, primary = true)
-                            TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
+                            }, Modifier.focusRequester(playFr))
+                            RoundButton(if (inList) Icons.Default.Check else Icons.Default.Add) {
                                 store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                                 android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
-                            }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
-                            if (trailer != null) TvoButton(when (trailerMode) { 0 -> "Bande-annonce"; else -> "Agrandir" },
-                                { trailerMode = if (trailerMode == 0) 1 else 2 }, icon = if (trailerMode == 0) Icons.Default.PlayArrow else null)
+                            }
+                            if (p.type == "movie") {
+                                val seen = targetProgress?.finished == true
+                                RoundButton(Icons.Default.Check, active = seen) {
+                                    val pid = store.currentProfile.value?.id
+                                    if (pid != null) store.saveProgress(pid, Progress(target, p.id, p.type, p.name, p.poster, p.background,
+                                        position = if (seen) 0 else 1, duration = 1, updatedAt = System.currentTimeMillis()))
+                                    android.widget.Toast.makeText(ctx, if (seen) "Marqué non vu" else "Marqué comme vu", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            if (trailer != null) RoundButton(Icons.Default.PlayArrow) { trailerMode = if (trailerMode == 0) 1 else 2 }
+                        }
+                        if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 12.dp), fontSize = 14.sp, color = TvoColors.Text, maxLines = 1)
+                        val tm = meta.extra["tmdb"]
+                        if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (tm != null) Text("TMDB  " + tm.substringBefore(",") + "%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF01B4E4))
+                            if (!p.imdbRating.isNullOrBlank()) Text("★ " + p.imdbRating, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFACC15))
+                        }
+                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 10.dp), fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.92f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
+                        if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
+                        val gl = p.genres.take(3).joinToString(" • ") { genreLabel(it) }
+                        val dl = meta.extra["date"] ?: p.releaseInfo
+                        if (gl.isNotBlank() || dl != null) Text(listOfNotNull(gl.ifBlank { null }, dl).joinToString(" • "), Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1)
+                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            meta.extra["cert"]?.let { Badge(it) }
+                            val info = listOfNotNull(meta.extra["status"], meta.runtime, meta.extra["country"], meta.extra["lang"]).joinToString(" • ")
+                            if (info.isNotBlank()) Text(info, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, maxLines = 1)
                         }
                         if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                             val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
@@ -195,11 +215,21 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
         }
         }
-            if (meta.people.isNotEmpty()) item {
+            if (meta.people.isNotEmpty() || similar.isNotEmpty() || trailer != null) item(key = "tabs") {
+                var tab by remember(p.id) { mutableStateOf(0) }
+                val labels = buildList { if (meta.people.isNotEmpty()) add("Créateur et distribution"); if (similar.isNotEmpty()) add(if (p.type == "series") "Séries similaires" else "Similaires"); if (trailer != null) add("Bande-annonce") }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Distribution", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
+                    Row(Modifier.padding(start = 56.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                        labels.forEachIndexed { i, l -> TabLabel(l, i == tab) { tab = i } }
+                    }
+                    when (labels.getOrNull(tab)) {
+                        "Créateur et distribution" -> LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                            items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
+                        }
+                        "Bande-annonce" -> Row(Modifier.padding(start = 56.dp, top = 6.dp)) { TvoButton("Lancer la bande-annonce", { trailerMode = 1 }, icon = Icons.Default.PlayArrow) }
+                        else -> LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
+                        }
                     }
                 }
             }
@@ -222,21 +252,21 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 }
             }
             saga?.let { sg -> item(key = "saga") {
+                val nm = sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim()
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Saga : " + sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim(), Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("$nm - Saga", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(sg.second, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
+                        itemsIndexed(sg.second, key = { _, m -> m.id }) { i, m ->
+                            Column(Modifier.width(280.dp)) {
+                                WideCard(image = m.background ?: m.poster, title = m.name,
+                                    subtitle = listOfNotNull("SAGA ${i + 1}/${sg.second.size}", m.genres.firstOrNull()?.let { genreLabel(it) }, m.imdbRating?.let { "★ $it" }, m.releaseInfo).joinToString(" • "),
+                                    progress = null, onClick = { nav.openMeta(m) }, width = 280.dp)
+                                Text(m.name + (m.releaseInfo?.let { " ($it)" } ?: ""), Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             } }
-            if (similar.isNotEmpty()) item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
-                    }
-                }
-            }
         }
         }
     }
@@ -346,4 +376,48 @@ fun PersonScreen(id: String, nav: Nav) {
         }
     }
     LaunchedEffect(p) { kotlinx.coroutines.delay(120); runCatching { first.requestFocus() } }
+}
+
+
+@Composable
+private fun PillButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    androidx.tv.material3.Button(
+        onClick = onClick, modifier = modifier.height(48.dp).widthIn(min = 150.dp), shape = androidx.tv.material3.ButtonDefaults.shape(shape),
+        colors = androidx.tv.material3.ButtonDefaults.colors(containerColor = Color.White, contentColor = Color.Black, focusedContainerColor = Color(0xFFE6E6E6), focusedContentColor = Color.Black),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.04f),
+        border = androidx.tv.material3.ButtonDefaults.border(focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, TvoColors.Blue), shape = shape)),
+    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+}
+
+@Composable
+private fun RoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean = false, onClick: () -> Unit) {
+    val shape = androidx.compose.foundation.shape.CircleShape
+    androidx.tv.material3.Button(
+        onClick = onClick, modifier = Modifier.size(48.dp), shape = androidx.tv.material3.ButtonDefaults.shape(shape),
+        contentPadding = PaddingValues(0.dp),
+        colors = androidx.tv.material3.ButtonDefaults.colors(containerColor = if (active) TvoColors.Blue else Color(0x66FFFFFF).copy(alpha = 0.22f), contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.08f),
+        border = androidx.tv.material3.ButtonDefaults.border(border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)), shape = shape)),
+    ) { androidx.compose.foundation.layout.Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { androidx.tv.material3.Icon(icon, null, Modifier.size(22.dp)) } }
+}
+
+@Composable
+private fun Badge(text: String) {
+    Text(text, Modifier.border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp),
+        fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+}
+
+@Composable
+private fun TabLabel(text: String, selected: Boolean, onClick: () -> Unit) {
+    androidx.tv.material3.Surface(
+        onClick = onClick, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = 0.14f)),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
+    ) {
+        Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
+            Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else TvoColors.Muted)
+            Box(Modifier.padding(top = 4.dp).height(3.dp).fillMaxWidth().background(if (selected) TvoColors.Blue else Color.Transparent))
+        }
+    }
 }

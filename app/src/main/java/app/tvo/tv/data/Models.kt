@@ -89,6 +89,7 @@ data class MetaDetail(
     val director: List<String>,
     val defaultVideoId: String?,
     val people: List<Person> = emptyList(),
+    val extra: Map<String, String> = emptyMap(),
 ) {
     /** Episodes in watching order: regular seasons first, specials (season 0) last. */
     val episodes: List<Video>

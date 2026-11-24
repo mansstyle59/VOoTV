@@ -399,13 +399,16 @@ object Tmdb {
             val f = get("/find/$tt", mapOf("external_source" to "imdb_id"))
             (f.arr(if (k == "tv") "tv_results" else "movie_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
         } ?: return@runCatching base
-        val d = get("/$k/$tid", mapOf("append_to_response" to "credits,images", "include_image_language" to "fr,en,null"))
+        val d = get("/$k/$tid", mapOf("append_to_response" to "credits,images," + (if (k == "tv") "content_ratings" else "release_dates"), "include_image_language" to "fr,en,null"))
         val logos = d.obj("images")?.arr("logos")?.mapNotNull { it as? JsonObject } ?: emptyList()
         val logo = (logos.firstOrNull { it.s("iso_639_1") == "fr" } ?: logos.firstOrNull { it.s("iso_639_1") == "en" })?.s("file_path")
         val frGenres = d.arr("genres")?.mapNotNull { (it as? JsonObject)?.s("name") } ?: emptyList()
         val castObjs = d.obj("credits")?.arr("cast")?.mapNotNull { it as? JsonObject }?.take(15) ?: emptyList()
         val cast = castObjs.mapNotNull { it.s("name") }.take(6)
-        val people = castObjs.mapNotNull { c -> c.i("id")?.let { Person(it.toString(), c.s("name") ?: "", img(c.s("profile_path"), "w185"), c.s("character")) } }
+        val crewObjs = d.obj("credits")?.arr("crew")?.mapNotNull { it as? JsonObject } ?: emptyList()
+        val dirObj = crewObjs.firstOrNull { it.s("job") == "Director" }
+        val dirPerson = dirObj?.i("id")?.let { Person(it.toString(), dirObj.s("name") ?: "", img(dirObj.s("profile_path"), "w185"), "Réalisateur") }
+        val people = listOfNotNull(dirPerson) + castObjs.mapNotNull { c -> c.i("id")?.let { Person(it.toString(), c.s("name") ?: "", img(c.s("profile_path"), "w185"), c.s("character")) } }
         val runtime = d.i("runtime") ?: (d.arr("episode_run_time")?.firstOrNull() as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()
         val date = d.s("release_date") ?: d.s("first_air_date")
         val p0 = base?.preview
@@ -440,8 +443,20 @@ object Tmdb {
                     thumbnail = img(e.s("still_path"), "w300") ?: v.thumbnail, released = v.released ?: e.s("air_date"))
             }
         }
+        val cert = if (k == "tv") d.obj("content_ratings")?.arr("results")?.mapNotNull { it as? JsonObject }?.firstOrNull { it.s("iso_3166_1") == "FR" }?.s("rating")
+            else d.obj("release_dates")?.arr("results")?.mapNotNull { it as? JsonObject }?.firstOrNull { it.s("iso_3166_1") == "FR" }
+                ?.arr("release_dates")?.mapNotNull { (it as? JsonObject)?.s("certification") }?.firstOrNull { it.isNotBlank() }
+        val status = when (d.s("status")) { "Released" -> "SORTI"; "Returning Series" -> "EN COURS"; "Ended" -> "TERMINÉE"; "Canceled" -> "ANNULÉE"; "Planned", "In Production", "Post Production", "Rumored" -> "À VENIR"; else -> null }
+        val ex = buildMap<String, String> {
+            cert?.let { put("cert", if (it == "U" || it == "TP") "TP" else it) }
+            status?.let { put("status", it) }
+            (d.arr("production_countries")?.firstOrNull() as? JsonObject)?.s("name")?.let { put("country", it) }
+            d.s("original_language")?.let { put("lang", it.uppercase()) }
+            frDate(date)?.let { put("date", it) }
+            d.s("vote_average")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { put("tmdb", "%.1f".format(java.util.Locale.FRANCE, it * 10)) }
+        }
         MetaDetail(preview, runtime?.let { "$it min" } ?: base?.runtime, videos, cast.ifEmpty { base?.cast ?: emptyList() },
-            base?.director ?: emptyList(), base?.defaultVideoId, people)
+            base?.director?.takeIf { it.isNotEmpty() } ?: listOfNotNull(dirObj?.s("name")), base?.defaultVideoId, people, ex)
     }.getOrElse { base }
 
     data class PersonPage(val name: String, val photo: String?, val bio: String?, val known: String?, val works: List<MetaPreview>,
