@@ -51,6 +51,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.runtime.collectAsState
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -60,6 +63,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import app.tvo.tv.Tvo
 import app.tvo.tv.data.MetaPreview
 import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
@@ -83,8 +87,11 @@ fun PosterCard(
     onFocus: () -> Unit = {},
 ) {
     val shape = RoundedCornerShape(10.dp)
+    var menu by remember { mutableStateOf(false) }
+    QuickMenuHost(item, onClick, menu) { menu = false }
     Card(
         onClick = onClick,
+        onLongClick = { menu = true },
         modifier = modifier.width(width).aspectRatio(2f / 3f).onFocused(onFocus),
         shape = CardDefaults.shape(shape),
         scale = CardDefaults.scale(focusedScale = 1.08f),
@@ -335,8 +342,11 @@ fun LandscapeCard(
     onFocus: () -> Unit = {},
 ) {
     val shape = RoundedCornerShape(12.dp)
+    var menu by remember { mutableStateOf(false) }
+    QuickMenuHost(item, onClick, menu) { menu = false }
     Card(
         onClick = onClick,
+        onLongClick = { menu = true },
         modifier = modifier.width(width).aspectRatio(16f / 9f).onFocused(onFocus),
         shape = CardDefaults.shape(shape),
         scale = CardDefaults.scale(focusedScale = 1.1f),
@@ -381,9 +391,12 @@ fun LandscapeRow(
 @Composable
 fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 150.dp, onFocus: () -> Unit = {}) {
     val shape = RoundedCornerShape(14.dp)
+    var menu by remember { mutableStateOf(false) }
+    QuickMenuHost(item, onClick, menu) { menu = false }
     Column(modifier.width(width)) {
         Card(
             onClick = onClick,
+            onLongClick = { menu = true },
             modifier = Modifier.fillMaxWidth().aspectRatio(0.667f).onFocused(onFocus),
             shape = CardDefaults.shape(shape),
             scale = CardDefaults.scale(focusedScale = 1.06f),
@@ -501,4 +514,36 @@ fun Modifier.imageBackdrop(accent: Color, url: String? = rememberPageImage()): M
         .background(Brush.horizontalGradient(0f to Color(0xE60A0F1E), 0.55f to Color(0xA60A0F1E), 1f to Color(0x4D0A0F1E)))
         .background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xD90A0F1E)))
         .background(Brush.radialGradient(listOf(accent.copy(alpha = 0.28f), Color.Transparent), center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1200f))
+}
+
+
+/** Accès à la navigation pour le menu rapide (appui long sur une affiche). */
+object QuickMenu { var nav: Nav? = null }
+
+/** Petit menu d'appui long : regarder, ouvrir la fiche, ajouter / retirer de ma liste. */
+@Composable
+fun QuickMenuHost(item: MetaPreview, onOpen: () -> Unit, show: Boolean, onDismiss: () -> Unit) {
+    if (!show) return
+    val lib by Tvo.store.library.collectAsState()
+    val inList = lib.any { it.id == item.id }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Column(Modifier.width(440.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xF2161622)).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(item.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
+            Spacer(Modifier.height(4.dp))
+            if (item.type == "movie") TvoButton("Regarder", { onDismiss(); QuickMenu.nav?.openStreams(item.type, item.id, item.id) },
+                Modifier.focusRequester(first).fillMaxWidth(), androidx.compose.material.icons.Icons.Filled.PlayArrow, primary = true, wide = true)
+            TvoButton("Ouvrir la fiche", { onDismiss(); onOpen() },
+                (if (item.type == "movie") Modifier else Modifier.focusRequester(first)).fillMaxWidth(), wide = true, primary = item.type != "movie")
+            TvoButton(if (inList) "Retirer de ma liste" else "Ajouter à ma liste", {
+                Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(item.id, item.type, item.name, item.poster, item.background))
+                android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }, Modifier.fillMaxWidth(),
+                if (inList) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add, wide = true)
+        }
+    }
 }

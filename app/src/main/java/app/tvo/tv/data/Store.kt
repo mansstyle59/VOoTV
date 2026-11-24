@@ -140,8 +140,9 @@ class Store(ctx: Context) {
             del[item.id] = now()
             library.value.filterNot { it.id == item.id }
         } else {
+            val t = maxOf(now(), (del[item.id] ?: 0L) + 1)
             del.remove(item.id)
-            listOf(item.copy(addedAt = now())) + library.value
+            listOf(item.copy(addedAt = t)) + library.value
         }
         library.value = list; save("library_$pid", list); save("libdel_$pid", del)
         onChange()

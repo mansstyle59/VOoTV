@@ -1,5 +1,6 @@
 package app.tvo.tv
 
+import app.tvo.tv.ui.QuickMenu
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.heightIn
@@ -110,6 +111,7 @@ private fun e(s: String) = Uri.encode(s)
 private fun AppNav() {
     val nc = rememberNavController()
     val nav = remember(nc) { navFor(nc) }
+    QuickMenu.nav = nav
     LaunchedEffect(Unit) { refreshAddons() }
     NavHost(nc, startDestination = "splash") {
         composable("splash") { SplashScreen { nc.navigate("gate") { popUpTo("splash") { inclusive = true } } } }

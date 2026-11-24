@@ -171,6 +171,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             }, Modifier.focusRequester(playFr), Icons.Default.PlayArrow, primary = true)
                             TvoButton(if (inList) "Dans ma liste" else "Ma liste", {
                                 store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
+                                android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
                             }, icon = if (inList) Icons.Default.Check else Icons.Default.Add)
                             if (trailer != null) TvoButton(when (trailerMode) { 0 -> "Bande-annonce"; else -> "Agrandir" },
                                 { trailerMode = if (trailerMode == 0) 1 else 2 }, icon = if (trailerMode == 0) Icons.Default.PlayArrow else null)
