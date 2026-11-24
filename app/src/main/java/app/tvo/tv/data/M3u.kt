@@ -13,6 +13,14 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object M3u {
     const val PREFIX = "m3u:"
+    /** Logo automatique (dépôt public tv-logo/tv-logos) quand la liste n'en fournit pas. */
+    fun guessLogo(name: String): String? {
+        val base = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
+            .lowercase().replace(Regex("\\b(fhd|uhd|hd|sd|4k|hevc|h265|\\(.*?\\)|\\[.*?\\])"), " ")
+            .replace("+", " plus ").replace("&", " and ").replace(Regex("[^a-z0-9]+"), "-").trim('-')
+        return if (base.isEmpty()) null else "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/$base-fr.png"
+    }
+
     data class Channel(val id: String, val name: String, val logo: String?, val url: String, val group: String, val chno: Int, val headers: Map<String, String>)
     private val cache = ConcurrentHashMap<String, List<Channel>>()
 
@@ -44,7 +52,7 @@ object M3u {
                     val group = attr("group-title") ?: ""
                     val num = attr("tvg-chno")?.toIntOrNull() ?: Regex("^(\\d+)\\s*[-.:]").find(name)?.groupValues?.get(1)?.toIntOrNull() ?: 9999
                     val clean = name.replace(Regex("^\\d+\\s*[-.:]\\s*"), "")
-                    out += Channel("$PREFIX$h:${slug(clean)}", clean, attr("tvg-logo"), line, group, num, headers.toMap())
+                    out += Channel("$PREFIX$h:${slug(clean)}", clean, attr("tvg-logo") ?: guessLogo(clean), line, group, num, headers.toMap())
                     info = null
                 }
             }

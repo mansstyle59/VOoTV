@@ -1,5 +1,6 @@
 package app.tvo.tv.ui
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -341,8 +342,10 @@ fun AddonAddScreen(onDone: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Text("Suggestions compatibles", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)) {
-                app.tvo.tv.data.Suggestions.all.groupBy { it.category }.forEach { (cat, list) ->
-                    item { Text(cat, fontSize = 14.sp, color = TvoColors.Cyan, modifier = Modifier.padding(top = 6.dp)) }
+                app.tvo.tv.data.Suggestions.groups.forEach { (cat, why) ->
+                    val list = app.tvo.tv.data.Suggestions.all.filter { it.category == cat }
+                    if (list.isEmpty()) return@forEach
+                    item { Column(Modifier.padding(top = 8.dp)) { Text(cat, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan); Text(why, fontSize = 12.sp, color = TvoColors.Muted) } }
                     items(list, key = { it.url }) { sug ->
                         val installed = Tvo.store.addons.value.any { a -> a.url == sug.url.substringBefore("/manifest.json") || a.url == sug.url }
                         TvoButton(if (installed) "✓ ${sug.name}" else sug.name, { if (!installed) install(sug.url) }, Modifier.fillMaxWidth())
@@ -365,17 +368,41 @@ private fun SyncBlock() {
     var typed by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
     val padFr = remember { FocusRequester() }
+    var qrCode by remember { mutableStateOf<String?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text("Continuer à regarder, Ma liste, épisodes vus, profils et add-ons sont partagés automatiquement entre tes appareils reliés.",
+        Text("Connecte la TV au compte de ton téléphone (Google ou Apple) : Continuer à regarder, Ma liste, épisodes vus, profils et add-ons sont partagés.",
             fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            TvoButton("Connexion rapide (QR code)", {
+                code = null; entering = false; msg = null
+                scope.launch { qrCode = app.tvo.tv.data.Sync.loginStart(); if (qrCode == null) msg = "Pas de connexion." }
+            }, primary = true)
             TvoButton("Synchroniser maintenant", { scope.launch { app.tvo.tv.data.Sync.syncNow() } }, icon = Icons.Default.Refresh)
             TvoButton("Afficher un code", {
-                entering = false; msg = null
+                entering = false; msg = null; qrCode = null
                 scope.launch { code = app.tvo.tv.data.Sync.createCode(); if (code == null) msg = "Pas de connexion." }
             })
-            TvoButton("J'ai un code", { code = null; entering = true; typed = ""; msg = null })
+            TvoButton("J'ai un code", { code = null; qrCode = null; entering = true; typed = ""; msg = null })
             if (status.isNotBlank()) Text(status, fontSize = 13.sp, color = TvoColors.Cyan)
+        }
+        qrCode?.let { c ->
+            val bmp = remember(c) { app.tvo.tv.data.RemoteInputServer.qr("tvo://login?code=$c", 420).asImageBitmap() }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(210.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Scanne avec l'appareil photo du téléphone", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    Text("L'appli TVO s'ouvre et te demande de confirmer.\nOu dans TVO › Profil › Compte › Connecter une TV, saisis :", fontSize = 14.sp, color = TvoColors.Muted)
+                    Text(c.chunked(3).joinToString(" "), fontSize = 40.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    Text("En attente du téléphone… (valable 10 minutes)", fontSize = 13.sp, color = TvoColors.Cyan)
+                }
+            }
+            LaunchedEffect(c) {
+                repeat(300) {
+                    delay(2000)
+                    if (app.tvo.tv.data.Sync.loginPoll(c)) { qrCode = null; msg = "TV connectée à ton compte ✓"; return@LaunchedEffect }
+                }
+                qrCode = null; msg = "Code expiré, recommence."
+            }
         }
         code?.let {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {

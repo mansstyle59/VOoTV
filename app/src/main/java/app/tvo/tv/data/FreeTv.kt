@@ -88,14 +88,22 @@ object FreeTv {
 /** Ready-to-install suggestions (checked working, legal sources only). */
 object Suggestions {
     data class Item(val url: String, val name: String, val desc: String, val category: String)
+    /** Groupes dans l'ordre affiché, avec ce que chacun apporte. */
+    val groups = listOf(
+        "Chaînes TV" to "Regarder la télé en direct",
+        "Sous-titres" to "Afficher des sous-titres pendant la lecture",
+        "Catalogues" to "Ajouter des rangées de films et séries à l'accueil",
+        "Où regarder" to "Retrouver un titre sur les plateformes officielles",
+        "Vidéos" to "Autres contenus vidéo",
+    )
     val all = listOf(
-        Item("m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV (abonnés Free)", "Toutes les chaînes de ta Freebox. Uniquement connecté à la Freebox (Wi-Fi ou câble).", "Chaînes TV"),
-        Item("https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube favorites", "Chaînes TV"),
-        Item("https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "The Movie Database Addon", "Catalogues TMDB (configurable en français)", "Catalogues"),
-        Item("https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Ce qui est sur Netflix, Prime, Disney+…", "Catalogues"),
-        Item("https://anime-kitsu.strem.fun/manifest.json", "Anime Kitsu", "Catalogues et fiches d'animés", "Catalogues"),
-        Item("https://watchhub.strem.io/manifest.json", "WatchHub", "Liens vers les plateformes officielles où regarder", "Streaming"),
-        Item("https://opensubtitles-v3.strem.io/manifest.json", "OpenSubtitles v3", "Sous-titres dans toutes les langues", "Sous-titres"),
+        Item("m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV", "Toutes les chaînes de ta Freebox, avec leurs logos. Abonnés Free, connecté à la Freebox.", "Chaînes TV"),
+        Item("https://opensubtitles-v3.strem.io/manifest.json", "OpenSubtitles (recommandé)", "Sous-titres français et toutes langues, ajoutés automatiquement au lecteur.", "Sous-titres"),
+        Item("https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Rangées « Sur Netflix », « Sur Prime Video », « Sur Disney+ »…", "Catalogues"),
+        Item("https://anime-kitsu.strem.fun/manifest.json", "Anime Kitsu", "Catalogues et fiches d'animés (saisons, épisodes).", "Catalogues"),
+        Item("https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "TMDB Addon (facultatif)", "Catalogues TMDB supplémentaires. TVO intègre déjà TMDB en français.", "Catalogues"),
+        Item("https://watchhub.strem.io/manifest.json", "WatchHub", "Sur chaque fiche, les plateformes officielles où regarder le titre.", "Où regarder"),
+        Item("https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube préférées dans TVO.", "Vidéos"),
     )
 }
 

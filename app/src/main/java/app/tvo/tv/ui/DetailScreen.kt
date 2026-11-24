@@ -197,6 +197,13 @@ fun PersonScreen(id: String, nav: Nav) {
     val page by produceState<app.tvo.tv.data.Tmdb.PersonPage?>(null, id) { value = app.tvo.tv.data.Tmdb.person(id) }
     val p = page ?: return CenterMessage("Chargement…")
     val first = remember { FocusRequester() }
+    var kind by remember { mutableStateOf("all") }
+    var sort by remember { mutableStateOf("new") }
+    val works = remember(p, kind, sort) {
+        val f = p.works.filter { kind == "all" || it.type == kind }
+        val y = { m: app.tvo.tv.data.MetaPreview -> m.releaseInfo?.take(4)?.toIntOrNull() ?: 0 }
+        when (sort) { "new" -> f.sortedByDescending(y); "old" -> f.filter { y(it) > 0 }.sortedBy(y) + f.filter { y(it) == 0 }; else -> f }
+    }
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
         modifier = Modifier.fillMaxSize().background(TvoColors.Bg),
@@ -214,8 +221,19 @@ fun PersonScreen(id: String, nav: Nav) {
                 }
             }
         }
-        items(p.works.size) { i ->
-            val m = p.works[i]
+        item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Chip("Tout (${p.works.size})", kind == "all", { kind = "all" })
+                Chip("Films (${p.works.count { it.type == "movie" }})", kind == "movie", { kind = "movie" })
+                Chip("Séries (${p.works.count { it.type == "series" }})", kind == "series", { kind = "series" })
+                Spacer(Modifier.width(24.dp))
+                Chip("Plus récents", sort == "new", { sort = "new" })
+                Chip("Plus anciens", sort == "old", { sort = "old" })
+                Chip("Populaires", sort == "pop", { sort = "pop" })
+            }
+        }
+        items(works.size, key = { works[it].id }) { i ->
+            val m = works[i]
             PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(first) else Modifier)
         }
     }

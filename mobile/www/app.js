@@ -234,8 +234,8 @@
           return tget("/discover/movie", { page, with_keywords: kw, sort_by: kind === "new" ? "primary_release_date.desc" : "vote_average.desc",
             "primary_release_date.lte": today(), "vote_count.gte": kind === "new" ? "15" : "200" }); })()
       : c.id === "latest" ? await tget("/discover/movie", { page, region: "FR", sort_by: "primary_release_date.desc", "primary_release_date.lte": today(), "vote_count.gte": "20", with_release_type: "3|4|6" })
-      : c.id.startsWith("pv_") ? await (async () => { const [, pid, sort] = c.id.split("_");
-          return tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate",
+      : c.id.startsWith("pv_") ? await (async () => { const [, pid, sort, genre] = c.id.split("_");
+          return tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate", ...(genre ? { with_genres: genre } : {}),
             sort_by: sort === "new" ? (k === "tv" ? "first_air_date.desc" : "primary_release_date.desc") : sort === "top" ? "vote_average.desc" : "popularity.desc",
             [k === "tv" ? "first_air_date.lte" : "primary_release_date.lte"]: today(), "vote_count.gte": sort === "top" ? "200" : "5" }); })()
       : c.id.startsWith("prov_") ? await tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: c.id.slice(5), with_watch_monetization_types: "flatrate",
@@ -352,15 +352,18 @@
     return [{ addonName: FREETV.addon.manifest.name, name: c.name, title: direct ? "Direct" : "S'ouvre dans l'appli ou le site de la chaîne",
       url: direct ? c.url : null, externalUrl: direct ? null : c.url, infoHash: null, headers: {}, needsHeaders: false, subtitles: [], bingeGroup: null, quality: 0 }];
   }
+  // Suggestions : [adresse, nom, description, groupe, étiquettes]
   const SUGGESTIONS = [
-    ["m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV (abonnés Free)", "Toutes les chaînes de ta Freebox. Uniquement connecté à la Freebox (Wi-Fi ou câble).", "Chaînes TV"],
-    ["https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube favorites", "Chaînes TV"],
-    ["https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "The Movie Database Addon", "Catalogues TMDB (configurable en français)", "Catalogues"],
-    ["https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Ce qui est sur Netflix, Prime, Disney+…", "Catalogues"],
-    ["https://anime-kitsu.strem.fun/manifest.json", "Anime Kitsu", "Catalogues et fiches d'animés", "Catalogues"],
-    ["https://watchhub.strem.io/manifest.json", "WatchHub", "Liens vers les plateformes officielles où regarder", "Streaming"],
-    ["https://opensubtitles-v3.strem.io/manifest.json", "OpenSubtitles v3", "Sous-titres dans toutes les langues", "Sous-titres"],
+    ["m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV", "Toutes les chaînes de ta Freebox, avec leurs logos.", "Chaînes TV", "Abonnés Free · Wi-Fi Freebox"],
+    ["https://opensubtitles-v3.strem.io/manifest.json", "OpenSubtitles", "Sous-titres français et toutes langues, ajoutés automatiquement au lecteur.", "Sous-titres", "Recommandé"],
+    ["https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/manifest.json", "Streaming Catalogs", "Rangées « Sur Netflix », « Sur Prime Video », « Sur Disney+ »…", "Catalogues", "Configurable"],
+    ["https://anime-kitsu.strem.fun/manifest.json", "Anime Kitsu", "Catalogues et fiches d'animés (saisons, épisodes).", "Catalogues", "Animés"],
+    ["https://94c8cb9f702d-tmdb-addon.baby-beamup.club/manifest.json", "TMDB Addon", "Catalogues TMDB supplémentaires. Facultatif : TVO intègre déjà TMDB en français.", "Catalogues", "Facultatif"],
+    ["https://watchhub.strem.io/manifest.json", "WatchHub", "Sur chaque fiche, les plateformes officielles où regarder le titre.", "Où regarder", "Liens officiels"],
+    ["https://v3-channels.strem.io/manifest.json", "YouTube", "Tes chaînes YouTube préférées dans TVO.", "Vidéos", ""],
   ];
+  const SUG_GROUPS = [["Chaînes TV", "Regarder la télé en direct"], ["Sous-titres", "Afficher des sous-titres pendant la lecture"],
+    ["Catalogues", "Ajouter des rangées de films et séries à l'accueil"], ["Où regarder", "Retrouver un titre sur les plateformes officielles"], ["Vidéos", "Autres contenus vidéo"]];
   const CATEGORIES = ["Catalogues", "Streaming", "Chaînes TV", "Sous-titres", "Autres"];
   function addonCategory(a) {
     const m = a.manifest, res = m.resources.map((r) => r.name);
@@ -390,7 +393,7 @@
         const num = parseInt(attr("tvg-chno"), 10) || parseInt((raw.match(/^(\d+)\s*[-.:]/) || [])[1], 10) || 9999;
         const name = raw.replace(/^\d+\s*[-.:]\s*/, "");
         const id = `${M3U.P}${h}:${slugify(name)}`;
-        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo"), url: l, group: attr("group-title") || "", chno: num, headers: { ...hdr } }); }
+        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo") || guessLogo(name), url: l, group: attr("group-title") || "", chno: num, headers: { ...hdr } }); }
         info = null;
       }
     });
@@ -401,6 +404,13 @@
     const url = addonUrl.slice(M3U.P.length);
     const txt = await (await fetch(url)).text();
     const list = parseM3u(txt, m3uHash(url)); M3U.lists.set(addonUrl, list); return list;
+  }
+  /** Logo automatique (dépôt public tv-logo/tv-logos) quand la liste n'en fournit pas. */
+  function guessLogo(name) {
+    const b = String(name || "").normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase()
+      .replace(/\b(fhd|uhd|hd|sd|4k|hevc|h265)\b|\(.*?\)|\[.*?\]/g, " ").replace(/\+/g, " plus ").replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return b ? `https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/${b}-fr.png` : null;
   }
   const m3uUsesGroups = (list) => new Set(list.map((c) => c.group).filter(Boolean)).size > 1;
   const m3uCat = (c, g) => (g ? c.group || "Autres" : chanCategory(c.name));
@@ -594,12 +604,65 @@
     if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16))); LS.set("sync_id", id); }
     return id;
   }
-  async function rpc(fn, body) {
-    const r = await fetch(SB.url + fn, { method: "POST", headers: { apikey: SB.key, Authorization: "Bearer " + SB.key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  async function rpc(fn, body, token) {
+    const r = await fetch(SB.url + fn, { method: "POST", headers: { apikey: SB.key, Authorization: "Bearer " + (token || SB.key), "Content-Type": "application/json" }, body: JSON.stringify(body) });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const t = await r.text();
     return t ? JSON.parse(t) : null;
   }
+  // ------------------------------------------------------------------ compte Google / Apple (Supabase Auth)
+  const AUTH_BASE = "https://vfxblubjsxwseacmslnu.supabase.co/auth/v1";
+  const REDIRECT = "tvo://auth";
+  const account = () => LS.get("auth", null);
+  function signIn(provider) {
+    location.href = `${AUTH_BASE}/authorize?provider=${provider}&redirect_to=${encodeURIComponent(REDIRECT)}`;
+  }
+  function signOut() { LS.set("auth", null); toast("Déconnecté. Tes données restent sur ce téléphone."); }
+  async function authToken() {
+    const a = account(); if (!a) return null;
+    if (Date.now() < a.exp - 60000) return a.access;
+    try {
+      const r = await fetch(`${AUTH_BASE}/token?grant_type=refresh_token`, { method: "POST", headers: { apikey: SB.key, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: a.refresh }) });
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      LS.set("auth", { ...a, access: d.access_token, refresh: d.refresh_token, exp: Date.now() + d.expires_in * 1000 });
+      return d.access_token;
+    } catch { return null; }
+  }
+  /** Relie ce compte à l'espace de synchro : le même sur tous les appareils connectés au compte. */
+  async function linkAccount() {
+    const t = await authToken(); if (!t) return;
+    const id = await rpc("tvo_account_link", { p_id: syncId() }, t);
+    if (id && id !== syncId()) LS.set("sync_id", id);
+    await syncNow();
+  }
+  async function approveTv(code) {
+    code = String(code || "").replace(/\D/g, "");
+    if (code.length !== 6) { toast("Code à 6 chiffres attendu."); return false; }
+    await syncNow();
+    const ok = await rpc("tvo_login_approve", { p_code: code, p_id: syncId() }).catch(() => false);
+    toast(ok ? "TV connectée ✓" : "Code invalide ou expiré."); return !!ok;
+  }
+  async function handleUrl(url) {
+    if (!url || !url.startsWith("tvo://")) return;
+    const u = new URL(url.replace("tvo://", "https://tvo.app/"));
+    const q = new URLSearchParams((u.hash || "").slice(1) + "&" + u.search.slice(1));
+    if (u.pathname === "/auth") {
+      if (!q.get("access_token")) { toast(q.get("error_description") || "Connexion annulée."); return; }
+      let email = "";
+      try { email = (await (await fetch(`${AUTH_BASE}/user`, { headers: { apikey: SB.key, Authorization: "Bearer " + q.get("access_token") } })).json()).email || ""; } catch {}
+      LS.set("auth", { access: q.get("access_token"), refresh: q.get("refresh_token"), exp: Date.now() + Number(q.get("expires_in") || 3600) * 1000, email });
+      try { await linkAccount(); toast("Connecté ✓ Tes appareils sont synchronisés."); } catch { toast("Connecté, synchro à réessayer."); }
+      if (location.hash.startsWith("#/settings")) route();
+    } else if (u.pathname === "/login" && q.get("code")) {
+      if (confirm("Connecter ce téléviseur à ton compte TVO ?")) approveTv(q.get("code"));
+    }
+  }
+  try {
+    const App = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.App;
+    if (App) { App.addListener("appUrlOpen", (e) => handleUrl(e.url)); App.getLaunchUrl().then((r) => r && handleUrl(r.url)).catch(() => {}); }
+  } catch {}
+
   function exportDoc() {
     const profiles = {};
     S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0 }));
@@ -898,7 +961,7 @@
       rowsEl.appendChild(sec);
       const ps = document.createElement("section"); ps.className = "section";
       ps.innerHTML = `<h2 class="section-title"><span class="st">${ICON.series}Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
-        `<a class="prov" style="--c:${c}" href="#/provider/${id}">${esc(n)}</a>`).join("")}</div>`;
+        provTile(id, n, c)).join("")}</div>`;
       rowsEl.appendChild(ps);
     }
     const rows = type ? buildRows(type) : applyHome(buildRows(null));
@@ -951,21 +1014,77 @@
         <div><h1>${esc(p.name)}</h1><div class="small" style="color:var(--cyan)">${p.works.length} films et séries</div></div></div>
       ${p.bio ? `<p class="pad desc clamp" id="bio" style="margin-top:12px">${esc(p.bio)}</p>` : ""}
       <h2 class="section-title section"><span class="st">${ICON.movie}Filmographie</span></h2>
-      <div class="grid">${p.works.map(portraitHTML).join("")}</div>`;
+      <div class="chips" id="fkind">${[["all", `Tout (${p.works.length})`], ["movie", `Films (${p.works.filter((w) => w.type === "movie").length})`], ["series", `Séries (${p.works.filter((w) => w.type === "series").length})`]].map(([k, l]) => `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}">${l}</button>`).join("")}</div>
+      <div class="chips" id="fsort" style="margin-top:6px">${[["new", "Plus récents"], ["old", "Plus anciens"], ["pop", "Populaires"]].map(([k, l]) => `<button class="chip ${k === "new" ? "on" : ""}" data-s="${k}">${l}</button>`).join("")}</div>
+      <div class="grid" id="fgrid"></div>`;
+    const st = { k: "all", s: "new" };
+    const yr = (w) => Number(String(w.releaseInfo || "").slice(0, 4)) || 0;
+    const drawF = () => {
+      let l = p.works.filter((w) => st.k === "all" || w.type === st.k);
+      if (st.s === "new") l = [...l].sort((a, b) => yr(b) - yr(a));
+      if (st.s === "old") l = [...l.filter(yr).sort((a, b) => yr(a) - yr(b)), ...l.filter((w) => !yr(w))];
+      $("#fgrid").innerHTML = l.map(portraitHTML).join("") || `<div class="empty">Rien dans cette catégorie.</div>`;
+      document.querySelectorAll("#fkind .chip").forEach((c) => c.classList.toggle("on", c.dataset.k === st.k));
+      document.querySelectorAll("#fsort .chip").forEach((c) => c.classList.toggle("on", c.dataset.s === st.s));
+    };
+    $("#fkind").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (b) { st.k = b.dataset.k; drawF(); } });
+    $("#fsort").addEventListener("click", (e) => { const b = e.target.closest("[data-s]"); if (b) { st.s = b.dataset.s; drawF(); } });
+    drawF();
     const bio = $("#bio"); if (bio) bio.addEventListener("click", () => bio.classList.toggle("clamp"));
   }
 
   const PROVIDERS = [["8", "Netflix", "#e50914"], ["119", "Prime Video", "#00a8e1"], ["337", "Disney+", "#113ccf"], ["381", "Canal+", "#111111"],
     ["350", "Apple TV+", "#555555"], ["531", "Paramount+", "#0064ff"], ["1899", "Max", "#002be7"]];
+  /** Logos officiels des plateformes (fournis par TMDB), mis en cache 7 jours. */
+  let PROV_LOGOS = LS.get("provlogos", null);
+  async function provLogos() {
+    if (PROV_LOGOS && Date.now() - PROV_LOGOS.t < 7 * 864e5) return PROV_LOGOS.m;
+    if (!tmdbOn()) return {};
+    try {
+      const m = {};
+      for (const k of ["movie", "tv"]) (await tget(`/watch/providers/${k}`, { watch_region: "FR" })).results.forEach((r) => { m[r.provider_id] = timg(r.logo_path, "w154"); });
+      PROV_LOGOS = { t: Date.now(), m }; LS.set("provlogos", PROV_LOGOS); return m;
+    } catch { return {}; }
+  }
+  function provTile(id, n, c) {
+    const logo = PROV_LOGOS && PROV_LOGOS.m[id];
+    return `<a class="prov ${logo ? "has-logo" : ""}" style="--c:${c}" href="#/provider/${id}" aria-label="${esc(n)}">${logo ? `<img src="${esc(logo)}" alt="" onerror="this.remove()">` : ""}<span>${esc(n)}</span></a>`;
+  }
+  if (!PROV_LOGOS) provLogos().then(() => { if (/^#\/(|home|discover)?$/.test(location.hash)) document.querySelectorAll(".prov").forEach((a) => { const id = a.getAttribute("href").split("/").pop(); const p = PROVIDERS.find((x) => x[0] === id); if (p) a.outerHTML = provTile(...p); }); });
+
+  const PROV_GENRES = [["28|10759", "Action et aventure"], ["35", "Comédies"], ["18", "Drames"], ["53|80", "Thrillers et policiers"], ["878|10765", "Science-fiction et fantastique"],
+    ["16", "Animation"], ["10751|10762", "En famille"], ["27", "Horreur"], ["10749", "Romance"], ["99", "Documentaires"]];
   async function screenProvider(pid) {
     setTabs("home");
     const pr = PROVIDERS.find((x) => x[0] === pid) || [pid, "Plateforme", "#2f5bff"];
-    app.innerHTML = header(pr[1], `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `<div id="rows"></div>`;
-    if (!tmdbOn()) { $("#rows").innerHTML = `<div class="empty"><h2>Clé TMDB nécessaire</h2>Ajoute ta clé TMDB dans Réglages pour voir les catalogues par plateforme.</div>`; return; }
-    const mk = (type, id, name, sort) => ({ key: `prov|${pid}|${type}|${id}`, title: name, a: TMDB.addon,
-      c: { type, id: `pv_${pid}_${sort}`, name, extra: [{ name: "skip", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }, extra: {} });
-    lazyRows($("#rows"), [mk("movie", "new", "Nouveaux films", "new"), mk("series", "new", "Nouvelles séries", "new"),
-      mk("movie", "pop", "Films populaires", "pop"), mk("series", "pop", "Séries populaires", "pop"), mk("movie", "top", "Films les mieux notés", "top"), mk("series", "top", "Séries les mieux notées", "top")]);
+    const back = `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`;
+    app.innerHTML = header("", back) + `<div class="pv-hero" id="pvh" style="--c:${pr[2]}"><div class="shade"></div><div class="pv-brand" id="pvb"><h1>${esc(pr[1])}</h1></div></div>
+      <div class="chips pad" id="pvk"><button class="chip on" data-k="all">Tout</button><button class="chip" data-k="movie">Films</button><button class="chip" data-k="series">Séries</button></div><div id="rows"></div>`;
+    if (!tmdbOn()) { $("#rows").innerHTML = `<div class="empty"><h2>Catalogue indisponible</h2>Le service de titres (TMDB) n'est pas joignable pour le moment.</div>`; return; }
+    provLogos().then((m) => { if (m[pid]) $("#pvb").innerHTML = `<img class="pv-logo" src="${esc(m[pid])}" alt="${esc(pr[1])}"><h1>${esc(pr[1])}</h1>`; });
+    tget("/discover/movie", { watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate", sort_by: "popularity.desc" }).then((d) => {
+      const b = (d.results || []).find((r) => r.backdrop_path); const h = $("#pvh");
+      if (b && h) h.insertAdjacentHTML("afterbegin", `<img src="${esc(timg(b.backdrop_path, "w1280"))}" alt="">`);
+    }).catch(() => {});
+    const mk = (type, sort, name, g) => ({ key: `prov|${pid}|${type}|${sort}|${g || ""}`, title: name, a: TMDB.addon,
+      c: { type, id: `pv_${pid}_${sort}_${g || ""}`, name, extra: [{ name: "skip", isRequired: false, options: [] }], extraRequired: [], extraSupported: [] }, extra: {} });
+    const draw = (k) => {
+      const types = k === "all" ? ["movie", "series"] : [k];
+      const L = (t, a, b) => (t === "movie" ? a : b);
+      const rows = [];
+      types.forEach((t) => rows.push(mk(t, "pop", L(t, "Films tendance", "Séries tendance"))));
+      types.forEach((t) => rows.push(mk(t, "new", L(t, "Nouveaux films", "Nouvelles séries"))));
+      types.forEach((t) => rows.push(mk(t, "top", L(t, "Films les mieux notés", "Séries les mieux notées"))));
+      PROV_GENRES.forEach(([g, n]) => types.forEach((t) => {
+        const ids = g.split("|"); const gid = t === "movie" ? ids[0] : ids[1] || ids[0];
+        if (t === "movie" && /^107/.test(gid)) return;
+        rows.push(mk(t, "pop", k === "all" ? `${n} · ${L(t, "films", "séries")}` : n, gid));
+      }));
+      $("#rows").innerHTML = ""; lazyRows($("#rows"), rows);
+    };
+    $("#pvk").addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (!b) return;
+      document.querySelectorAll("#pvk .chip").forEach((c) => c.classList.toggle("on", c === b)); draw(b.dataset.k); });
+    draw("all");
   }
 
   /** Carrousel « Tendances pour toi » : grande affiche au centre. */
@@ -993,7 +1112,7 @@
     rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories</span></h2><div class="cats">${cats.map(([g, ic, c]) =>
       `<a class="cat" style="--c:${c}" href="#/genre/movie/${enc(g)}"><span class="ci">${ic}</span><span>${genreLabel(g)}</span></a>`).join("")}</div></section>
       <section class="section"><h2 class="section-title"><span class="st plain">Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
-      `<a class="prov" style="--c:${c}" href="#/provider/${id}">${esc(n)}</a>`).join("")}</div></section>`;
+      provTile(id, n, c)).join("")}</div></section>`;
   }
 
   // Live TV : toutes les catégories de chaînes
@@ -1230,6 +1349,22 @@
     draw(st.total);
   }
 
+  /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
+  const SECT_INFO = { "Compte": "Google, Apple et synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
+    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
+  function makeCollapsible(root, openByDefault) {
+    const st = LS.get("setopen", {});
+    root.querySelectorAll("h2.section-title.section").forEach((h) => {
+      const title = h.textContent.trim();
+      const d = document.createElement("details"); d.className = "sect";
+      d.open = title in st ? st[title] : openByDefault.includes(title);
+      d.innerHTML = `<summary class="sect-head"><span class="sect-t"><b>${esc(title)}</b>${SECT_INFO[title] ? `<small>${esc(SECT_INFO[title])}</small>` : ""}</span><i class="chev"></i></summary><div class="sect-body"></div>`;
+      const body = d.lastElementChild; let n = h.nextElementSibling;
+      h.replaceWith(d);
+      while (n && !n.matches("h2.section-title.section")) { const nx = n.nextElementSibling; body.appendChild(n); n = nx; }
+      d.addEventListener("toggle", () => { st[title] = d.open; LS.set("setopen", st); });
+    });
+  }
   function screenSettings() {
     setTabs(null);
     const p = S.profile;
@@ -1240,17 +1375,32 @@
           <button class="btn" id="editP">${ICON.edit} Modifier</button></div>
         <button class="btn block" id="switchP">Changer de profil</button>
       </div>
-      <h2 class="section-title section"><span>Synchronisation TV ⇄ téléphone</span></h2>
+      <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
-        <div class="card small muted">Continuer à regarder, Ma liste, épisodes vus, profils et add-ons sont partagés automatiquement entre tes appareils reliés.
-          <div id="syncStatus" style="color:var(--cyan);margin-top:6px">${esc(syncState.status)}</div></div>
-        <div class="two-btn"><button class="btn" id="syncNow">Synchroniser</button><button class="btn" id="syncCode">Afficher un code</button></div>
-        <div id="codeBox"></div>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
-          <input class="field" id="claim" inputmode="numeric" maxlength="6" placeholder="J'ai un code (6 chiffres)" autocomplete="one-time-code">
-          <button class="btn primary" id="claimGo">Relier</button></div>
+        ${account() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>Connecté</b><div class="small muted" style="overflow:hidden;text-overflow:ellipsis">${esc(account().email || "Compte TVO")}</div></div><button class="btn" id="signOut">Se déconnecter</button></div>`
+          : `<div class="card small muted">Connecte-toi pour retrouver Ma liste, Continuer à regarder, tes profils et tes add-ons sur tous tes appareils.</div>
+        <button class="btn block signin" id="gIn"><b style="font-size:17px">G</b> Continuer avec Google</button>
+        <button class="btn block signin apple" id="aIn"><b style="font-size:17px"></b> Continuer avec Apple</button>`}
+        <div id="syncStatus" class="small" style="color:var(--cyan)">${esc(syncState.status)}</div>
       </div>
-      <h2 class="section-title section"><span>TMDB (titres et résumés en français)</span></h2>
+      <h2 class="section-title section"><span>Connecter une TV</span></h2>
+      <div class="list">
+        <div class="card small muted">Sur la TV : Réglages › Compte › Connexion rapide. Scanne le QR code avec l'appareil photo, ou saisis le code affiché.</div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+          <input class="field" id="tvCode" inputmode="numeric" maxlength="6" placeholder="Code TV (6 chiffres)" autocomplete="one-time-code">
+          <button class="btn primary" id="tvGo">Connecter</button></div>
+        <details class="card"><summary class="small">Relier sans compte (code entre appareils)</summary>
+          <div class="list" style="padding:10px 0 0">
+          <div class="two-btn"><button class="btn" id="syncNow">Synchroniser</button><button class="btn" id="syncCode">Afficher un code</button></div>
+          <div id="codeBox"></div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px">
+            <input class="field" id="claim" inputmode="numeric" maxlength="6" placeholder="J'ai un code (6 chiffres)" autocomplete="one-time-code">
+            <button class="btn primary" id="claimGo">Relier</button></div></div></details>
+      </div>
+      <h2 class="section-title section"><span>Lecteur</span></h2>
+      <div class="chips">${[["tvo", "Lecteur TVO (recommandé)"], ["vlc", "Appli VLC"], ...(isIOS ? [["infuse", "Infuse"]] : [])].map(([k, l]) => `<button class="chip ${S.player === k ? "on" : ""}" data-pl="${k}">${l}</button>`).join("")}</div>
+      <p class="pad small muted">Le lecteur TVO lit MP4, HLS et la plupart des MKV. Pour un fichier au son illisible (DTS, TrueHD), choisis VLC ou Infuse s'ils sont installés.</p>
+      <h2 class="section-title section"><span>Titres et résumés (TMDB)</span></h2>
       <div class="list">
         <div class="card small muted">${tmdbKey() ? `Clé TMDB active (…${esc(tmdbKey().slice(-4))}). Catalogues, fiches et épisodes en français.` : "Ajoute ta clé API TMDB (gratuite sur themoviedb.org › Paramètres › API) : catalogues, titres, résumés et affiches en français. Elle passe aussi sur la TV par la synchro."}</div>
         <input class="field" id="tmdb" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Clé d'API ou jeton d'accès en lecture">
@@ -1270,12 +1420,10 @@
       <h2 class="section-title section"><span>Page d'accueil</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
       <div class="list" id="homeEd"></div>
-      <h2 class="section-title section"><span>Lecteur</span></h2>
-      <div class="chips">${[["tvo", "Lecteur TVO"], ["vlc", "VLC"], ...(isIOS ? [["infuse", "Infuse"]] : [])].map(([k, l]) => `<button class="chip ${S.player === k ? "on" : ""}" data-pl="${k}">${l}</button>`).join("")}</div>
-      <p class="pad small muted">VLC ou Infuse lisent plus de formats (MKV, DTS…). Ils doivent être installés.</p>
       <h2 class="section-title section"><span>Application</span></h2>
       <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>`;
+      makeCollapsible(app, account() ? [] : ["Compte"]);
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
       const drawHome = () => {
         const h = homeLayout();
@@ -1307,11 +1455,15 @@
       });
       const td = $("#tmdbDel");
       if (td) td.addEventListener("click", () => { LS.set("tmdb_key", null); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); syncNow(); draw(); });
+      const gIn = $("#gIn"); if (gIn) gIn.addEventListener("click", () => signIn("google"));
+      const aIn = $("#aIn"); if (aIn) aIn.addEventListener("click", () => signIn("apple"));
+      const so = $("#signOut"); if (so) so.addEventListener("click", () => { signOut(); draw(); });
+      $("#tvGo").addEventListener("click", async () => { if (await approveTv($("#tvCode").value)) $("#tvCode").value = ""; });
       $("#syncNow").addEventListener("click", async () => { $("#syncStatus").textContent = "Synchronisation…"; await syncNow(); $("#syncStatus").textContent = syncState.status; });
       $("#syncCode").addEventListener("click", async () => {
         $("#codeBox").innerHTML = '<div class="card">Création du code…</div>';
         try { const c = String(await pairCreate());
-          $("#codeBox").innerHTML = `<div class="card" style="text-align:center"><div style="font-size:36px;font-weight:800;letter-spacing:.12em">${esc(c.slice(0, 3) + " " + c.slice(3))}</div><div class="small muted">Sur la TV : Réglages › Synchronisation › J'ai un code. Valable 10 minutes.</div></div>`;
+          $("#codeBox").innerHTML = `<div class="card" style="text-align:center"><div style="font-size:36px;font-weight:800;letter-spacing:.12em">${esc(c.slice(0, 3) + " " + c.slice(3))}</div><div class="small muted">Sur l'autre appareil : Réglages › J'ai un code. Valable 10 minutes.</div></div>`;
         } catch { $("#codeBox").innerHTML = '<div class="card">Pas de connexion.</div>'; }
       });
       $("#claimGo").addEventListener("click", async () => {
@@ -1354,10 +1506,12 @@
         <div id="msg" class="small" style="color:var(--cyan)"></div>
       </div>
       <h2 class="section-title section"><span>Suggestions</span></h2>
-      <div class="list">${CATEGORIES.map((cat) => [cat, SUGGESTIONS.filter((x) => x[3] === cat)]).filter(([, g]) => g.length).map(([cat, g]) =>
-        `<div class="small" style="color:var(--cyan);font-weight:700;margin-top:6px">${cat}</div>` + g.map(([u, n, d]) => {
+      <p class="pad small muted" style="margin-top:-4px">Une sélection compatible avec TVO, classée selon ce que tu veux faire.</p>
+      <div class="list">${SUG_GROUPS.map(([g, why]) => [g, why, SUGGESTIONS.filter((x) => x[3] === g)]).filter(([, , l]) => l.length).map(([g, why, l]) =>
+        `<div class="sug-head"><b>${esc(g)}</b><span class="small muted">${esc(why)}</span></div>` + l.map(([u, n, d, , tag]) => {
           const inst = S.addons.some((a) => a.url === u || a.url === normalize(u));
-          return `<button class="card" data-s="${esc(u)}" style="text-align:left" ${inst ? "disabled" : ""}><b>${inst ? "✓ " : ""}${esc(n)}</b><div class="small muted">${esc(d)}</div></button>`;
+          return `<div class="card sug"><div style="flex:1;min-width:0"><b>${esc(n)}</b>${tag ? ` <span class="tag">${esc(tag)}</span>` : ""}<div class="small muted">${esc(d)}</div></div>
+            <button class="btn ${inst ? "" : "primary"}" data-s="${esc(u)}" ${inst ? "disabled" : ""}>${inst ? "✓ Installé" : "Installer"}</button></div>`;
         }).join("")).join("")}</div>`;
     const install = async (u) => {
       if (!u.trim()) return;
@@ -1619,7 +1773,32 @@
   function showUpdateBanner() { /* mises à jour automatiques : plus de bannière */ }
 
   // ------------------------------------------------------------------ routeur
+  // ------------------------------------------------------------------ animations
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const revealIO = "IntersectionObserver" in window ? new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add("in"); revealIO.unobserve(e.target); }
+  }), { rootMargin: "0px 0px -6% 0px", threshold: 0.05 }) : null;
+  function revealAll(root) {
+    if (reduceMotion || !revealIO) return;
+    root.querySelectorAll(".section, .card, details.sect, .ep, .person-head, .grid > *:not(.rv)").forEach((el) => {
+      if (el.classList.contains("rv")) return; el.classList.add("rv"); revealIO.observe(el);
+    });
+  }
+  new MutationObserver(() => revealAll(app)).observe(app, { childList: true, subtree: true });
+  let ticking = false;
+  window.addEventListener("scroll", () => {
+    if (ticking || reduceMotion) return; ticking = true;
+    requestAnimationFrame(() => {
+      const y = window.scrollY;
+      document.body.classList.toggle("scrolled", y > 12);
+      const h = app.querySelector(".dt-hero img, .pv-hero > img, .hero img");
+      if (h) h.style.transform = `translate3d(0, ${Math.min(y * 0.35, 220)}px, 0) scale(${1 + Math.min(y, 300) / 3000})`;
+      ticking = false;
+    });
+  }, { passive: true });
+
   function route() {
+    if (!reduceMotion) { app.classList.remove("page-in"); void app.offsetWidth; app.classList.add("page-in"); }
     if (!$("#player").hidden) closePlayer();
     const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
     const [page, a, b, c] = parts;
@@ -1668,11 +1847,14 @@
   setInterval(() => document.hidden || syncNow(), 120000);
   // À l'ouverture : télécharge la nouvelle version et l'applique tout de suite (hors lecture vidéo).
   (async () => {
-    const sp = $("#splash"), msg = $("#splashMsg");
+    const sp = $("#splash"), msg = $("#splashMsg"), t0 = Date.now();
+    const sv = $("#splashVer"); if (sv) sv.textContent = "Version " + VERSION.name;
     const ok = await Promise.race([autoUpdate(), sleep(4000).then(() => false)]);
+    await sleep(Math.max(0, 1600 - (Date.now() - t0)));
     if (ok && $("#player").hidden) { if (msg) msg.textContent = `Installation de TVO ${updateInfo.name}…`; setTimeout(() => location.reload(), 500); return; }
-    if (msg) msg.textContent = "TVO est à jour";
-    setTimeout(() => { if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 400); } }, 300);
+    if (msg) msg.textContent = "TVO est à jour ✓";
+    if (sp) sp.classList.add("done");
+    setTimeout(() => { if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); } }, 450);
   })();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) autoUpdate().then((ok) => ok && applyUpdate()); });
 })();

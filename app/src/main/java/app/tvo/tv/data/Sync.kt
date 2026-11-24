@@ -84,6 +84,18 @@ object Sync {
         rpc("tvo_pair_create", buildJsonObject { put("p_id", Tvo.store.syncId()) }).trim().trim('"')
     }.getOrNull()
 
+    /** Connexion rapide : la TV affiche un QR code, le téléphone connecté l'approuve. */
+    suspend fun loginStart(): String? = runCatching {
+        rpc("tvo_login_start", buildJsonObject { }).trim().trim('"').takeIf { it.length == 6 }
+    }.getOrNull()
+
+    /** Renvoie true quand le téléphone a validé : la TV rejoint alors son compte. */
+    suspend fun loginPoll(code: String): Boolean = runCatching {
+        val raw = rpc("tvo_login_poll", buildJsonObject { put("p_code", code) }).trim().trim('"')
+        if (raw.isEmpty() || raw == "null") return@runCatching false
+        Tvo.store.setSyncId(raw); syncNow(); true
+    }.getOrDefault(false)
+
     /** Joins the space of the device that displays [code]; local data is merged into it. */
     suspend fun claim(code: String): Boolean = runCatching {
         val raw = rpc("tvo_pair_claim", buildJsonObject { put("p_code", code) }).trim().trim('"')
