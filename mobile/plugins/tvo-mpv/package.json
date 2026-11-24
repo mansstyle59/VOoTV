@@ -1,0 +1,10 @@
+{
+  "name": "tvo-mpv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lecteur vidéo MPV (MKV, DTS, HEVC…) pour l'appli TVO sur iPhone",
+  "capacitor": {
+    "ios": { "src": "ios" }
+  },
+  "peerDependencies": { "@capacitor/core": ">=8.0.0" }
+}

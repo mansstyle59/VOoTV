@@ -1442,3 +1442,9 @@ body:has(#app .pv2)::after { background: transparent; }
 .card.source .tags { margin-top: 2px; }
 .card.source .playic { flex: none; width: 40px; height: 40px; }
 details.qgroup .list { display: grid; gap: 8px; }
+
+/* ---------- Lecteur MPV (iPhone) : la vidéo native est dessinée sous la page ---------- */
+html.mpv-on, html.mpv-on body { background: transparent !important; }
+html.mpv-on body::before, html.mpv-on body::after { display: none !important; }
+html.mpv-on body > *:not(#player):not(#toast) { visibility: hidden !important; }
+html.mpv-on #player { background: transparent !important; }

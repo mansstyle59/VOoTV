@@ -4492,10 +4492,12 @@ var qrcode = function() {
   let SRC_QUEUE = null;
   /** Source suivante de la liste classée (si la lecture échoue ou ne démarre pas). */
   // iPhone : le lecteur intégré lit MP4 / HLS, mais pas les MKV / AVI, ni le son DTS / TrueHD
-  const iosBad = (s) => isIOS && !!s && /\.(mkv|avi|wmv|flv)(\?|$)|\bmkv\b|\bremux\b|\bdts\b|dts-hd|truehd|\bavi\b/i.test(`${s.name || ""} ${s.title || ""} ${s.url || ""}`);
+  // Lecteur MPV natif (iPhone) : lit MKV, HEVC, DTS, TrueHD… comme Nuvio
+  const MPV = () => !!(isIOS && window.Capacitor && Capacitor.isPluginAvailable && Capacitor.isPluginAvailable("TvoMpv") && Capacitor.Plugins.TvoMpv && LS.get("mpv", true));
+  const iosBad = (s) => isIOS && !MPV() && !!s && /\.(mkv|avi|wmv|flv)(\?|$)|\bmkv\b|\bremux\b|\bdts\b|dts-hd|truehd|\bavi\b/i.test(`${s.name || ""} ${s.title || ""} ${s.url || ""}`);
   function nextSource(cur) {
     if (!SRC_QUEUE) return null; const l = SRC_QUEUE.list; const i = l.findIndex((x) => x === cur || (x.url && x.url === cur.url));
-    const rest = l.slice(i + 1).filter((x) => x.url && !x.needsHeaders);
+    const rest = l.slice(i + 1).filter((x) => x.url && (!x.needsHeaders || MPV()));
     return rest.find((x) => !iosBad(x)) || rest[0] || null;
   }
   async function screenSources(type, metaId, videoId) {
@@ -4706,7 +4708,8 @@ var qrcode = function() {
       </div>
       <h2 class="section-title section"><span>Lecteur</span></h2>
       <div class="chips">${[["tvo", "Lecteur TVO (recommandé)"], ["vlc", "Appli VLC"], ...(isIOS ? [["infuse", "Infuse"]] : [])].map(([k, l]) => `<button class="chip ${S.player === k ? "on" : ""}" data-pl="${k}">${l}</button>`).join("")}</div>
-      <p class="pad small muted">Le lecteur TVO lit MP4, HLS et la plupart des MKV. Pour un fichier au son illisible (DTS, TrueHD), choisis VLC ou Infuse s'ils sont installés.</p>
+      ${isIOS && window.Capacitor && Capacitor.isPluginAvailable && Capacitor.isPluginAvailable("TvoMpv") ? `<div class="chips" style="margin-top:8px">${[[true, "Moteur MPV (MKV, DTS…)"], [false, "Moteur Apple"]].map(([k, l]) => `<button class="chip ${LS.get("mpv", true) === k ? "on" : ""}" data-mpv="${k}">${l}</button>`).join("")}</div>` : ""}
+      <p class="pad small muted">${isIOS ? "Le moteur MPV lit presque tout (MKV, HEVC, DTS, TrueHD, sous-titres intégrés), comme Nuvio. Le moteur Apple ne lit que MP4 et HLS." : "Le lecteur TVO lit MP4, HLS et la plupart des MKV. Pour un fichier au son illisible (DTS, TrueHD), choisis VLC ou Infuse s'ils sont installés."}</p>
       ${isAccountAdmin() ? "" : `      <h2 class="section-title section"><span>Titres et résumés (TMDB)</span></h2>
       <div class="list">
         <div class="card small muted">${tmdbKey() ? `Clé TMDB active (…${esc(tmdbKey().slice(-4))}). Catalogues, fiches et épisodes en français.` : "Ajoute ta clé API TMDB (gratuite sur themoviedb.org › Paramètres › API) : catalogues, titres, résumés et affiches en français. Elle passe aussi sur la TV par la synchro."}</div>
@@ -4916,6 +4919,7 @@ var qrcode = function() {
         catch (e) { toast("Impossible d'actualiser (" + e.message + ")"); }
       }));
       app.querySelectorAll("[data-pl]").forEach((b) => b.addEventListener("click", () => { S.player = b.dataset.pl; LS.set("player", S.player); draw(); }));
+      app.querySelectorAll("[data-mpv]").forEach((b) => b.addEventListener("click", () => { LS.set("mpv", b.dataset.mpv === "true"); draw(); }));
       $("#upd").addEventListener("click", async () => {
         toast("Recherche…");
         const r = await checkUpdate(); if (r) showUpdateBanner(r); else toast("TVO est à jour");
@@ -4966,7 +4970,7 @@ var qrcode = function() {
   async function playStream(m, s, videoId) {
     if (!s.url && s.externalUrl) { window.open(s.externalUrl, "_blank"); return; }
     const ext = externalUrl(s.url);
-    if (ext || s.needsHeaders) {
+    if (ext || (s.needsHeaders && !MPV())) {
       if (!ext) toast("Cette source demande un lecteur externe (VLC).");
       location.href = ext || ("vlc://" + s.url);
       return;
@@ -4983,8 +4987,76 @@ var qrcode = function() {
     de: "Allemand", ger: "Allemand", it: "Italien", ita: "Italien", pt: "Portugais", por: "Portugais", ar: "Arabe", ara: "Arabe" };
   const srtToVtt = (t) => "WEBVTT\n\n" + t.replace(/\r/g, "").replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, "$1.$2");
 
+  /** Objet qui imite un <video> mais pilote le lecteur MPV natif : les commandes TVO restent les mêmes. */
+  let mpvVid = null;
+  class MpvVideo extends EventTarget {
+    constructor() {
+      super();
+      this.P = Capacitor.Plugins.TvoMpv; this.paused = false; this._t = 0; this._d = NaN; this._rate = 1; this.readyState = 0;
+      this._tracks = []; this.alive = true; this._fit = "contain"; this._playing = false; this._buf = true;
+      const me = this;
+      this.style = { get objectFit() { return me._fit; }, set objectFit(v) { me._fit = v; me.P.setFit({ mode: v }); } };
+    }
+    _emit(n) { if (this.alive) this.dispatchEvent(new Event(n)); }
+    get currentTime() { return this._t; }
+    set currentTime(v) { this._t = Math.max(0, v); this.P.seek({ position: this._t }); this._emit("timeupdate"); }
+    get duration() { return this._d; }
+    get playbackRate() { return this._rate; }
+    set playbackRate(v) { this._rate = v; this.P.setSpeed({ rate: v }); }
+    play() { this.P.play(); this.paused = false; this._emit("play"); return Promise.resolve(); }
+    pause() { this.P.pause(); this.paused = true; this._emit("pause"); }
+    get textTracks() {
+      return this._tracks.filter((t) => t.type === "sub").map((t) => {
+        const me = this; const o = { language: t.lang, label: [t.title, t.codec ? t.codec.toUpperCase() : ""].filter(Boolean).join(" · "), cues: null };
+        Object.defineProperty(o, "mode", { get: () => (t.selected ? "showing" : "disabled"),
+          set: (v) => { if (v === "showing") { me._tracks.forEach((x) => x.type === "sub" && (x.selected = x === t)); me.P.setSub({ id: String(t.id) }); }
+            else if (t.selected) { t.selected = false; me.P.setSub({ id: "no" }); } } });
+        return o; });
+    }
+    get audioTracks() {
+      return this._tracks.filter((t) => t.type === "audio").map((t) => {
+        const me = this; const ch = t.channels >= 6 ? " 5.1" : "";
+        const o = { language: t.lang, label: [t.title, (t.codec || "").toUpperCase() + ch].filter(Boolean).join(" · ") };
+        Object.defineProperty(o, "enabled", { get: () => t.selected,
+          set: (v) => { if (v) { me._tracks.forEach((x) => x.type === "audio" && (x.selected = x === t)); me.P.setAudio({ id: String(t.id) }); } } });
+        return o; });
+    }
+    async start(url, start, headers, subs) {
+      this._h = await this.P.addListener("mpvEvent", (e) => {
+        if (!this.alive) return;
+        if (e.tracks) this._tracks = e.tracks;
+        if (e.type === "loaded") { this.readyState = 1; this._emit("loadedmetadata_pending"); }
+        else if (e.type === "error") { this._emit("error"); }
+        else if (e.type === "ended") { this._emit("ended"); }
+      });
+      this._poll = setInterval(() => this._tick(), 400);
+      await this.P.open({ url, start: start || 0, headers: headers || {}, subtitles: subs || [] });
+      this._emit("loadstart");
+    }
+    async _tick() {
+      if (!this.alive) return;
+      let st; try { st = await this.P.getState(); } catch { return; }
+      if (!this.alive || !st || !st.active) return;
+      if (st.duration > 0 && !(this._d > 0)) { this._d = st.duration; this.readyState = 4; this._emit("durationchange"); this._emit("loadedmetadata"); }
+      else if (st.duration > 0) this._d = st.duration;
+      this._t = st.time || 0;
+      if (st.paused !== this.paused) { this.paused = st.paused; this._emit(st.paused ? "pause" : "play"); }
+      if (st.buffering !== this._buf) { this._buf = st.buffering; this._emit(st.buffering ? "waiting" : "canplay"); }
+      if (!st.buffering && !st.paused && this._t > 0 && !this._playing) { this._playing = true; this._emit("playing"); }
+      if (st.eof && !this._ended && this._d > 0) { this._ended = true; this._emit("ended"); }
+      this._emit("timeupdate");
+    }
+    destroy() {
+      this.alive = false; clearInterval(this._poll);
+      if (this._h) try { this._h.remove(); } catch { /* */ }
+      this.P.close().catch(() => {});
+    }
+  }
+
   let hls = null;
   function closePlayer() {
+    if (mpvVid) { mpvVid.destroy(); mpvVid = null; }
+    document.documentElement.classList.remove("mpv-on");
     const el = $("#player");
     if (el._save) el._save();
     if (hls) { hls.destroy(); hls = null; }
@@ -5030,7 +5102,9 @@ var qrcode = function() {
       </div>
       <div class="nf-sheet" id="pSheet" hidden></div>
       <div class="pflash" id="pFlash" hidden></div>`;
-    const video = $("#vid");
+    const useMpv = MPV() && m.type !== "tv";
+    if (useMpv) { $("#vid").remove(); const pp = $("#pPip"); if (pp) pp.remove(); mpvVid = new MpvVideo(); document.documentElement.classList.add("mpv-on"); }
+    const video = useMpv ? mpvVid : $("#vid");
     const fmt = (t) => { if (!isFinite(t)) return "En direct"; t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return (h ? h + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0"); };
     $("#pClose").addEventListener("click", closePlayer);
     const flash = (t) => { const f = $("#pFlash"); f.textContent = t; f.hidden = false; clearTimeout(flash._t); flash._t = setTimeout(() => (f.hidden = true), 800); };
@@ -5070,12 +5144,14 @@ var qrcode = function() {
     let subShift = 0;
     const applySubStyle = () => {
       el.style.setProperty("--sub-size", subPref.size);
+      if (useMpv) video.P.setSubScale({ scale: subPref.size });
       el.classList.toggle("sub-box", !!subPref.box);
       LS.set("subpref", subPref);
     };
     applySubStyle();
     const shiftCues = (d) => {
       subShift = Math.round((subShift + d) * 10) / 10;
+      if (useMpv) { video.P.addSubDelay({ delta: d }); return; }
       [...video.textTracks].forEach((t) => { const c = t.cues; if (!c) return;
         for (let i = 0; i < c.length; i++) { c[i].startTime = Math.max(0, c[i].startTime + d); c[i].endTime = Math.max(0, c[i].endTime + d); } });
     };
@@ -5148,7 +5224,7 @@ var qrcode = function() {
     video.addEventListener("pause", wake); wake();
 
     // Sous-titres (convertis en WebVTT)
-    ctx.subs.slice(0, 20).forEach(async (sub, i) => {
+    if (!useMpv) ctx.subs.slice(0, 20).forEach(async (sub, i) => {
       try {
         const r = await fetch(sub.url); let txt = await r.text();
         if (!/^WEBVTT/.test(txt)) txt = srtToVtt(txt);
@@ -5161,14 +5237,17 @@ var qrcode = function() {
     });
 
     const isHls = /\.m3u8(\?|$)/i.test(s.url);
-    if (isHls && !isIOS && window.Hls && window.Hls.isSupported()) {
+    if (useMpv) {
+      const subs = ctx.subs.slice(0, 20).map((x, i) => ({ url: x.url, lang: x.lang || "und", title: LANG[(x.lang || "").toLowerCase()] || x.lang || "Sous-titres " + (i + 1) }));
+      video.start(s.url, ctx.start > 0 ? ctx.start : 0, s.headers || {}, subs).catch(() => fail("Lecteur MPV indisponible"));
+    } else if (isHls && !isIOS && window.Hls && window.Hls.isSupported()) {
       hls = new window.Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 60 });
       hls.loadSource(s.url); hls.attachMedia(video);
       hls.on(window.Hls.Events.ERROR, (_, d) => { if (d.fatal) { if (d.type === "networkError") hls.startLoad(); else if (d.type === "mediaError") hls.recoverMediaError(); } });
     } else {
       video.src = s.url;
     }
-    video.addEventListener("loadedmetadata", () => { if (ctx.start > 0 && ctx.start < video.duration - 5) video.currentTime = ctx.start; }, { once: true });
+    if (!useMpv) video.addEventListener("loadedmetadata", () => { if (ctx.start > 0 && ctx.start < video.duration - 5) video.currentTime = ctx.start; }, { once: true });
 
 
     let lastSave = 0;
@@ -5187,7 +5266,8 @@ var qrcode = function() {
     video.addEventListener("ended", () => { save(true); if (m.type === "series" && !ctx.nextCancelled) playNext(ctx); else closePlayer(); });
     let failed = false;
     const fail = (why) => {
-      if (failed || !document.body.contains(video)) return; failed = true;
+      if (failed || (useMpv ? !video.alive : !document.body.contains(video))) return; failed = true;
+      if (useMpv) { video.alive = false; clearInterval(video._poll); }
       const nx = nextSource(s);
       el.insertAdjacentHTML("beforeend", `<div class="err"><div class="card"><b style="font-size:20px">${esc(why)}</b>
         <div class="muted">${isIOS ? "L'iPhone ne lit que certains formats. Choisis une autre source (MP4), ou ouvre celle-ci dans VLC / Infuse." : "Cette source ne répond pas ou n'est pas lisible ici."} ${nx ? "La suivante dans la liste est prête." : ""}</div>
@@ -5202,7 +5282,7 @@ var qrcode = function() {
     const label = (s.name + " " + (s.title || "") + " " + s.url).toLowerCase();
     if (iosBad(s)) setTimeout(() => fail("Format non lisible par l'iPhone (MKV, DTS…)"), 60);
     // Si rien ne démarre au bout de 15 s, on propose tout de suite une autre source au lieu d'attendre
-    const watchdog = setTimeout(() => { if (!video.currentTime && video.readyState < 3) fail("La vidéo ne démarre pas"); }, 15000);
+    const watchdog = setTimeout(() => { if (!video.currentTime && video.readyState < 3) fail("La vidéo ne démarre pas"); }, useMpv ? 30000 : 15000);
     video.addEventListener("playing", () => clearTimeout(watchdog), { once: true });
     // Vidéo factice de 8 s envoyée par certains add-ons à la place du film (lien expiré ou débrideur manquant)
     video.addEventListener("loadedmetadata", () => { if (video.duration > 0 && video.duration < 20 && m.type !== "tv") setTimeout(() => fail("Cette source envoie une vidéo d'erreur"), 1500); }, { once: true });
