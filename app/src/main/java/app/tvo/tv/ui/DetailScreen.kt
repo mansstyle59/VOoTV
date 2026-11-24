@@ -284,7 +284,7 @@ fun PersonScreen(id: String, nav: Nav) {
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
         modifier = Modifier.fillMaxSize().background(tvoBrush(Color(0xFF8B5CF6))),
-        contentPadding = PaddingValues(48.dp),
+        contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 40.dp, bottom = 48.dp),
         horizontalArrangement = Arrangement.spacedBy(18.dp),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
@@ -300,7 +300,7 @@ fun PersonScreen(id: String, nav: Nav) {
         }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Chip("Tout (${p.works.size})", kind == "all", { kind = "all" })
+                Chip("Tout (${p.works.size})", kind == "all", { kind = "all" }, Modifier.focusRequester(first))
                 Chip("Films (${p.works.count { it.type == "movie" }})", kind == "movie", { kind = "movie" })
                 Chip("Séries (${p.works.count { it.type == "series" }})", kind == "series", { kind = "series" })
                 Spacer(Modifier.width(24.dp))
@@ -311,7 +311,7 @@ fun PersonScreen(id: String, nav: Nav) {
         }
         items(works.size, key = { works[it].id }) { i ->
             val m = works[i]
-            PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(first) else Modifier)
+            PortraitCard(m, { nav.openMeta(m) })
         }
     }
     LaunchedEffect(p) { kotlinx.coroutines.delay(120); runCatching { first.requestFocus() } }
