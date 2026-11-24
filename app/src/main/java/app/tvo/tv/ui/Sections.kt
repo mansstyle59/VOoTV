@@ -122,7 +122,7 @@ val PLATFORMS = listOf(
 @Composable
 private fun UniversePage(
     title: String, subtitle: String, logo: String?, bg: String?, brand: Color,
-    type: String, onType: (String) -> Unit, items: List<MetaPreview>, loading: Boolean, nav: Nav, onNearEnd: () -> Unit, tabs: Boolean = true,
+    type: String, onType: (String) -> Unit, items: List<MetaPreview>, loading: Boolean, nav: Nav, tabs: Boolean = true, onNearEnd: () -> Unit,
 ) {
     val tabFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(120); runCatching { tabFocus.requestFocus() } }
@@ -202,7 +202,7 @@ private fun ProviderGrid(id: String, nav: Nav) {
 private fun CollectionScreen(id: String, nav: Nav) {
     val data by produceState<Pair<app.tvo.tv.data.Tmdb.Saga, List<MetaPreview>>?>(null, id) { value = app.tvo.tv.data.Tmdb.collection(id) }
     UniversePage(data?.first?.name ?: "Saga", "Tous les films de la saga, dans l'ordre de sortie", null, data?.first?.backdrop,
-        Color(0xFFF59E0B), "movie", {}, data?.second ?: emptyList(), data == null, nav, {}, tabs = false)
+        Color(0xFFF59E0B), "movie", {}, data?.second ?: emptyList(), data == null, nav, tabs = false, onNearEnd = {})
     LaunchedEffect(data) { if (data != null) delay(150) }
 }
 
