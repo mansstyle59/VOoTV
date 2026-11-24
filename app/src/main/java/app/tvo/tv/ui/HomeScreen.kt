@@ -539,12 +539,13 @@ private val GENRE_TXT = mapOf(
     "Documentary" to "Le monde réel raconté : nature, histoire, société, sport.",
 )
 
-private fun GenreTilesSelect(g: String) = MetaPreview("genre:$g", "genre", genreLabel(g), null,
-    GENRE_IMG[g]?.let { TMDB_IMG + "w1280" + it }, null, GENRE_TXT[g] ?: "Les meilleurs titres de la catégorie ${genreLabel(g)}.")
+private fun GenreTilesSelect(g: String, img: String?) = MetaPreview("genre:$g", "genre", genreLabel(g), null,
+    img?.let { TMDB_IMG + "w1280" + it }, null, GENRE_TXT[g] ?: "Les meilleurs titres de la catégorie ${genreLabel(g)}.")
 
 @Composable
 private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
     val select = LocalSelect.current
+    val fresh by produceState<Map<String, String>>(emptyMap()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.genreBackdrops(homeGenres) else emptyMap() }
     PanelSection("Catégories") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -552,7 +553,7 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre("movie", g) },
-                    modifier = Modifier.width(240.dp).height(135.dp).onFocused { onFocus(); select(GenreTilesSelect(g)) },
+                    modifier = Modifier.width(240.dp).height(135.dp).onFocused { onFocus(); select(GenreTilesSelect(g, fresh[g] ?: GENRE_IMG[g])) },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
@@ -560,7 +561,7 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                 ) {
                     val gc = Color(GENRE_COLOR[g] ?: 0xFF3D7CFF)
                     Box(Modifier.fillMaxSize().background(gc.copy(alpha = 0.35f))) {
-                        GENRE_IMG[g]?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.85f) }
+                        (fresh[g] ?: GENRE_IMG[g])?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.85f) }
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to Color(0xF2000000))))
                         Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to gc.copy(alpha = 0.55f), 0.6f to Color.Transparent)))
                         Column(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 10.dp)) {

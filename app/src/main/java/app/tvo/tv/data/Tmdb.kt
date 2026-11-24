@@ -237,7 +237,11 @@ object Tmdb {
 
     /** Grandes sagas du cinéma (Harry Potter, Star Wars, James Bond…). */
     suspend fun sagas(): List<Saga> = coroutineScope {
-        SAGA_IDS.map { cid -> async { runCatching { saga(get("/collection/$cid"), cid.toString()).takeIf { it.name.isNotBlank() } }.getOrNull() } }
+        SAGA_IDS.map { cid -> async { runCatching {
+            val o = get("/collection/$cid")
+            // Image d'un film au hasard de la saga : elle change à chaque lancement
+            val bd = o.arr("parts")?.mapNotNull { (it as? JsonObject)?.s("backdrop_path")?.takeIf { b -> b.isNotBlank() } }?.randomOrNull() ?: o.s("backdrop_path")
+            saga(o, cid.toString()).copy(backdrop = img(bd, "w1280")).takeIf { it.name.isNotBlank() } }.getOrNull() } }
             .awaitAll().filterNotNull()
     }
 
@@ -276,6 +280,16 @@ object Tmdb {
                 val kf = (o.arr("known_for")?.firstOrNull() as? JsonObject)?.let { it.s("title") ?: it.s("name") }
                 Person(id.toString(), o.s("name") ?: "", img(o.s("profile_path"), "w185"), kf) } }.distinctBy { it.id }
     }.getOrDefault(emptyList())
+
+    /** Image fraîche de chaque catégorie : un film très populaire du genre, au hasard parmi les premiers. */
+    suspend fun genreBackdrops(names: List<String>): Map<String, String> = coroutineScope {
+        names.map { g -> async { runCatching {
+            val gid = MOVIE_GENRES[g] ?: return@runCatching null
+            val r = get("/discover/movie", mapOf("with_genres" to gid.toString(), "sort_by" to "popularity.desc", "vote_count.gte" to "200"))
+                .arr("results")?.mapNotNull { it as? JsonObject }?.filter { !it.s("backdrop_path").isNullOrBlank() }?.take(10).orEmpty()
+            r.randomOrNull()?.s("backdrop_path")?.let { g to it }
+        }.getOrNull() } }.awaitAll().filterNotNull().toMap()
+    }
 
     /** Image de fond fraîche de chaque plateforme : un titre très populaire chez elle, au hasard parmi les premiers. */
     suspend fun providerBackdrops(ids: List<String>): Map<String, String> = coroutineScope {
