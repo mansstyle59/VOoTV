@@ -955,6 +955,56 @@
     try { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("tvo-pin:" + pin)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
     catch { let h = 0; for (const ch of "tvo-pin:" + pin) h = (h * 31 + ch.charCodeAt(0)) | 0; return "j" + (h >>> 0).toString(16); }
   }
+  const BIO = () => window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.NativeBiometric;
+  async function bioAvailable() { try { const b = BIO(); if (!b) return null; const r = await b.isAvailable({ useFallback: false }); return r && r.isAvailable ? r : null; } catch { return null; } }
+  const bioName = (r) => (r && (r.biometryType === 2 || r.biometryType === 4) ? "Face ID" : r && r.biometryType === 1 ? "Touch ID" : "l'empreinte");
+  /** Déverrouille un profil protégé : Face ID / Touch ID si activé, sinon code. Renvoie true si c'est bon. */
+  function unlockProfile(p, title) {
+    return new Promise(async (done) => {
+      const bio = await bioAvailable();
+      const box = document.createElement("div"); box.className = "pin-sheet";
+      box.innerHTML = `<div class="pin-card"><div class="pin-av">${avatar(p)}</div><b>${esc(title || p.name)}</b><span class="pin-msg" id="pinMsg">Saisis le code à 4 chiffres</span>
+        <div class="pin-dots"><i></i><i></i><i></i><i></i></div>
+        <div class="pin-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((k) => `<button data-k="${k}">${k}</button>`).join("")}
+          ${bio ? `<button class="pin-bio" data-bio aria-label="${bioName(bio)}">${bioName(bio) === "Face ID" ? "🙂" : "☝️"}</button>` : `<button disabled></button>`}<button data-k="0">0</button><button data-k="del" aria-label="Effacer">⌫</button></div>
+        ${bio ? `<button class="btn block" data-bio>Utiliser ${bioName(bio)}</button>` : ""}<button class="btn block ghost" data-x>Annuler</button></div>`;
+      document.body.appendChild(box);
+      let v = "", busy = false;
+      const msg = box.querySelector("#pinMsg"), dots = box.querySelectorAll(".pin-dots i");
+      const paint = (err) => { dots.forEach((d, i) => { d.classList.toggle("on", i < v.length); d.classList.toggle("err", !!err); }); };
+      const close = (r) => { document.removeEventListener("keydown", onKey); box.remove(); done(r); };
+      const tryBio = async () => {
+        if (!bio || busy) return; busy = true;
+        try { await BIO().verifyIdentity({ reason: `Déverrouiller le profil ${p.name}`, title: `Profil ${p.name}`, subtitle: "TVO", negativeButtonText: "Code" }); busy = false; return close(true); }
+        catch { busy = false; msg.textContent = "Saisis le code à 4 chiffres"; }
+      };
+      const press = async (k) => {
+        if (busy) return;
+        if (k === "del") v = v.slice(0, -1); else if (v.length < 4) v += k;
+        paint(false); if (navigator.vibrate) navigator.vibrate(6);
+        if (v.length === 4) {
+          busy = true; const ok = (await pinHash(v)) === p.pin; busy = false;
+          if (ok) return close(true);
+          v = ""; paint(true); msg.textContent = "Code incorrect, réessaie"; msg.classList.add("err"); if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+          setTimeout(() => { paint(false); msg.classList.remove("err"); }, 900);
+        }
+      };
+      const onKey = (e) => { if (/^[0-9]$/.test(e.key)) press(e.key); else if (e.key === "Backspace") press("del"); else if (e.key === "Escape") close(false); };
+      document.addEventListener("keydown", onKey);
+      box.addEventListener("pointerdown", (e) => {
+        if (e.target === box || e.target.closest("[data-x]")) return close(false);
+        if (e.target.closest("[data-bio]")) return tryBio();
+        const b = e.target.closest("[data-k]"); if (b) { e.preventDefault(); press(b.dataset.k); }
+      });
+      // Face ID se lance tout seul si l'utilisateur l'a activé pour ce profil sur cet appareil
+      if (bio && LS.get("bio." + p.id, false)) setTimeout(tryBio, 250);
+    });
+  }
+  async function offerBio(p) {
+    const bio = await bioAvailable(); if (!bio || LS.get("bio." + p.id, null) !== null) return;
+    if (confirm(`Utiliser ${bioName(bio)} pour déverrouiller le profil ${p.name} sur cet appareil ?`)) { LS.set("bio." + p.id, true); toast(`${bioName(bio)} activé ✓`); }
+    else LS.set("bio." + p.id, false);
+  }
   /** Code PIN à 4 chiffres : fenêtre de saisie ; renvoie le code ou null. */
   function askPin(title) {
     return new Promise((done) => {
@@ -965,9 +1015,9 @@
       document.body.appendChild(box); let v = "";
       const dots = () => box.querySelectorAll(".pin-dots i").forEach((d, i) => d.classList.toggle("on", i < v.length));
       const close = (r) => { box.remove(); done(r); };
-      box.addEventListener("click", (e) => {
+      box.addEventListener("pointerdown", (e) => {
         if (e.target === box || e.target.closest("[data-x]")) return close(null);
-        const k = e.target.closest("[data-k]"); if (!k) return;
+        const k = e.target.closest("[data-k]"); if (!k) return; e.preventDefault();
         if (k.dataset.k === "⌫") v = v.slice(0, -1); else if (v.length < 4) v += k.dataset.k;
         dots(); if (v.length === 4) setTimeout(() => close(v), 120);
       });
@@ -1102,12 +1152,12 @@
         if (manage) {
           // Seul l'administrateur modifie les autres profils (et chaque profil se modifie lui-même, avec son code)
           return (async () => {
-            if (p.pin && !(S.profile && isAdmin(S.profile) && S.profile.id !== p.id)) { const c = await askPin(`Code de ${p.name}`); if (c === null) return; if (await pinHash(c) !== p.pin) return toast("Code incorrect"); }
+            if (p.pin && !(S.profile && isAdmin(S.profile) && S.profile.id !== p.id)) { if (!(await unlockProfile(p, `Modifier ${p.name}`))) return; }
             go("#/profile/" + enc(p.id));
           })();
         }
         (async () => {
-          if (p.pin) { const c = await askPin(`Code de ${p.name}`); if (c === null) return; if (await pinHash(c) !== p.pin) return toast("Code incorrect"); }
+          if (p.pin) { if (!(await unlockProfile(p))) return; offerBio(p); }
           const blk = profileBlock(p); if (blk) return toast(blk, 4500);
           selectProfile(p); go("#/home");
         })();
@@ -1237,6 +1287,24 @@
     }
   }
 
+
+  // ------------------------------------------------------------------ bandes-annonces (TMDB → YouTube), en français si possible
+  async function playTrailer(m) {
+    const kind = m.tmdbKind || (m.type === "series" ? "tv" : "movie");
+    let vids = [];
+    for (const lang of ["fr-FR", "en-US"]) {
+      try { vids = ((await tget(`/${kind}/${m.tmdbId}/videos`, { language: lang })).results || []).filter((v) => v.site === "YouTube"); } catch { vids = []; }
+      if (vids.length) break;
+    }
+    const pick = vids.find((v) => v.type === "Trailer" && v.official) || vids.find((v) => v.type === "Trailer") || vids.find((v) => v.type === "Teaser") || vids[0];
+    if (!pick) return toast("Pas de bande-annonce disponible pour ce titre.");
+    const box = document.createElement("div"); box.className = "tr-sheet";
+    box.innerHTML = `<div class="tr-card"><div class="tr-top"><b>${esc(pick.name || "Bande-annonce")}</b><button class="icon-btn" data-x aria-label="Fermer">✕</button></div>
+      <div class="tr-frame"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(pick.key)}?autoplay=1&playsinline=1&rel=0&modestbranding=1&hl=fr&cc_lang_pref=fr"
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>`;
+    document.body.appendChild(box);
+    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) box.remove(); });
+  }
 
   // ------------------------------------------------------------------ appui long : menu d'options sur les cartes
   function actionSheet(title, actions) {
@@ -1752,12 +1820,14 @@
         ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
         <div class="dt-actions">
           <button id="lib">${inLib(m.id) ? ICON.check : ICON.plus}<span>Ma liste</span></button>
+          ${m.tmdbId ? `<button id="trailer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg><span>Bande-annonce</span></button>` : ""}
           <button id="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg><span>Partager</span></button>
         </div>
       </div>
       <div class="dt-tabs" id="dtTabs"></div>
       <div id="dtPane"></div>`;
 
+    const tr = $("#trailer"); if (tr) tr.addEventListener("click", () => playTrailer(m));
     const drawTabs = () => {
       $("#dtTabs").innerHTML = tabsDef.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-t="${k}">${l}</button>`).join("");
       $("#dtTabs").querySelectorAll("[data-t]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.t; drawTabs(); drawPane(); }));
