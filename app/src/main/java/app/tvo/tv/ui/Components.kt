@@ -211,8 +211,8 @@ fun TvoButton(
         modifier = modifier.height(52.dp).widthIn(min = 150.dp),
         shape = ButtonDefaults.shape(shape),
         colors = ButtonDefaults.colors(
-            containerColor = if (primary) Color.White else Color(0xFF6D7691).copy(alpha = 0.45f),
-            contentColor = if (primary) Color.Black else Color.White,
+            containerColor = if (primary) TvoColors.Blue else Color(0xFF6D7691).copy(alpha = 0.45f),
+            contentColor = Color.White,
             focusedContainerColor = if (primary) Color.White else Color.White,
             focusedContentColor = Color.Black,
             pressedContainerColor = Color(0xFFD9D9D9),
@@ -221,7 +221,7 @@ fun TvoButton(
         scale = ButtonDefaults.scale(focusedScale = 1f, pressedScale = 1f),
         border = ButtonDefaults.border(
             border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(0.dp, Color.Transparent), shape = shape),
-            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), shape = shape),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(0.dp, Color.Transparent), shape = shape),
         ),
         contentPadding = PaddingValues(horizontal = 24.dp),
     ) {

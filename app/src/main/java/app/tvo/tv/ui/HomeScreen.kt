@@ -119,6 +119,11 @@ val LocalNavHidden = androidx.compose.runtime.staticCompositionLocalOf { android
 val RowTopSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - 50f * android.content.res.Resources.getSystem().displayMetrics.density
 }
+/** Aucun défilement : pour les boutons du haut des fiches (la page reste fixe quand on change de bouton). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+val NoScrollSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
+}
 /** Défilement horizontal normal (le minimum pour voir la carte) à l'intérieur des rangées. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 val RowSideSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {

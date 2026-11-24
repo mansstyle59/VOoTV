@@ -131,7 +131,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         if (heroHasFocus) androidx.compose.runtime.snapshotFlow { mainState.firstVisibleItemIndex to mainState.firstVisibleItemScrollOffset }
             .collect { (i, o) -> if (i > 0 || o > 0) mainState.scrollToItem(0) }
     }
-    val heroFocused by remember { derivedStateOf { mainState.firstVisibleItemIndex == 0 && mainState.firstVisibleItemScrollOffset < 120 } }
+    // Basé sur le focus (et non sur le défilement) : plus de clignotement du voile quand on passe d'un bouton à l'autre
+    val heroFocused = heroHasFocus
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
     val heroFull = (screenH - 100).coerceIn(300, 480).dp
@@ -151,6 +152,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             item(key = "hero") {
+        // Les boutons du haut ne font jamais défiler la page (sinon : petit saut puis retour = clignotement)
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides NoScrollSpec) {
         Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 56.dp).width(640.dp)) {
                         if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
@@ -181,6 +184,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             Text("Il reste $left min", Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted)
                         }
                     }
+        }
         }
         }
             if (meta.people.isNotEmpty()) item {
