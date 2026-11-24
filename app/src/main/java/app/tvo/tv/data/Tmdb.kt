@@ -176,6 +176,15 @@ object Tmdb {
         return runCatching { get("/${kind(type)}/$tid/external_ids").s("imdb_id") }.getOrNull()
     }
 
+    /** Recherche d'acteurs et d'actrices (avec photo). */
+    suspend fun searchPeople(q: String): List<Person> = runCatching {
+        get("/search/person", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject }
+            ?.filter { !it.s("profile_path").isNullOrBlank() }?.take(15)
+            ?.mapNotNull { o -> o.i("id")?.let { id ->
+                val kf = (o.arr("known_for")?.firstOrNull() as? JsonObject)?.let { it.s("title") ?: it.s("name") }
+                Person(id.toString(), o.s("name") ?: "", img(o.s("profile_path"), "w185"), kf) } } ?: emptyList()
+    }.getOrDefault(emptyList())
+
     /** Clé YouTube de la bande-annonce en français (VF uniquement), ou null s'il n'y en a pas. */
     suspend fun trailerVF(type: String, id: String): String? = runCatching {
         val k = kind(type)

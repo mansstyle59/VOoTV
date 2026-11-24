@@ -1,5 +1,7 @@
 package app.tvo.tv.ui
 
+import androidx.compose.ui.draw.alpha
+
 import androidx.compose.runtime.mutableStateMapOf
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -81,33 +83,63 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             done++
         }
     }
-    // Test rapide de chaque lien : temps de réponse, sans télécharger la vidéo
-    val tests = remember(videoId) { mutableStateMapOf<String, Pair<Boolean, Long>>() }
+    // Test rapide de chaque lien (en-têtes seulement, sans télécharger la vidéo) :
+    // temps de réponse + détection des liens qui ne mènent pas à une vraie vidéo.
+    data class T(val ok: Boolean, val ms: Long, val lock: String? = null)
+    val tests = remember(videoId) { mutableStateMapOf<String, T>() }
     val sem = remember { kotlinx.coroutines.sync.Semaphore(6) }
-    val testHttp = remember { Tvo.http.newBuilder().connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS).readTimeout(5, java.util.concurrent.TimeUnit.SECONDS).build() }
+    val testHttp = remember { Tvo.http.newBuilder().connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS).readTimeout(5, java.util.concurrent.TimeUnit.SECONDS).followRedirects(true).build() }
     LaunchedEffect(streams.size) {
         streams.filter { it.url?.startsWith("http") == true && it.url !in tests }.forEach { st ->
-            val u = st.url!!; tests[u] = false to -1L
+            val u = st.url!!; tests[u] = T(false, -1L)
             launch(kotlinx.coroutines.Dispatchers.IO) {
                 sem.acquire()
                 try {
                     val t0 = System.currentTimeMillis()
                     val req = okhttp3.Request.Builder().url(u).head().apply { st.headers.forEach { (k, v) -> header(k, v) } }.build()
-                    val ok = runCatching { testHttp.newCall(req).execute().use { it.isSuccessful || it.code == 405 || it.code == 206 } }.getOrDefault(false)
-                    tests[u] = ok to (System.currentTimeMillis() - t0)
+                    val res = runCatching { testHttp.newCall(req).execute().use { r ->
+                        val ct = r.header("Content-Type").orEmpty().lowercase()
+                        val len = r.header("Content-Length")?.toLongOrNull() ?: -1L
+                        val ok = r.isSuccessful || r.code == 405 || r.code == 206
+                        val hls = ".m3u8" in u || "mpegurl" in ct
+                        val lock = when {
+                            !ok -> "Hors ligne"
+                            ct.startsWith("text/html") || "json" in ct -> "Demande un service payant"
+                            !hls && len in 1..60_000_000L -> "Vidéo d'attente (service payant requis)"
+                            else -> null
+                        }
+                        T(ok && lock == null, System.currentTimeMillis() - t0, lock)
+                    } }.getOrDefault(T(false, 0, "Hors ligne"))
+                    tests[u] = res
                 } finally { sem.release() }
             }
         }
     }
     fun langOf(s: StreamItem): String { val t = (s.name + " " + s.title).lowercase()
         return when { Regex("\\bmulti\\b").containsMatchIn(t) -> "MULTI"; Regex("\\b(vff|vfq|vf2?|french|truefrench)\\b").containsMatchIn(t) -> "VF"; "vostfr" in t -> "VOSTFR"; else -> "" } }
+    /** Raison du blocage (cadenas) ou null si la source est utilisable. */
+    fun lockOf(s: StreamItem): String? {
+        val t = (s.name + " " + s.title).lowercase()
+        if ("⬇" in t || "uncached" in t || "non en cache" in t || "[dl]" in t) return "Pas disponible tout de suite (service payant)"
+        if (s.url == null) return null
+        return tests[s.url]?.lock
+    }
     fun score(s: StreamItem): Long { val r = s.url?.let { tests[it] }
-        val alive = when { r == null -> 1; r.second < 0 -> 1; r.first -> 2; else -> 0 }
-        return alive * 10_000_000L + (if (langOf(s).isNotEmpty()) 1_000_000L else 0L) + s.quality * 100_000L - (if (r != null && r.first) r.second.coerceAtMost(99_999) else 50_000) }
+        val alive = when { r == null -> 1; r.ms < 0 -> 1; r.ok -> 2; else -> 0 }
+        return alive * 10_000_000L + (if (langOf(s).isNotEmpty()) 1_000_000L else 0L) + s.quality * 100_000L - (if (r != null && r.ok) r.ms.coerceAtMost(99_999) else 50_000) }
     var qFilter by remember(videoId) { mutableStateOf<Int?>(null) }
-    val all = streams.filter { it.playable }.sortedByDescending { score(it) }
+    var showLocked by remember(videoId) { mutableStateOf(false) }
+    val sorted = streams.filter { it.playable }.sortedByDescending { score(it) }
+    val all = sorted.filter { lockOf(it) == null }
+    val locked = sorted.filter { lockOf(it) != null }
     val playable = all.filter { qFilter == null || it.quality == qFilter }
     val torrents = streams.count { !it.playable }
+    fun start(s: StreamItem) {
+        if (starting) return
+        val m = meta ?: return
+        starting = true
+        scope.launch { play(ctx, m, s, videoId, addons); starting = false }
+    }
 
     Row(Modifier.fillMaxSize().background(TvoColors.Bg)) {
         Column(Modifier.width(320.dp).padding(start = 48.dp, top = 48.dp, end = 24.dp)) {
@@ -123,12 +155,12 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             val status = when {
                 total == 0 -> "Aucun add-on de sources installé."
                 done < total -> "Recherche en cours… ($done/$total add-ons)"
-                else -> "${playable.size} source(s) trouvée(s)" + if (torrents > 0) " · $torrents torrent(s) masqué(s), non pris en charge" else ""
+                else -> "${all.size} source(s) utilisable(s)" + (if (locked.isNotEmpty()) " · ${locked.size} bloquée(s) 🔒" else "") + if (torrents > 0) " · $torrents torrent(s) non pris en charge" else ""
             }
             Text(status, Modifier.padding(top = 4.dp, bottom = 16.dp), fontSize = 14.sp, color = TvoColors.Muted)
             if (starting) Text("Préparation de la lecture…", fontSize = 16.sp, color = TvoColors.Cyan)
             if (all.isNotEmpty()) {
-                val pending = tests.values.count { it.second < 0 }
+                val pending = tests.values.count { it.ms < 0 }
                 Text(if (pending > 0) "Test des liens… ($pending en cours) · classés par langue, qualité et vitesse" else "Liens testés · classés par langue, qualité et vitesse",
                     fontSize = 13.sp, color = TvoColors.Cyan, modifier = Modifier.padding(bottom = 8.dp))
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
@@ -140,30 +172,36 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             if (playable.isEmpty() && (done >= total)) {
                 Text(
                     if (total == 0) "Ajoute un add-on qui fournit des vidéos dans Réglages > Add-ons (comme dans Nuvio ou Stremio)."
+                    else if (locked.isNotEmpty()) "Toutes les sources trouvées sont bloquées 🔒 : elles demandent un service payant ou ne répondent pas. Essaie un autre add-on."
                     else "Aucune source lisible pour ce titre. Essaie un autre add-on.",
                     fontSize = 16.sp, color = TvoColors.Text, modifier = Modifier.width(560.dp),
                 )
             }
+            if (all.isNotEmpty()) {
+                val b = all.first()
+                TvoButton("Lecture rapide · ${AddonClient.qualityLabel(b.quality)}${langOf(b).let { if (it.isNotEmpty()) " $it" else "" }}", { start(b) },
+                    Modifier.focusRequester(firstFr).padding(bottom = 12.dp), androidx.compose.material.icons.Icons.Default.PlayArrow, primary = true)
+            }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
                 itemsIndexed(playable, key = { i, s -> "${s.addonName}|${s.url ?: s.externalUrl}|$i" }) { i, s ->
                     val r = s.url?.let { tests[it] }
-                    val badge = when { s.url == null -> "Lien externe"; r == null || r.second < 0 -> "Test…"; !r.first -> "Hors ligne"
-                        r.second < 1000 -> "⚡ ${r.second} ms"; else -> "⚡ ${"%.1f".format(r.second / 1000.0)} s" }
-                    StreamRow(s, badge, langOf(s), i == 0 && qFilter == null, if (i == 0) Modifier.focusRequester(firstFr) else Modifier) {
-                        if (starting) return@StreamRow
-                        val m = meta ?: return@StreamRow
-                        starting = true
-                        scope.launch {
-                            play(ctx, m, s, videoId, addons)
-                            starting = false
-                        }
+                    val badge = when { s.url == null -> "Lien externe"; r == null || r.ms < 0 -> "Test…"
+                        r.ms < 1000 -> "⚡ ${r.ms} ms"; else -> "⚡ ${"%.1f".format(r.ms / 1000.0)} s" }
+                    StreamRow(s, badge, langOf(s), i == 0 && qFilter == null, Modifier) { start(s) }
+                }
+                if (locked.isNotEmpty()) item(key = "lockhead") {
+                    Chip(if (showLocked) "🔒 Masquer les sources bloquées (${locked.size})" else "🔒 Sources bloquées (${locked.size}) · voir pourquoi", showLocked, { showLocked = !showLocked })
+                }
+                if (showLocked) itemsIndexed(locked, key = { i, s -> "L|${s.addonName}|${s.url}|$i" }) { _, s ->
+                    StreamRow(s, "🔒 " + (lockOf(s) ?: "Indisponible"), langOf(s), false, Modifier, locked = true) {
+                        android.widget.Toast.makeText(ctx, "Source bloquée : ${lockOf(s)}", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             }
         }
     }
-    LaunchedEffect(playable.isNotEmpty()) {
-        if (playable.isNotEmpty() && !focusedOnce) { focusedOnce = true; delay(60); runCatching { firstFr.requestFocus() } }
+    LaunchedEffect(all.isNotEmpty()) {
+        if (all.isNotEmpty() && !focusedOnce) { focusedOnce = true; delay(60); runCatching { firstFr.requestFocus() } }
     }
 }
 
@@ -216,10 +254,10 @@ fun openExternal(ctx: Context, uri: Uri, title: String?) {
 }
 
 @Composable
-private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean, modifier: Modifier, locked: Boolean = false, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().then(if (locked) Modifier.alpha(0.55f) else Modifier),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(
@@ -236,7 +274,7 @@ private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean,
             Column(Modifier.weight(1f)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (best) Text("MEILLEURE SOURCE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TvoColors.Blue)
-                    val bc = when { badge.startsWith("Hors") -> Color(0xFFF87171); badge.startsWith("⚡") -> Color(0xFF4ADE80); else -> TvoColors.Muted }
+                    val bc = when { badge.startsWith("🔒") -> Color(0xFFF87171); badge.startsWith("⚡") -> Color(0xFF4ADE80); else -> TvoColors.Muted }
                     Text(badge, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = bc)
                     if (lang.isNotEmpty()) Text(lang, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                 }

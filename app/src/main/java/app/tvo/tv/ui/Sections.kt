@@ -185,11 +185,14 @@ fun SearchSection(nav: Nav) {
         }
         value = out
     }
+    val people by produceState<List<app.tvo.tv.data.Person>>(emptyList(), query) {
+        value = if (query.trim().length < 2 || !app.tvo.tv.data.Tmdb.enabled) emptyList() else { delay(450); app.tvo.tv.data.Tmdb.searchPeople(query.trim()) }
+    }
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(380.dp).padding(start = 40.dp, top = 36.dp)) {
             Text("Recherche", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Box(Modifier.padding(vertical = 16.dp).width(330.dp).clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
-                Text(query.ifEmpty { "Titre d'un film ou d'une série" }, fontSize = 19.sp,
+                Text(query.ifEmpty { "Film, série ou acteur" }, fontSize = 19.sp,
                     color = if (query.isEmpty()) TvoColors.Muted else TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             TvKeyboard(onKey = { query += it }, onBackspace = { query = query.dropLast(1) }, onClear = { query = "" }, firstKey = firstKey)
@@ -199,8 +202,16 @@ fun SearchSection(nav: Nav) {
             when {
                 r == null -> CenterMessage("Recherche…")
                 query.trim().length < 2 -> CenterMessage("Que veux-tu regarder ?", "Tape au moins deux lettres.")
-                r.isEmpty() -> CenterMessage("Aucun résultat", "Essaie un autre titre, en anglais ou en français.")
+                r.isEmpty() && people.isEmpty() -> CenterMessage("Aucun résultat", "Essaie un autre titre, en anglais ou en français.")
                 else -> LazyColumn(contentPadding = PaddingValues(top = 36.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    if (people.isNotEmpty()) item(key = "people") {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            SectionTitle("Acteurs et actrices")
+                            androidx.compose.foundation.lazy.LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                                items(people, key = { it.id }) { pp -> PersonBubble(pp) { nav.openPerson(pp.id) } }
+                            }
+                        }
+                    }
                     items(r, key = { it.first }) { (title, list) -> PosterRow(title, list, nav.openMeta, {}) }
                 }
             }

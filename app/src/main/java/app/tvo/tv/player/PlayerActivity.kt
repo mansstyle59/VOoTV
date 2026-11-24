@@ -135,6 +135,16 @@ class PlayerActivity : ComponentActivity() {
             .build()
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
+                if (state == Player.STATE_READY) {
+                    watchdog.removeCallbacks(stuck)
+                    val d = player.duration
+                    // Lien « de démonstration » (quelques secondes) : la source demande un service payant (débrideur).
+                    if (req.type != "tv" && req.type != "channel" && d in 1..45_000) {
+                        player.stop()
+                        error = "Cette source ne fournit qu'une vidéo d'attente : elle demande un service payant. Choisis une autre source."
+                        showOverlayFocus(); return
+                    }
+                }
                 if (state == Player.STATE_ENDED) onEnded()
             }
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
@@ -188,22 +198,32 @@ class PlayerActivity : ComponentActivity() {
         setContentView(root)
         playerView.requestFocus()
 
+        // Retour : ferme le menu ouvert, sinon quitte le lecteur (un seul appui, jamais de boucle).
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 when {
                     options -> closeOptions()
                     nextUp != null -> { nextUp = null; nextDismissed = true; playerView.requestFocus() }
-                    playerView.isControllerFullyVisible && error == null -> playerView.hideController()
-                    else -> finish()
+                    else -> { saveProgress(); finish() }
                 }
             }
         })
         load(req)
     }
 
+    private val watchdog = android.os.Handler(android.os.Looper.getMainLooper())
+    private val stuck = Runnable {
+        if (!isFinishing && player.playbackState != Player.STATE_READY && error == null) {
+            player.stop()
+            error = "La source ne répond pas (rien après 25 secondes). Choisis une autre source."
+            showOverlayFocus()
+        }
+    }
+
     private fun load(r: PlayRequest) {
         req = r
         error = null; nextUp = null; nextDismissed = false
+        watchdog.removeCallbacks(stuck); watchdog.postDelayed(stuck, 25_000)
         val dsf = OkHttpDataSource.Factory(Tvo.http).setUserAgent(r.headers["User-Agent"] ?: USER_AGENT)
             .setDefaultRequestProperties(r.headers.filterKeys { it != "User-Agent" })
         val subs = r.subtitles.map { s ->
@@ -517,6 +537,7 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        watchdog.removeCallbacks(stuck)
         progressJob?.cancel()
         if (::player.isInitialized) player.release()
         super.onDestroy()

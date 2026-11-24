@@ -512,18 +512,10 @@ fun LiveSection(nav: Nav) {
     val scope = rememberCoroutineScope()
     var msg by remember { mutableStateOf<String?>(null) }
     if (rows.isEmpty()) {
-        Column(Modifier.fillMaxSize().padding(start = 48.dp, end = 48.dp, top = NavBarHeight + 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Freebox TV", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-            Text("Abonné Free ? Connecte la TV à ta Freebox (Wi-Fi ou câble) pour ajouter toutes tes chaînes. Tu peux aussi ajouter ta propre liste M3U dans Réglages › Add-ons.",
-                fontSize = 15.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp))
-            BlueButton("Ajouter les chaînes Freebox", {
-                msg = "Recherche de la Freebox…"
-                scope.launch {
-                    msg = runCatching { Tvo.client.install("m3u:http://mafreebox.freebox.fr/freeboxtv/playlist.m3u") }
-                        .fold({ Tvo.store.addAddon(it); null }, { it.message })
-                }
-            }, filled = true)
-            msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
+        Column(Modifier.fillMaxSize().padding(top = NavBarHeight + 24.dp)) {
+            Text("Live TV", Modifier.padding(start = 48.dp), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            Text("Choisis des chaînes à ajouter : elles apparaîtront ici avec le programme en cours.", Modifier.padding(start = 48.dp, top = 6.dp, bottom = 8.dp), fontSize = 15.sp, color = TvoColors.Muted)
+            LiveSuggestions()
         }
         return
     }
@@ -533,5 +525,63 @@ fun LiveSection(nav: Nav) {
     }
     Immersive(hero, nav, key = "live") {
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav) }
+        item(key = "sugg") { PanelSection("Ajouter des chaînes") { LiveSuggestions() } }
+    }
+}
+
+
+/** Listes de chaînes gratuites proposées (comme sur mobile), avec un visuel par liste. */
+private val LIVE_SUGG = listOf(
+    listOf("https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_france.m3u8", "TNT gratuite", "France TV, Arte, LCP, franceinfo…", "🇫🇷", "FF2F5BFF", "FFE11D48"),
+    listOf("https://iptv-org.github.io/iptv/countries/fr.m3u", "France · chaînes libres", "Nationales, régionales et thématiques", "📺", "FF1D4ED8", "FF0EA5E9"),
+    listOf("https://iptv-org.github.io/iptv/categories/news.m3u", "Info du monde", "Information en continu", "🌍", "FF0F766E", "FF22C55E"),
+    listOf("https://iptv-org.github.io/iptv/categories/kids.m3u", "Enfants", "Dessins animés et jeunesse", "🧸", "FFF59E0B", "FFEC4899"),
+    listOf("https://iptv-org.github.io/iptv/categories/music.m3u", "Musique", "Clips et concerts", "🎵", "FF7C3AED", "FFDB2777"),
+    listOf("https://iptv-org.github.io/iptv/countries/be.m3u", "Belgique", "RTBF et chaînes belges", "🇧🇪", "FF111827", "FFEAB308"),
+    listOf("https://iptv-org.github.io/iptv/countries/ch.m3u", "Suisse", "RTS et chaînes suisses", "🇨🇭", "FFDC2626", "FF7F1D1D"),
+    listOf("http://mafreebox.freebox.fr/freeboxtv/playlist.m3u", "Freebox TV", "Abonnés Free, depuis le Wi-Fi de la Freebox", "📡", "FF991B1B", "FF111827"),
+)
+
+@Composable
+private fun LiveSuggestions() {
+    val addons by Tvo.store.addons.collectAsState()
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf<String?>(null) }
+    var msg by remember { mutableStateOf<String?>(null) }
+    Column {
+        LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(LIVE_SUGG, key = { it[0] }) { sg ->
+                val (url, name, desc, ic, c1) = sg; val c2 = sg[5]
+                val added = addons.any { it.url.endsWith(url) }
+                val shape = RoundedCornerShape(14.dp)
+                Surface(
+                    onClick = {
+                        if (added || busy != null) return@Surface
+                        busy = url; msg = "Ajout de « $name »…"
+                        scope.launch {
+                            msg = runCatching { Tvo.client.install("m3u:$url") }.fold({ Tvo.store.addAddon(it); "« $name » ajoutée ✓" }, { "Impossible d'ajouter « $name » : ${it.message}" })
+                            busy = null
+                        }
+                    },
+                    modifier = Modifier.width(250.dp).height(140.dp),
+                    shape = ClickableSurfaceDefaults.shape(shape),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
+                ) {
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(Color(c1.toLong(16)), Color(c2.toLong(16))))).padding(14.dp)) {
+                        Text(ic, fontSize = 28.sp)
+                        Column(Modifier.align(Alignment.BottomStart)) {
+                            Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(desc, fontSize = 12.sp, color = Color(0xDDFFFFFF), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Text(if (added) "✓ Ajoutée" else if (busy == url) "…" else "+ Ajouter", Modifier.align(Alignment.TopEnd).clip(RoundedCornerShape(8.dp))
+                            .background(if (added) Color(0x5522C55E) else Color(0x33FFFFFF)).padding(horizontal = 8.dp, vertical = 3.dp),
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
+        }
+        msg?.let { Text(it, Modifier.padding(start = 48.dp), fontSize = 14.sp, color = TvoColors.Cyan) }
     }
 }
