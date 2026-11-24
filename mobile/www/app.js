@@ -2525,6 +2525,24 @@ var qrcode = function() {
       tcat("movie", "kids_adv", "Aventures en famille"), tcat("movie", "kids_disney", "Disney+ pour enfants"),
       tcat("movie", "kids_netflix", "Films famille sur Netflix"), tcat("movie", "kids_prime", "Films famille sur Prime Video"),
       tcat("series", "kids_tv", "Dessins animés récents"), tcat("series", "kids", "Séries pour enfants"), tcat("series", "kids_tiny", "Pour les tout-petits")] } };
+  // Catalogues à jour sans réinstaller : liste publiée sur GitHub (docs/catalogs.json), lue en arrière-plan
+  const REMOTE_URL = "https://raw.githubusercontent.com/mansstyle59/VOoTV/main/docs/catalogs.json";
+  const REMOTE = {};
+  const BASE_CATS = TMDB.addon.manifest.catalogs.slice();
+  function applyRemote(o) {
+    if (!o || !Array.isArray(o.catalogs)) return false;
+    Object.keys(REMOTE).forEach((k) => delete REMOTE[k]);
+    const hide = new Set(o.hide || []);
+    const add = [];
+    o.catalogs.forEach((c) => { if (c && c.id && c.type && c.name && c.path && !hide.has(c.id)) { REMOTE[c.id] = c; add.push(tcat(c.type, c.id, c.name)); } });
+    TMDB.addon.manifest.catalogs = BASE_CATS.filter((c) => !hide.has(c.id) && !REMOTE[c.id]).concat(add);
+    return true;
+  }
+  const expandParam = (v) => v === "{today}" ? today() : /^\{m:\d+\}$/.test(v) ? monthsAgo(Number(v.slice(3, -1))) : v;
+  applyRemote(LS.get("remote_cats", null));
+  async function refreshRemote() {
+    try { const r = await fetch(REMOTE_URL, { cache: "no-store" }); if (!r.ok) return; const o = await r.json(); if (applyRemote(o)) LS.set("remote_cats", o); } catch {}
+  }
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
   /** Administrateur : le profil marqué admin, sinon le premier profil. Il choisit les add-ons de chaque profil. */
   const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
@@ -2586,6 +2604,7 @@ var qrcode = function() {
     const k = tkind(c.type), page = String(Math.floor((Number(extra.skip) || 0) / 20) + 1);
     const g = extra.genre && (c.type === "series" ? TMDB.TV : TMDB.MOVIE)[extra.genre];
     const d = extra.search ? await tget(`/search/${k}`, { query: extra.search, page })
+      : REMOTE[c.id] ? await tget("/" + REMOTE[c.id].path, { ...Object.fromEntries(Object.entries(REMOTE[c.id].params || {}).map(([x, v]) => [x, expandParam(String(v))])), page })
       : g ? await tget(`/discover/${k}`, { with_genres: g, sort_by: "popularity.desc", page, "vote_count.gte": "50" })
       : c.id === "trending" ? await tget(`/trending/${k}/week`, { page })
       : c.id === "now_playing" ? await tget("/movie/now_playing", { page, region: "FR" })
@@ -3766,13 +3785,17 @@ var qrcode = function() {
     return sec;
   }
   function lazyRows(container, rows, onFirst) {
+    const seen = new Set(); // une affiche n'apparaît qu'une seule fois sur la page (pas de doublons entre rangées)
     const io = new IntersectionObserver((entries) => entries.forEach(async (en) => {
       if (!en.isIntersecting) return;
       io.unobserve(en.target);
       const row = en.target._row;
       try {
-        const list = await catalog(row.a, row.c, row.extra);
+        const all = await catalog(row.a, row.c, row.extra);
+        const fresh = all.filter((m) => !seen.has(m.id));
+        const list = fresh.length >= 4 || (all.length < 4 && fresh.length === all.length) ? fresh : [];
         if (!list.length) { en.target.remove(); return; }
+        list.forEach((m) => seen.add(m.id));
         en.target.querySelector(".row").innerHTML = list.map(isDesk() ? netCard : isLandRow(row.title) ? landCard : portraitHTML).join("");
         onFirst && onFirst(list);
       } catch { en.target.remove(); }
@@ -5717,6 +5740,7 @@ var qrcode = function() {
   (async () => {
     const sp = $("#splash"), msg = $("#splashMsg"), t0 = Date.now();
     const sv = $("#splashVer"); if (sv) sv.textContent = "Version " + VERSION.name;
+    refreshRemote(); // nouveaux catalogues : silencieux, visibles à la prochaine ouverture d'une page
     const rel = await Promise.race([checkUpdate(), sleep(5000).then(() => null)]);
     await sleep(Math.max(0, 2400 - (Date.now() - t0)));
     // Mise à jour interne et automatique : téléchargée puis appliquée sans rien faire (bannière seulement en cas d'échec)
