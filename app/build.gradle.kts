@@ -9,6 +9,7 @@ val buildNumber = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
 val updateRepo = System.getenv("UPDATE_REPO") ?: "mansstyle59/VOoTV"
 
 android {
+    packaging { jniLibs { pickFirsts += listOf("**/libc++_shared.so") } }
     namespace = "app.tvo.tv"
     compileSdk = 35
 
@@ -67,6 +68,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
     implementation("androidx.media3:media3-exoplayer-rtsp:1.5.1")
     implementation("org.videolan.android:libvlc-all:3.6.2")
+    implementation("dev.jdtech.mpv:libmpv:0.5.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("io.coil-kt:coil-compose:2.7.0")

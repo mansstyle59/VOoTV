@@ -89,7 +89,9 @@ class PlayerActivity : ComponentActivity() {
         private const val EXTRA = "req"
         fun start(ctx: Context, req: PlayRequest) {
             // RTSP (Freebox), AVI, WMV, TS… : directement le lecteur VLC intégré
-            if (Regex("^rtsp:|\\.(avi|wmv|flv|ts)(\\?|$)", RegexOption.IGNORE_CASE).containsMatchIn(req.url) || app.tvo.tv.Tvo.store.vlcPlayer.value) {
+            val engine = app.tvo.tv.Tvo.store.engine.value
+            if (engine == "mpv" && android.os.Build.VERSION.SDK_INT >= 26) { MpvPlayerActivity.start(ctx, req); return }
+            if (engine == "vlc" || Regex("^rtsp:|\\.(avi|wmv|flv|ts)(\\?|$)", RegexOption.IGNORE_CASE).containsMatchIn(req.url)) {
                 VlcPlayerActivity.start(ctx, req); return
             }
             ctx.startActivity(Intent(ctx, PlayerActivity::class.java).putExtra(EXTRA, Json.encodeToString(req)))

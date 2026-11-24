@@ -659,26 +659,27 @@ details.card summary::-webkit-details-marker{display:none}
 @keyframes splashGlow { 50% { filter: drop-shadow(0 0 22px rgba(91,75,255,.65)); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
-/* ---------- Animations générales ---------- */
-#app.page-in { animation: pageIn .38s ease both; }
-@keyframes pageIn { from { opacity: 0; } to { opacity: 1; } }
-.rv { opacity: 0; transform: translateY(22px); transition: opacity .55s cubic-bezier(.2,.8,.2,1), transform .55s cubic-bezier(.2,.8,.2,1); }
-.rv.in { opacity: 1; transform: none; }
-.section.rv.in .row > * { animation: cardIn .5s cubic-bezier(.2,.8,.2,1) both; }
-.section.rv.in .row > *:nth-child(2) { animation-delay: .05s; } .section.rv.in .row > *:nth-child(3) { animation-delay: .1s; }
-.section.rv.in .row > *:nth-child(4) { animation-delay: .15s; } .section.rv.in .row > *:nth-child(5) { animation-delay: .2s; }
-.section.rv.in .row > *:nth-child(n+6) { animation-delay: .25s; }
-@keyframes cardIn { from { opacity: 0; transform: translateX(26px) scale(.96); } to { opacity: 1; transform: none; } }
-button, .btn, .chip, a.cat, a.prov, .card, .land, .portrait, .poster { transition: transform .18s ease, background-color .2s ease, opacity .2s ease, box-shadow .2s ease; }
-button:active, .btn:active, .chip:active, a.cat:active, a.prov:active, .land:active, .portrait:active { transform: scale(.95); }
-.dt-hero img, .pv-hero > img, .hero img { will-change: transform; transform-origin: center top; }
-.dt-hero img, .pv-hero > img { animation: heroIn 1.1s ease both; }
-@keyframes heroIn { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
-.tabbar a, .tabbar button { transition: color .2s ease, transform .2s ease; }
-.tabbar .on svg, .tabbar [aria-current] svg { animation: tabPop .35s cubic-bezier(.3,1.6,.5,1); }
-@keyframes tabPop { 40% { transform: scale(1.25); } }
-.chip.on { animation: tabPop .3s ease; }
-.toast { animation: fadeUp .3s ease both; }
+/* ---------- Animations : uniquement sur l'accueil ---------- */
+#app.is-home .rv { opacity: 0; transform: translateY(26px); transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1); }
+#app.is-home .rv.in { opacity: 1; transform: none; }
+#app.is-home .section.rv.in .row > * { animation: cardIn .6s cubic-bezier(.2,.8,.2,1) both; }
+#app.is-home .section.rv.in .row > *:nth-child(2) { animation-delay: .06s; } #app.is-home .section.rv.in .row > *:nth-child(3) { animation-delay: .12s; }
+#app.is-home .section.rv.in .row > *:nth-child(4) { animation-delay: .18s; } #app.is-home .section.rv.in .row > *:nth-child(n+5) { animation-delay: .24s; }
+@keyframes cardIn { from { opacity: 0; transform: translateX(30px) scale(.96); } to { opacity: 1; transform: none; } }
+
+/* Entrée cinématographique (première ouverture de l'accueil) */
+#app.intro .homebar { animation: introFade 1s ease .2s both; }
+#app.intro .car-bg img { animation: introBg 2.4s cubic-bezier(.2,.8,.2,1) both; }
+#app.intro .carousel { animation: introCar 1.6s cubic-bezier(.16,1,.3,1) .15s both; }
+#app.intro .car-info { animation: introUp 1s cubic-bezier(.2,.8,.2,1) .9s both; }
+#app.intro .car-dots { animation: introFade .8s ease 1.2s both; }
+#app.intro #rows { animation: introUp 1s cubic-bezier(.2,.8,.2,1) 1.1s both; }
+#app.intro::after { content: ""; position: fixed; inset: 0; z-index: 400; pointer-events: none; background: #000; animation: introCurtain 1.4s ease both; }
+@keyframes introCurtain { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes introBg { from { opacity: 0; transform: scale(1.25); filter: blur(30px) saturate(1.6); } to { opacity: 1; transform: scale(1.1); filter: blur(28px) saturate(1.3); } }
+@keyframes introCar { from { opacity: 0; transform: scale(1.18) translateY(30px); filter: blur(12px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes introUp { from { opacity: 0; transform: translateY(34px); } to { opacity: 1; transform: none; } }
+@keyframes introFade { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- Réglages repliables ---------- */
 details.sect { margin: 10px var(--pad) 0; border-radius: 18px; background: var(--surface); border: 1px solid rgba(255,255,255,.06); overflow: hidden; }
@@ -686,9 +687,8 @@ details.sect { margin: 10px var(--pad) 0; border-radius: 18px; background: var(-
 .sect-head::-webkit-details-marker { display: none; }
 .sect-t { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .sect-t b { font-size: 16px; } .sect-t small { color: var(--muted); font-size: 12.5px; }
-.chev { width: 10px; height: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .25s ease; margin-right: 4px; }
+.chev { width: 10px; height: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin-right: 4px; }
 details.sect[open] .chev { transform: rotate(-135deg); }
-details.sect[open] .sect-body { animation: fadeUp .3s ease both; }
 .sect-body { padding: 0 0 14px; }
 .sect-body > .list, .sect-body > .chips, .sect-body > p { margin-left: 0; margin-right: 0; padding-left: 14px; padding-right: 14px; }
 .sect-body .card { background: var(--surface-2); }
@@ -699,4 +699,55 @@ details.sect[open] .sect-body { animation: fadeUp .3s ease both; }
 .card.sug .btn { flex: none; }
 .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(91,75,255,.22); color: #cfc8ff; vertical-align: 2px; }
 
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .rv { opacity: 1; transform: none; } }
+
+
+/* ---------- Carrousel ---------- */
+.car-wrap { position: relative; padding-bottom: 6px; overflow: hidden; }
+.car-bg { position: absolute; inset: -40px -40px 30%; z-index: 0; pointer-events: none; }
+.car-bg img { width: 100%; height: 100%; object-fit: cover; filter: blur(28px) saturate(1.3); transform: scale(1.1); opacity: .55; transition: opacity .6s; }
+.car-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(19,17,31,.2), var(--bg) 92%); }
+.car-wrap .carousel { position: relative; z-index: 1; padding-top: 14px; padding-bottom: 16px; }
+.cslide { transition: none !important; transform-origin: center; will-change: transform, opacity; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+.cslide.center { box-shadow: 0 24px 50px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); }
+.cslide .shine { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.14) 50%, transparent 60%); opacity: 0; }
+.cslide.center .shine { opacity: 1; animation: shine 3.5s ease-in-out infinite; background-size: 250% 100%; }
+@keyframes shine { 0% { background-position: 120% 0; } 60%, 100% { background-position: -40% 0; } }
+.car-info { position: relative; z-index: 1; text-align: center; padding: 0 var(--pad); min-height: 92px; }
+.car-info b { display: block; font-size: 21px; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.car-info > span { display: block; margin-top: 4px; color: #cfcbe6; font-size: 13px; }
+.car-act { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.btn.sm { min-height: 40px; padding: 0 18px; font-size: 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
+.btn.sm svg { width: 16px; height: 16px; }
+.car-act .btn.primary { background: var(--blue); color: #fff; box-shadow: 0 8px 24px rgba(91,75,255,.45); }
+.car-dots { position: relative; z-index: 1; display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+.car-dots i { width: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.28); transition: width .3s, background .3s; cursor: pointer; }
+.car-dots i.on { width: 22px; background: var(--blue); }
+
+/* ---------- Catégories en rectangles ---------- */
+.gtiles { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, 84px); grid-auto-columns: 168px; gap: 10px; overflow-x: auto; padding: 2px var(--pad) 6px; scrollbar-width: none; }
+.gtiles::-webkit-scrollbar { display: none; }
+.gtile { position: relative; border-radius: 14px; overflow: hidden; text-decoration: none; color: #fff; display: flex; align-items: flex-end; padding: 10px 12px;
+  background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 35%, #13111f)); box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+.gtile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gtile .gshade { position: absolute; inset: 0; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 85%, transparent) 0%, color-mix(in srgb, var(--c) 25%, transparent) 60%, transparent), linear-gradient(0deg, rgba(0,0,0,.55), transparent 70%); }
+.gtile b { position: relative; font-size: 15px; font-weight: 800; letter-spacing: .01em; text-shadow: 0 2px 8px rgba(0,0,0,.5); }
+@media (min-width: 900px) { .gtiles { grid-template-rows: repeat(2, 110px); grid-auto-columns: 230px; } .gtile b { font-size: 18px; } }
+
+/* ---------- Live TV ---------- */
+.live-tools { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; margin-top: 4px; }
+.live-tools .icon-btn { background: var(--surface-2); }
+#lcats { margin: 10px 0 4px; }
+.ltiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; padding-bottom: 24px; }
+.ltiles > .empty { grid-column: 1 / -1; }
+.ltile { position: relative; display: grid; gap: 6px; text-align: left; background: none; border: 0; padding: 0; color: inherit; min-width: 0; }
+.llogo { aspect-ratio: 16/9; border-radius: 14px; display: grid; place-items: center; overflow: hidden;
+  background: radial-gradient(120% 100% at 50% 0%, #2c2850, #1b1830); border: 1px solid rgba(255,255,255,.06); }
+.llogo img { max-width: 70%; max-height: 62%; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+.llogo i { font-style: normal; font-weight: 800; font-size: 22px; color: #cfc8ff; letter-spacing: .04em; }
+.ltile b { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.llive { position: absolute; top: 8px; right: 8px; font-size: 10.5px; font-weight: 700; color: #fff; background: rgba(229,9,20,.85); padding: 2px 7px; border-radius: 999px; }
+@media (min-width: 900px) { .ltiles { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
+
+/* ---------- Accès des add-ons par profil ---------- */
+.ptog { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.ptog .chip { min-height: 32px; padding: 0 12px; font-size: 13px; }

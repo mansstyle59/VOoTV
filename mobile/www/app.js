@@ -174,9 +174,12 @@
       tcat("movie", "prov_337", "Nouveautés Disney+"), tcat("series", "prov_381", "Nouveautés Canal+"), tcat("series", "prov_350", "Nouveautés Apple TV+"),
       tcat("movie", "top_rated", "Films les mieux notés"), tcat("series", "top_rated", "Séries les mieux notées")] } };
   /** Add-ons vus par les catalogues : TMDB d'abord, catalogues Cinemeta masqués (Cinemeta garde les épisodes). */
+  /** Administrateur : le profil marqué admin, sinon le premier profil. Il choisit les add-ons de chaque profil. */
+  const isAdmin = (p) => !!p && (p.admin || (!S.profiles.some((x) => x.admin) && S.profiles[0] && S.profiles[0].id === p.id));
+  const myAddons = () => { const off = (S.profile && S.profile.off) || []; return S.addons.filter((a) => !off.includes(a.manifest.id)); };
   function catalogAddons() {
-    if (!tmdbOn()) return S.addons;
-    return [TMDB.addon, ...S.addons.map((a) => (a.manifest.id === "com.linvo.cinemeta" ? { ...a, manifest: { ...a.manifest, catalogs: [] } } : a))];
+    if (!tmdbOn()) return myAddons();
+    return [TMDB.addon, ...myAddons().map((a) => (a.manifest.id === "com.linvo.cinemeta" ? { ...a, manifest: { ...a.manifest, catalogs: [] } } : a))];
   }
   async function tget(path, params = {}, key = tmdbKey()) {
     if (!key) {
@@ -393,7 +396,7 @@
         const num = parseInt(attr("tvg-chno"), 10) || parseInt((raw.match(/^(\d+)\s*[-.:]/) || [])[1], 10) || 9999;
         const name = raw.replace(/^\d+\s*[-.:]\s*/, "");
         const id = `${M3U.P}${h}:${slugify(name)}`;
-        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo") || guessLogo(name), url: l, group: attr("group-title") || "", chno: num, headers: { ...hdr } }); }
+        if (!seen.has(id)) { seen.add(id); out.push({ id, name, logo: attr("tvg-logo"), chno: num, url: l, group: attr("group-title") || "", headers: { ...hdr } }); }
         info = null;
       }
     });
@@ -412,11 +415,42 @@
       .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
     return b ? `https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/france/${b}-fr.png` : null;
   }
+  function logoCandidates(name, given) {
+    const b = String(name || "").normalize("NFD").replace(/\p{M}+/gu, "").toLowerCase()
+      .replace(/\b(fhd|uhd|hd|sd|4k|hevc|h265|backup|direct)\b|\(.*?\)|\[.*?\]|\|.*$/g, " ").replace(/\+/g, " plus ").replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const R = "https://raw.githubusercontent.com/tv-logo/tv-logos/main/countries/";
+    const out = [given];
+    if (b) out.push(`${R}france/${b}-fr.png`, `${R}france/${b.replace(/-/g, "")}-fr.png`, `${R}belgium/${b}-be.png`, `${R}switzerland/${b}-ch.png`,
+      `${R}united-kingdom/${b}-uk.png`, `${R}united-states/${b}-us.png`, `${R}international/${b}-int.png`);
+    return [...new Set(out.filter(Boolean))];
+  }
+  /** Cherche le logo officiel de chaque chaîne (une seule fois, mémorisé). */
+  const LOGO_CACHE = LS.get("logos", {});
+  const chanKey = (name) => slugify(String(name || ""));
+  const loadsImage = (url) => new Promise((ok) => { const i = new Image(); const t = setTimeout(() => ok(false), 6000);
+    i.onload = () => { clearTimeout(t); ok(i.naturalWidth > 8); }; i.onerror = () => { clearTimeout(t); ok(false); }; i.src = url; });
+  async function resolveLogos(list, onFound) {
+    const todo = list.filter((c) => !(chanKey(c.name) in LOGO_CACHE)).slice(0, 600);
+    let i = 0;
+    const worker = async () => {
+      while (i < todo.length) {
+        const c = todo[i++]; let found = null;
+        for (const u of logoCandidates(c.name, c.logo)) { if (await loadsImage(u)) { found = u; break; } }
+        LOGO_CACHE[chanKey(c.name)] = found || "";
+        if (found && onFound) onFound(c, found);
+      }
+    };
+    await Promise.all(Array.from({ length: 6 }, worker));
+    LS.set("logos", LOGO_CACHE);
+  }
+  const bestLogo = (c) => LOGO_CACHE[chanKey(c.name)] || c.logo || null;
   const m3uUsesGroups = (list) => new Set(list.map((c) => c.group).filter(Boolean)).size > 1;
   const m3uCat = (c, g) => (g ? c.group || "Autres" : chanCategory(c.name));
   async function installM3u(input, name) {
     const url = String(input).trim().replace(/^m3u:/, ""); const addonUrl = M3U.P + url;
     M3U.lists.delete(addonUrl);
+    setTimeout(() => m3uChannels(addonUrl).then((l) => resolveLogos(l)).catch(() => {}), 1500);
     let list;
     try { list = await m3uChannels(addonUrl); } catch (e) { throw new Error(/mafreebox/.test(url) ? "Freebox introuvable : connecte-toi au Wi-Fi de ta Freebox" : e.message); }
     if (!list.length) throw new Error("liste vide ou illisible");
@@ -427,7 +461,7 @@
       catalogs: [...cats.map(([id, n]) => ({ type: "tv", id, name: n, extra: [], extraRequired: [], extraSupported: [] })),
         { type: "tv", id: "search", name: "Chaînes M3U", extra: [{ name: "search", isRequired: true, options: [] }], extraRequired: [], extraSupported: [] }] } };
   }
-  const m3uPreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: c.logo, background: null, logo: c.logo,
+  const m3uPreview = (c) => ({ id: c.id, type: "tv", name: c.name, poster: bestLogo(c), background: null, logo: bestLogo(c),
     description: "Chaîne en direct" + (c.group ? " · " + c.group : ""), releaseInfo: c.chno < 9999 ? "Canal " + c.chno : null, imdbRating: null, genres: ["En direct"] });
   async function m3uCatalog(a, catId, extra) {
     if (Number(extra.skip) > 0) return [];
@@ -530,7 +564,7 @@
     return m;
   }
   async function addonMeta(type, id) {
-    for (const a of S.addons.filter((x) => supports(x, "meta", type, id))) {
+    for (const a of myAddons().filter((x) => supports(x, "meta", type, id))) {
       try {
         const d = await getJson(`${a.url}/meta/${type}/${enc(id)}.json`);
         const o = d && d.meta; if (!o) continue;
@@ -570,7 +604,7 @@
       bingeGroup: hints.bingeGroup || null, quality: quality(name + " " + title) };
   }
   function streams(type, videoId, onAddon) {
-    const list = S.addons.filter((a) => supports(a, "stream", type, videoId));
+    const list = myAddons().filter((a) => supports(a, "stream", type, videoId));
     return { total: list.length, done: Promise.all(list.map(async (a) => {
       let items = [];
       if (a.url === FREETV.URL || a.url.startsWith(M3U.P)) { try { items = a.url === FREETV.URL ? await freeStreams(videoId) : await m3uStreams(videoId); } catch { /* */ } onAddon && onAddon(items, a); return items; }
@@ -581,7 +615,7 @@
     })).then((x) => x.flat()) };
   }
   async function subtitles(type, videoId) {
-    const list = S.addons.filter((a) => supports(a, "subtitles", type, videoId));
+    const list = myAddons().filter((a) => supports(a, "subtitles", type, videoId));
     const res = await Promise.all(list.map(async (a) => {
       try { return ((await getJson(`${a.url}/subtitles/${type}/${enc(videoId)}.json`, 6000)).subtitles || []).filter((s) => s.url).map((s) => ({ url: s.url, lang: s.lang || "und" })); }
       catch { return []; }
@@ -636,12 +670,13 @@
     if (id && id !== syncId()) LS.set("sync_id", id);
     await syncNow();
   }
-  async function approveTv(code) {
+  async function approveTv(code, key) {
     code = String(code || "").replace(/\D/g, "");
     if (code.length !== 6) { toast("Code à 6 chiffres attendu."); return false; }
     await syncNow();
-    const ok = await rpc("tvo_login_approve", { p_code: code, p_id: syncId() }).catch(() => false);
-    toast(ok ? "TV connectée ✓" : "Code invalide ou expiré."); return !!ok;
+    let ok = false, err = "";
+    try { ok = await rpc("tvo_login_approve", { p_code: code, p_id: syncId(), p_key: key || null }); } catch (e) { err = String(e.message || ""); }
+    toast(ok ? "TV connectée ✓" : /429|essais|P0001|400/.test(err) ? "Trop d'essais. Réessaie dans 10 minutes." : "Code invalide ou expiré."); return !!ok;
   }
   async function handleUrl(url) {
     if (!url || !url.startsWith("tvo://")) return;
@@ -655,7 +690,9 @@
       try { await linkAccount(); toast("Connecté ✓ Tes appareils sont synchronisés."); } catch { toast("Connecté, synchro à réessayer."); }
       if (location.hash.startsWith("#/settings")) route();
     } else if (u.pathname === "/login" && q.get("code")) {
-      if (confirm("Connecter ce téléviseur à ton compte TVO ?")) approveTv(q.get("code"));
+      const k = q.get("k");
+      if (!/^[0-9a-f]{64}$/.test(k || "")) { toast("QR code non reconnu."); return; }
+      if (confirm("Connecter ce téléviseur à ton compte TVO ?\n\nNe confirme que si ce QR code s'affiche sur TA télévision.")) approveTv(q.get("code"), k);
     }
   }
   try {
@@ -665,7 +702,7 @@
 
   function exportDoc() {
     const profiles = {};
-    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0 }));
+    S.profiles.forEach((p) => (profiles[p.id] = { id: p.id, name: p.name, color: p.color, t: p.t || 0, ...(p.off && p.off.length ? { off: p.off } : {}), ...(p.admin ? { admin: true } : {}) }));
     Object.entries(LS.get("profdel", {})).forEach(([id, t]) => { if (!profiles[id]) profiles[id] = { id, name: "", color: "#8B5CF6", t, del: true }; });
     const lib = {}, prog = {};
     S.profiles.forEach((p) => {
@@ -952,12 +989,9 @@
       rowsEl.appendChild(sec);
     }
     if (false && !type && !hidden.includes("genres")) {
-      const cats = [["Action", ICON.bolt, "#ef4444"], ["Comedy", ICON.smile, "#f59e0b"], ["Sci-Fi", ICON.ufo, "#8b5cf6"], ["Thriller", ICON.knife, "#14b8a6"],
-        ["Romance", ICON.heart, "#ec4899"], ["Horror", ICON.ghost, "#64748b"], ["Animation", ICON.smile, "#22c55e"], ["Documentary", ICON.doc, "#0ea5e9"]];
       const sec = document.createElement("section"); sec.className = "section";
-      sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.grid}Catégories</span></h2><div class="cats">${cats.map(([g, ic, c]) =>
-        `<button class="cat" style="--c:${c}" data-g="${g}"><span class="ci">${ic}</span><span>${genreLabel(g)}</span></button>`).join("")}</div>`;
-      sec.querySelectorAll("[data-g]").forEach((b) => b.addEventListener("click", () => go(`#/genre/movie/${enc(b.dataset.g)}`)));
+      sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.grid}Catégories</span><a href="#/discover">Tout voir →</a></h2>${genreTilesHTML(type || "movie")}`;
+      fillGenreImages(sec);
       rowsEl.appendChild(sec);
       const ps = document.createElement("section"); ps.className = "section";
       ps.innerHTML = `<h2 class="section-title"><span class="st">${ICON.series}Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
@@ -1087,16 +1121,80 @@
     draw("all");
   }
 
+  // Catégories en rectangles avec image (une affiche de film par genre, mise en cache 7 jours)
+  const GENRE_TILES = [["Action", "#ef4444"], ["Adventure", "#f97316"], ["Comedy", "#f59e0b"], ["Drama", "#a855f7"], ["Thriller", "#14b8a6"],
+    ["Crime", "#64748b"], ["Sci-Fi", "#6366f1"], ["Fantasy", "#8b5cf6"], ["Horror", "#991b1b"], ["Romance", "#ec4899"], ["Animation", "#22c55e"],
+    ["Family", "#06b6d4"], ["Mystery", "#475569"], ["History", "#b45309"], ["War", "#57534e"], ["Western", "#c2410c"], ["Documentary", "#0ea5e9"]];
+  let GENRE_IMG = LS.get("genreimg", { t: 0, m: {} });
+  function genreTilesHTML(type = "movie") {
+    return `<div class="gtiles">${GENRE_TILES.filter(([g]) => type !== "series" || g in TMDB.TV).map(([g, c]) => {
+      const img = GENRE_IMG.m[g];
+      return `<a class="gtile" style="--c:${c}" href="#/genre/${type}/${enc(g)}" data-gt="${g}">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : ""}<span class="gshade"></span><b>${esc(genreLabel(g))}</b></a>`;
+    }).join("")}</div>`;
+  }
+  async function fillGenreImages(root) {
+    if (!tmdbOn()) return;
+    if (Date.now() - GENRE_IMG.t > 7 * 864e5) GENRE_IMG = { t: Date.now(), m: {} };
+    const used = new Set(Object.values(GENRE_IMG.m));
+    for (const [g] of GENRE_TILES) {
+      if (GENRE_IMG.m[g]) continue;
+      try {
+        const d = await tget("/discover/movie", { with_genres: TMDB.MOVIE[g], sort_by: "popularity.desc", "vote_count.gte": "300" });
+        const r = (d.results || []).find((x) => x.backdrop_path && !used.has(timg(x.backdrop_path, "w500")));
+        if (!r) continue;
+        const u = timg(r.backdrop_path, "w500"); used.add(u); GENRE_IMG.m[g] = u;
+        if (root) root.querySelectorAll(`[data-gt="${g}"]`).forEach((t) => { if (!t.querySelector("img")) t.insertAdjacentHTML("afterbegin", `<img src="${esc(u)}" alt="">`); });
+      } catch { break; }
+    }
+    LS.set("genreimg", GENRE_IMG);
+  }
+
   /** Carrousel « Tendances pour toi » : grande affiche au centre. */
+  let carTimer = null;
   function renderCarousel(el, list) {
     const items = list.filter((m) => m.poster).slice(0, 10);
-    el.innerHTML = `<div class="carousel" id="car">${items.map((m) => `<button class="cslide" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
-      <img src="${esc(m.poster)}" alt="" loading="lazy"><span class="cmeta"><b>${esc(m.name)}</b><span>${[m.releaseInfo, m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</span></span></button>`).join("")}</div>`;
-    const car = $("#car");
-    const io = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle("center", e.intersectionRatio > 0.75)), { root: car, threshold: [0, 0.75, 1] });
-    car.querySelectorAll(".cslide").forEach((x) => io.observe(x));
-    requestAnimationFrame(() => { const second = car.children[1]; if (second) car.scrollLeft = second.offsetLeft - (car.clientWidth - second.clientWidth) / 2; });
+    clearInterval(carTimer);
+    el.innerHTML = `<div class="car-wrap"><div class="car-bg" id="carBg"></div>
+      <div class="carousel" id="car">${items.map((m, i) => `<button class="cslide" data-i="${i}" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
+        <img src="${esc(m.poster)}" alt="" ${i > 2 ? 'loading="lazy"' : ""}><span class="shine"></span></button>`).join("")}</div>
+      <div class="car-info" id="carInfo"></div>
+      <div class="car-dots" id="carDots">${items.map((_, i) => `<i data-d="${i}"></i>`).join("")}</div></div>`;
+    const car = $("#car"), bg = $("#carBg"), info = $("#carInfo"), dots = $("#carDots");
+    const slides = [...car.children];
+    let cur = -1, user = 0;
+    const show = (i) => {
+      if (i === cur || !items[i]) return; cur = i; const m = items[i];
+      bg.innerHTML = `<img src="${esc(m.background || m.poster)}" alt="">`;
+      info.innerHTML = `<b>${esc(m.name)}</b><span>${[m.releaseInfo, (m.genres || []).slice(0, 2).map(genreLabel).join(", "), m.imdbRating ? "★ " + m.imdbRating : ""].filter(Boolean).map(esc).join("  ·  ")}</span>
+        <div class="car-act"><button class="btn primary sm" data-open="${esc(m.type)}|${esc(m.id)}">${ICON.play || "▶"} Regarder</button>
+        <button class="btn sm" id="carList">${inLib(m.id) ? "✓ Ma liste" : "+ Ma liste"}</button></div>`;
+      $("#carList").addEventListener("click", (e) => { e.stopPropagation(); toggleLib(m); e.currentTarget.textContent = inLib(m.id) ? "✓ Ma liste" : "+ Ma liste"; });
+      [...dots.children].forEach((d, k) => d.classList.toggle("on", k === i));
+    };
+    const layout = () => {
+      const mid = car.scrollLeft + car.clientWidth / 2; let best = 0, bd = 1e9;
+      slides.forEach((sl, i) => {
+        const c = sl.offsetLeft + sl.offsetWidth / 2, d = (c - mid) / sl.offsetWidth;
+        const ad = Math.min(Math.abs(d), 1.6);
+        sl.style.transform = `perspective(900px) translateZ(${-ad * 90}px) rotateY(${Math.max(-1, Math.min(1, d)) * -16}deg) scale(${1 - ad * 0.06})`;
+        sl.style.opacity = String(1 - ad * 0.35);
+        sl.classList.toggle("center", ad < 0.3);
+        if (Math.abs(d) < bd) { bd = Math.abs(d); best = i; }
+      });
+      show(best);
+    };
+    let raf = 0; car.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(layout); }, { passive: true });
+    const goTo = (i, smooth = true) => { const sl = slides[(i + slides.length) % slides.length]; if (sl) car.scrollTo({ left: sl.offsetLeft - (car.clientWidth - sl.offsetWidth) / 2, behavior: smooth ? "smooth" : "auto" }); };
+    dots.addEventListener("click", (e) => { const d = e.target.closest("[data-d]"); if (d) { user = Date.now(); goTo(+d.dataset.d); } });
+    ["touchstart", "pointerdown", "wheel"].forEach((ev) => car.addEventListener(ev, () => (user = Date.now()), { passive: true }));
+    requestAnimationFrame(() => { goTo(Math.min(1, slides.length - 1), false); layout(); });
+    carTimer = setInterval(() => {
+      if (!document.body.contains(car)) return clearInterval(carTimer);
+      if (document.hidden || Date.now() - user < 8000) return;
+      goTo(cur + 1 >= slides.length ? 0 : cur + 1);
+    }, 5500);
   }
+
 
   /** Découvrir : recherche + Films / Séries + catégories + plateformes. */
   function screenDiscover() {
@@ -1107,16 +1205,15 @@
         <a class="disc" href="#/live">${ICON.live}<b>Live TV</b></a><a class="disc" href="#/catalog/${enc(TMDB.URL + "|movie|kids")}">${ICON.smile}<b>Enfants</b></a></div>
       <div id="rows"></div>`;
     const rowsEl = $("#rows");
-    const cats = [["Action", ICON.bolt, "#ef4444"], ["Comedy", ICON.smile, "#f59e0b"], ["Sci-Fi", ICON.ufo, "#8b5cf6"], ["Thriller", ICON.knife, "#14b8a6"],
-      ["Romance", ICON.heart, "#ec4899"], ["Horror", ICON.ghost, "#64748b"], ["Animation", ICON.smile, "#22c55e"], ["Documentary", ICON.doc, "#0ea5e9"]];
-    rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories</span></h2><div class="cats">${cats.map(([g, ic, c]) =>
-      `<a class="cat" style="--c:${c}" href="#/genre/movie/${enc(g)}"><span class="ci">${ic}</span><span>${genreLabel(g)}</span></a>`).join("")}</div></section>
+    rowsEl.innerHTML = `<section class="section"><h2 class="section-title"><span class="st plain">Catégories · Films</span></h2>${genreTilesHTML("movie")}</section>
+      <section class="section"><h2 class="section-title"><span class="st plain">Catégories · Séries</span></h2>${genreTilesHTML("series")}</section>
       <section class="section"><h2 class="section-title"><span class="st plain">Plateformes</span></h2><div class="cats">${PROVIDERS.map(([id, n, c]) =>
       provTile(id, n, c)).join("")}</div></section>`;
+    fillGenreImages(rowsEl);
   }
 
   // Live TV : toutes les catégories de chaînes
-  function screenLive() {
+  async function screenLive() {
     setTabs("live");
     const p = S.profile;
     app.innerHTML = topBar("Live TV") + `<div id="rows"></div>`;
@@ -1131,7 +1228,35 @@
       });
       return;
     }
-    lazyRows($("#rows"), rows);
+    $("#rows").innerHTML = `<div class="pad live-tools"><input class="field" id="lq" type="search" placeholder="Rechercher une chaîne" autocomplete="off">
+        <button class="icon-btn" id="lAdd" aria-label="Ajouter une liste M3U">${ICON.plus}</button></div>
+      <div class="chips pad" id="lcats"><button class="chip on" data-c="*">Toutes</button>${rows.map((r, i) => `<button class="chip" data-c="${i}">${esc(r.title)}</button>`).join("")}</div>
+      <div class="ltiles pad" id="lgrid"><div class="empty small">Chargement des chaînes…</div></div>`;
+    $("#lAdd").addEventListener("click", () => go("#/addon-add"));
+    const all = []; const seen = new Set();
+    const st = { c: "*", q: "" };
+    const initials = (n) => esc(String(n).replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "TV");
+    const tile = (m) => `<button class="ltile" data-open="${esc(m.type)}|${esc(m.id)}" data-cn="${esc(chanKey(m.name))}" aria-label="${esc(m.name)}">
+        <span class="llogo">${m.poster ? `<img src="${esc(m.poster)}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('i'),{textContent:'${initials(m.name)}'}))">` : `<i>${initials(m.name)}</i>`}</span>
+        <b>${esc(m.name)}</b><span class="llive">● Direct</span></button>`;
+    const draw = () => {
+      const q = st.q.toLowerCase();
+      const l = all.filter((x) => (st.c === "*" || x.cat === st.c) && (!q || x.m.name.toLowerCase().includes(q)));
+      $("#lgrid").innerHTML = l.map((x) => tile(x.m)).join("") || `<div class="empty small">Aucune chaîne.</div>`;
+    };
+    $("#lq").addEventListener("input", (e) => { st.q = e.target.value; draw(); });
+    $("#lcats").addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (!b) return; st.c = b.dataset.c;
+      document.querySelectorAll("#lcats .chip").forEach((c) => c.classList.toggle("on", c === b)); draw(); });
+    await Promise.all(rows.map(async (r, i) => {
+      try { (await catalog(r.a, r.c, r.extra)).forEach((m) => { if (!seen.has(m.id)) { seen.add(m.id); all.push({ m, cat: String(i) }); } }); } catch {}
+    }));
+    if (!document.body.contains($("#lgrid") || document.body)) return;
+    draw();
+    // Logos officiels : recherche en arrière-plan, mise à jour des tuiles au fur et à mesure
+    resolveLogos(all.map((x) => ({ name: x.m.name, logo: x.m.poster })), (c, url) => {
+      all.forEach((x) => { if (chanKey(x.m.name) === chanKey(c.name)) x.m.poster = url; });
+      document.querySelectorAll(`.ltile[data-cn="${chanKey(c.name)}"] .llogo`).forEach((el) => { el.innerHTML = `<img src="${esc(url)}" alt="">`; });
+    });
   }
 
   // « Voir tout » d'une rangée
@@ -1351,7 +1476,7 @@
 
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
   const SECT_INFO = { "Compte": "Google, Apple et synchronisation", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
-    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
+    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Application": "Version et mises à jour" };
   function makeCollapsible(root, openByDefault) {
     const st = LS.get("setopen", {});
     root.querySelectorAll("h2.section-title.section").forEach((h) => {
@@ -1371,7 +1496,7 @@
     const draw = () => {
       app.innerHTML = header("Réglages", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`) + `
       <div class="list" style="margin-top:8px">
-        <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(p, "sm")}<b style="flex:1">${esc(p.name)}</b>
+        <div class="card" style="display:flex;align-items:center;gap:12px">${avatar(p, "sm")}<b style="flex:1">${esc(p.name)}${isAdmin(p) ? ' <span class="tag">Administrateur</span>' : ""}</b>
           <button class="btn" id="editP">${ICON.edit} Modifier</button></div>
         <button class="btn block" id="switchP">Changer de profil</button>
       </div>
@@ -1414,9 +1539,10 @@
           <div style="min-width:0"><b>${esc(a.manifest.name)}</b> <span class="small muted">${esc(a.manifest.version)}</span>
           <div class="small" style="color:var(--cyan)">${kinds.join(" · ") || "—"}</div>
           ${a.manifest.description ? `<div class="small muted">${esc(a.manifest.description)}</div>` : ""}</div></div>
-          <div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}${a.manifest.configurable && /^https?:/.test(a.url) ? `<a class="btn" href="${esc(a.url)}/configure" target="_blank" rel="noopener">Configurer</a>` : ""}${/^https?:/.test(a.url) ? `<button class="btn" data-rf="${i}">Actualiser</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div></div>`;
+          ${isAdmin(p) && S.profiles.length > 1 ? `<div class="ptog"><span class="small muted">Activé pour</span>${S.profiles.map((pp) => `<button class="chip ${((pp.off || []).includes(a.manifest.id)) ? "" : "on"}" data-pa="${i}|${esc(pp.id)}">${esc(pp.name)}</button>`).join("")}</div>` : ""}
+          ${!isAdmin(p) ? "" : `<div class="actions">${i > 0 ? `<button class="btn" data-up="${i}">${ICON.up} Monter</button>` : ""}${a.manifest.configurable && /^https?:/.test(a.url) ? `<a class="btn" href="${esc(a.url)}/configure" target="_blank" rel="noopener">Configurer</a>` : ""}${/^https?:/.test(a.url) ? `<button class="btn" data-rf="${i}">Actualiser</button>` : ""}<button class="btn danger" data-rm="${i}">${ICON.trash} Retirer</button></div>`}</div>`;
       }).join("")).join("")}
-        <button class="btn accent block" id="addA">${ICON.plus} Ajouter un add-on</button></div>
+        ${isAdmin(p) ? `<button class="btn accent block" id="addA">${ICON.plus} Ajouter un add-on</button>` : `<div class="card small muted">Seul l'administrateur peut ajouter, retirer ou activer des add-ons pour chaque profil.</div>`}</div>
       <h2 class="section-title section"><span>Page d'accueil</span></h2>
       <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
       <div class="list" id="homeEd"></div>
@@ -1473,7 +1599,13 @@
         if (await pairClaim(c)) { toast("Appareils reliés ✓"); go("#/profiles"); } else toast("Code invalide ou expiré");
       });
       $("#switchP").addEventListener("click", () => go("#/profiles"));
-      $("#addA").addEventListener("click", () => go("#/addon-add"));
+      if ($("#addA")) $("#addA").addEventListener("click", () => go("#/addon-add"));
+      app.querySelectorAll("[data-pa]").forEach((b) => b.addEventListener("click", () => {
+        const [i, pid] = b.dataset.pa.split("|"); const a = S.addons[+i]; const pp = S.profiles.find((x) => x.id === pid); if (!a || !pp) return;
+        const off = new Set(pp.off || []); off.has(a.manifest.id) ? off.delete(a.manifest.id) : off.add(a.manifest.id);
+        pp.off = [...off]; pp.t = Date.now(); if (S.profile.id === pp.id) S.profile.off = pp.off;
+        LS.set("profiles", S.profiles); changed(); cache.clear(); draw();
+      }));
       app.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => {
         const i = Number(b.dataset.up); const [x] = S.addons.splice(i, 1); S.addons.splice(i - 1, 0, x); saveAddons(); draw();
       }));
@@ -1779,28 +1911,31 @@
     if (e.isIntersecting) { e.target.classList.add("in"); revealIO.unobserve(e.target); }
   }), { rootMargin: "0px 0px -6% 0px", threshold: 0.05 }) : null;
   function revealAll(root) {
-    if (reduceMotion || !revealIO) return;
-    root.querySelectorAll(".section, .card, details.sect, .ep, .person-head, .grid > *:not(.rv)").forEach((el) => {
+    if (reduceMotion || !revealIO || !app.classList.contains("is-home")) return;
+    root.querySelectorAll("#rows > .section").forEach((el) => {
       if (el.classList.contains("rv")) return; el.classList.add("rv"); revealIO.observe(el);
     });
   }
   new MutationObserver(() => revealAll(app)).observe(app, { childList: true, subtree: true });
   let ticking = false;
   window.addEventListener("scroll", () => {
-    if (ticking || reduceMotion) return; ticking = true;
+    if (ticking || reduceMotion || !app.classList.contains("is-home")) return; ticking = true;
     requestAnimationFrame(() => {
       const y = window.scrollY;
       document.body.classList.toggle("scrolled", y > 12);
-      const h = app.querySelector(".dt-hero img, .pv-hero > img, .hero img");
-      if (h) h.style.transform = `translate3d(0, ${Math.min(y * 0.35, 220)}px, 0) scale(${1 + Math.min(y, 300) / 3000})`;
+      const h = app.querySelector(".car-bg");
+      if (h) h.style.transform = `translate3d(0, ${Math.min(y * 0.4, 240)}px, 0)`;
       ticking = false;
     });
   }, { passive: true });
 
+  let introDone = false;
   function route() {
-    if (!reduceMotion) { app.classList.remove("page-in"); void app.offsetWidth; app.classList.add("page-in"); }
     if (!$("#player").hidden) closePlayer();
     const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+    const isHome = (parts[0] || "home") === "home";
+    app.classList.toggle("is-home", isHome);
+
     const [page, a, b, c] = parts;
     window.scrollTo(0, 0);
     if (page === "profile") return screenProfileEdit(a);
@@ -1854,7 +1989,10 @@
     if (ok && $("#player").hidden) { if (msg) msg.textContent = `Installation de TVO ${updateInfo.name}…`; setTimeout(() => location.reload(), 500); return; }
     if (msg) msg.textContent = "TVO est à jour ✓";
     if (sp) sp.classList.add("done");
-    setTimeout(() => { if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); } }, 450);
+    setTimeout(() => {
+      if (app.classList.contains("is-home") && !reduceMotion && !introDone) { introDone = true; app.classList.add("intro"); setTimeout(() => app.classList.remove("intro"), 2800); }
+      if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); }
+    }, 450);
   })();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) autoUpdate().then((ok) => ok && applyUpdate()); });
 })();

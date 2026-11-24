@@ -10,3 +10,4 @@
 
 -keep class org.videolan.** { *; }
 -dontwarn org.videolan.**
+-keep class dev.jdtech.mpv.** { *; }

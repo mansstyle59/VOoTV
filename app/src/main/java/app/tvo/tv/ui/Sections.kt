@@ -225,13 +225,14 @@ fun SettingsSection(nav: Nav) {
         item { Heading("Lecture") }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val vlc by store.vlcPlayer.collectAsState()
-                Chip("Automatique (recommandé)", !external && !vlc, { store.setExternalPlayer(false); store.setVlcPlayer(false) })
-                Chip("VLC intégré", !external && vlc, { store.setExternalPlayer(false); store.setVlcPlayer(true) })
+                val engine by store.engine.collectAsState()
+                Chip("Automatique (recommandé)", !external && engine == "auto", { store.setExternalPlayer(false); store.setEngine("auto") })
+                Chip("VLC intégré", !external && engine == "vlc", { store.setExternalPlayer(false); store.setEngine("vlc") })
+                if (android.os.Build.VERSION.SDK_INT >= 26) Chip("MPV intégré", !external && engine == "mpv", { store.setExternalPlayer(false); store.setEngine("mpv") })
                 Chip("Appli externe", external, { store.setExternalPlayer(true) })
             }
         }
-        item { Text("Automatique : lecteur rapide, et bascule toute seule sur VLC intégré si le format (MKV, DTS, TrueHD, RTSP Freebox…) l'exige. Aucune autre appli nécessaire.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
+        item { Text("Automatique : lecteur rapide, qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, DTS, TrueHD, sous-titres stylés). En cas d'échec, chaque lecteur propose d'essayer l'autre.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp)) }
 
         item { Heading("Mise à jour") }
         item {
@@ -368,7 +369,7 @@ private fun SyncBlock() {
     var typed by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
     val padFr = remember { FocusRequester() }
-    var qrCode by remember { mutableStateOf<String?>(null) }
+    var qrCode by remember { mutableStateOf<app.tvo.tv.data.Sync.LoginRequest?>(null) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Connecte la TV au compte de ton téléphone (Google ou Apple) : Continuer à regarder, Ma liste, épisodes vus, profils et add-ons sont partagés.",
             fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
@@ -385,8 +386,9 @@ private fun SyncBlock() {
             TvoButton("J'ai un code", { code = null; qrCode = null; entering = true; typed = ""; msg = null })
             if (status.isNotBlank()) Text(status, fontSize = 13.sp, color = TvoColors.Cyan)
         }
-        qrCode?.let { c ->
-            val bmp = remember(c) { app.tvo.tv.data.RemoteInputServer.qr("tvo://login?code=$c", 420).asImageBitmap() }
+        qrCode?.let { req ->
+            val c = req.code
+            val bmp = remember(req) { app.tvo.tv.data.RemoteInputServer.qr("tvo://login?code=$c&k=${req.key}", 420).asImageBitmap() }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(210.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -396,10 +398,10 @@ private fun SyncBlock() {
                     Text("En attente du téléphone… (valable 10 minutes)", fontSize = 13.sp, color = TvoColors.Cyan)
                 }
             }
-            LaunchedEffect(c) {
+            LaunchedEffect(req) {
                 repeat(300) {
                     delay(2000)
-                    if (app.tvo.tv.data.Sync.loginPoll(c)) { qrCode = null; msg = "TV connectée à ton compte ✓"; return@LaunchedEffect }
+                    if (app.tvo.tv.data.Sync.loginPoll(req)) { qrCode = null; msg = "TV connectée à ton compte ✓"; return@LaunchedEffect }
                 }
                 qrCode = null; msg = "Code expiré, recommence."
             }

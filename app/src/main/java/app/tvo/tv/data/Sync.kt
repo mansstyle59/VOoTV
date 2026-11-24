@@ -85,13 +85,21 @@ object Sync {
     }.getOrNull()
 
     /** Connexion rapide : la TV affiche un QR code, le téléphone connecté l'approuve. */
-    suspend fun loginStart(): String? = runCatching {
-        rpc("tvo_login_start", buildJsonObject { }).trim().trim('"').takeIf { it.length == 6 }
+    data class LoginRequest(val code: String, val secret: String, val key: String)
+    private fun randomToken(): String {
+        val b = ByteArray(32); java.security.SecureRandom().nextBytes(b)
+        return b.joinToString("") { "%02x".format(it) }
+    }
+    /** Deux secrets aléatoires : [secret] reste sur la TV, [key] voyage seulement dans le QR code. */
+    suspend fun loginStart(): LoginRequest? = runCatching {
+        val secret = randomToken(); val key = randomToken()
+        val c = rpc("tvo_login_start", buildJsonObject { put("p_secret", secret); put("p_key", key) }).trim().trim('"')
+        if (c.length == 6) LoginRequest(c, secret, key) else null
     }.getOrNull()
 
     /** Renvoie true quand le téléphone a validé : la TV rejoint alors son compte. */
-    suspend fun loginPoll(code: String): Boolean = runCatching {
-        val raw = rpc("tvo_login_poll", buildJsonObject { put("p_code", code) }).trim().trim('"')
+    suspend fun loginPoll(req: LoginRequest): Boolean = runCatching {
+        val raw = rpc("tvo_login_poll", buildJsonObject { put("p_code", req.code); put("p_secret", req.secret) }).trim().trim('"')
         if (raw.isEmpty() || raw == "null") return@runCatching false
         Tvo.store.setSyncId(raw); syncNow(); true
     }.getOrDefault(false)
