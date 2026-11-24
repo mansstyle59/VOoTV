@@ -86,7 +86,7 @@ fun PosterCard(
     width: Dp = 128.dp,
     onFocus: () -> Unit = {},
 ) {
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(12.dp)
     var menu by remember { mutableStateOf(false) }
     QuickMenuHost(item, onClick, menu) { menu = false }
     Card(
@@ -184,7 +184,7 @@ fun LoadingRow(title: String) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(title)
         Row(Modifier.padding(RowPadding), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            repeat(7) { Box(Modifier.width(128.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(10.dp)).background(TvoColors.Surface)) }
+            repeat(7) { Box(Modifier.width(128.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface)) }
         }
     }
 }
@@ -205,10 +205,10 @@ fun TvoButton(
     wide: Boolean = false,
 ) {
     // Boutons façon Netflix : rectangle aux coins légèrement arrondis, plein (blanc) ou gris translucide, sans effet verre
-    val shape = RoundedCornerShape(6.dp)
+    val shape = RoundedCornerShape(50)
     Button(
         onClick = onClick,
-        modifier = modifier.height(52.dp).widthIn(min = 150.dp),
+        modifier = modifier.height(48.dp).widthIn(min = 150.dp),
         shape = ButtonDefaults.shape(shape),
         colors = ButtonDefaults.colors(
             containerColor = if (primary) TvoColors.Blue else Color(0xFF6D7691).copy(alpha = 0.45f),
@@ -248,9 +248,9 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
     Surface(
         onClick = onClick,
         modifier = modifier,
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) TvoColors.Violet else TvoColors.Surface2,
+            containerColor = if (selected) TvoColors.Blue else TvoColors.Surface2,
             contentColor = TvoColors.Text,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black,
@@ -390,7 +390,7 @@ fun LandscapeRow(
 /** Portrait card (poster, play icon, title) with note and year underneath. */
 @Composable
 fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 150.dp, onFocus: () -> Unit = {}) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(16.dp)
     var menu by remember { mutableStateOf(false) }
     QuickMenuHost(item, onClick, menu) { menu = false }
     Column(modifier.width(width)) {
@@ -530,7 +530,7 @@ fun QuickMenuHost(item: MetaPreview, onOpen: () -> Unit, show: Boolean, onDismis
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(440.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xF2161622)).padding(24.dp),
+        Column(Modifier.width(440.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF2161622)).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(item.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
             Spacer(Modifier.height(4.dp))
@@ -559,7 +559,7 @@ fun ContinueMenuHost(p: app.tvo.tv.data.Progress, show: Boolean, nav: Nav, ctx: 
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(460.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xF2161622)).padding(24.dp),
+        Column(Modifier.width(460.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF2161622)).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(p.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
             if (p.season != null) Text("S${p.season} : É${p.episode}", fontSize = 15.sp, color = Color(0xCCFFFFFF))

@@ -1691,3 +1691,12 @@ html.glass .chip:not(.on), html.glass .icon-btn, html.glass .header .icon-btn { 
 .t10n { font-size: 112px; left: 0; bottom: -12px; }
 .t10 img { width: 100px; border-radius: 5px; box-shadow: none; }
 .catTiles { margin-top: 2px; }
+
+
+/* ===== Harmonisation : mêmes rayons, boutons, cartes et titres partout ===== */
+:root { --r-card: 12px; --r-panel: 16px; --r-btn: 999px; --title-size: 18px; }
+.card, .pcard, .land, .wide, .poster, .pcard img, .land img, .wide img { border-radius: var(--r-card); }
+.btn, .chip, .pill, button.primary, button.ghost { border-radius: var(--r-btn); }
+.sheet, .modal, .panel, .dialog { border-radius: var(--r-panel); }
+.row-title, .section-title, .rowhead h2, .rowhead .t { font-size: var(--title-size); font-weight: 700; letter-spacing: -.2px; }
+.btn:focus-visible, .chip:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

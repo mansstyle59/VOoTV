@@ -255,7 +255,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             saga?.let { sg -> item(key = "saga") {
                 val nm = sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim()
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("$nm - Saga", Modifier.padding(start = 56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("$nm - Saga", Modifier.padding(start = 56.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         itemsIndexed(sg.second, key = { _, m -> m.id }) { i, m ->
                             Column(Modifier.width(280.dp)) {
