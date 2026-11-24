@@ -27,6 +27,7 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private var player: TvoMpvPlayer?
+    private var fitTimer: Timer?
     private var saved: (opaque: Bool, bg: UIColor?, scrollBg: UIColor?)?
 
     override public func load() {
@@ -69,6 +70,14 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
                 try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [])
                 try? AVAudioSession.sharedInstance().setActive(true)
                 UIApplication.shared.isIdleTimerDisabled = true
+                // Après une rotation, la vidéo doit toujours occuper tout l'écran : on recale la vue plusieurs fois par seconde
+                self.fitTimer?.invalidate()
+                self.fitTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+                    guard let self, let pl = self.player, let wv = self.bridge?.webView else { return }
+                    let target = wv.superview?.bounds ?? wv.frame
+                    if pl.view.frame != target { pl.view.frame = target }
+                    pl.view.setNeedsLayout()
+                }
                 p.load(url: url, start: start, headers: headers, subtitles: subs)
                 call.resolve(["ok": true])
             }
@@ -84,6 +93,7 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
     private func teardown(_ done: @escaping () -> Void) {
         guard let p = player else { done(); return }
         player = nil
+        fitTimer?.invalidate(); fitTimer = nil
         if let webView = bridge?.webView, let s = saved {
             webView.isOpaque = s.opaque
             webView.backgroundColor = s.bg

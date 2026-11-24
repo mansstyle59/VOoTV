@@ -21,6 +21,9 @@ final class TvoMpvView: UIView {
         metalLayer.contentsScale = UIScreen.main.nativeScale
         metalLayer.framebufferOnly = true
         metalLayer.backgroundColor = UIColor.black.cgColor
+        metalLayer.contentsGravity = .resize
+        metalLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        autoresizesSubviews = true
         layer.addSublayer(metalLayer)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) non utilisé") }
