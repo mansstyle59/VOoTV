@@ -200,7 +200,7 @@ fun TvoButton(
     val shape = RoundedCornerShape(6.dp)
     Button(
         onClick = onClick,
-        modifier = modifier.height(48.dp),
+        modifier = modifier.height(52.dp).widthIn(min = 150.dp),
         shape = ButtonDefaults.shape(shape),
         colors = ButtonDefaults.colors(
             containerColor = if (primary) Color.White else Color(0xFF6D7691).copy(alpha = 0.45f),
@@ -210,18 +210,18 @@ fun TvoButton(
             pressedContainerColor = Color(0xFFD9D9D9),
             pressedContentColor = Color.Black,
         ),
-        scale = ButtonDefaults.scale(focusedScale = 1.06f, pressedScale = 0.97f),
+        scale = ButtonDefaults.scale(focusedScale = 1f, pressedScale = 1f),
         border = ButtonDefaults.border(
             border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(0.dp, Color.Transparent), shape = shape),
             focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)), shape = shape),
         ),
-        contentPadding = PaddingValues(start = if (icon != null) 20.dp else 26.dp, end = 26.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp),
     ) {
         // Contenu toujours centré (même quand le bouton est plus large que son texte)
         // « wide » seulement pour un bouton qui occupe toute la largeur : sinon le bouton s'étirerait (et écraserait ses voisins)
         Row(if (wide) Modifier.fillMaxWidth() else Modifier, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) { Icon(icon, null, Modifier.size(22.dp)); Spacer(Modifier.width(10.dp)) }
-            Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.2.sp, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (icon != null) { Icon(icon, null, Modifier.size(24.dp)); Spacer(Modifier.width(10.dp)) }
+            Text(text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
