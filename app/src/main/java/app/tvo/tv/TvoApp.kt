@@ -1,5 +1,6 @@
 package app.tvo.tv
 
+import app.tvo.tv.data.Tmdb
 import android.app.Application
 import app.tvo.tv.data.AddonClient
 import app.tvo.tv.data.Store
@@ -26,7 +27,7 @@ object Tvo {
     fun init(app: Application) {
         if (::store.isInitialized) return
         store = Store(app)
-        app.tvo.tv.data.Tmdb.loadRemoteCached()
+        Tmdb.loadRemoteCached()
         client = AddonClient(http)
     }
 }
