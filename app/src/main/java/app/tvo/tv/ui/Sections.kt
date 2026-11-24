@@ -750,8 +750,8 @@ private fun HomeEditor() {
                     store.setHome(home.copy(hidden = if (visible) home.hidden + k else home.hidden - k))
                 })
                 if (idx >= special.size) {
-                    TvoButton("▲", { move(k, -1) })
-                    TvoButton("▼", { move(k, 1) })
+                    Chip("▲", false, { move(k, -1) })
+                    Chip("▼", false, { move(k, 1) })
                 }
             }
         }
