@@ -116,12 +116,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val seasons = remember(meta) { meta.episodes.mapNotNull { it.season }.distinct() }
     var season by remember(meta) { mutableStateOf(targetVideo?.season ?: seasons.firstOrNull()) }
     val playFr = remember { FocusRequester() }
-    // Bande-annonce VF : 1er appui = elle démarre en fond d'écran, 2e appui = fenêtre centrée. Retour = on revient au fond.
+    // Bande-annonce VF : uniquement dans une fenêtre centrée (jamais en fond de fiche). Retour = fermer.
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
     var trailerMode by remember(p.id) { mutableStateOf(0) }
-    val trailerOn = trailerMode == 1
     val trailerWin = trailerMode == 2
-    androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = if (trailerMode == 2) 1 else 0 }
+    androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = 0 }
     val similar by produceState(emptyList<MetaPreview>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.similar(p.type, p.id) else emptyList() }
     val saga by produceState<Pair<app.tvo.tv.data.Tmdb.Saga, List<MetaPreview>>?>(null, p.id) {
         value = if (p.type == "movie" && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagaOf(p.type, p.id) else null
@@ -151,12 +150,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val heroFull = (screenH - 175).coerceIn(320, 390).dp
     Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        // Visuel plein écran (image puis bande-annonce au même endroit), voilé à gauche et en bas pour garder le texte lisible
+        // Visuel plein écran (image fixe), voilé à gauche et en bas pour garder le texte lisible
         Box(Modifier.fillMaxSize()) {
             AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            if (trailerOn && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize(), cover = true)
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
-                0.0f to Color.Black.copy(alpha = if (trailerOn) 0.75f else 0.94f), 0.5f to Color.Black.copy(alpha = if (trailerOn) 0.4f else 0.7f), 0.85f to Color.Transparent)))
+                0.0f to Color.Black.copy(alpha = 0.94f), 0.5f to Color.Black.copy(alpha = 0.7f), 0.85f to Color.Transparent)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
@@ -225,7 +223,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 }
             }
             if (trailer != null) item(key = "trailer") {
-                Row(Modifier.padding(start = 48.dp)) { TabLabel("Bande-annonce", true) { trailerMode = 1 } }
+                Row(Modifier.padding(start = 48.dp)) { TabLabel("Bande-annonce", true) { trailerMode = 2 } }
             }
             if (similar.isNotEmpty()) item(key = "similar") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -275,11 +273,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     // Fenêtre de bande-annonce : vidéo entière au centre, fond assombri. Retour pour fermer.
     if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color(0xB3000000)), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth(0.6f).aspectRatio(16f / 9f).clip(RoundedCornerShape(18.dp)).background(Color.Black)
+            Box(Modifier.fillMaxWidth(0.78f).aspectRatio(16f / 9f).clip(RoundedCornerShape(18.dp)).background(Color.Black)
                 .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))) {
                 TrailerView(trailer!!, Modifier.fillMaxSize(), cover = false)
             }
-            Text("Bande-annonce VF · ${p.name}  —  Retour pour réduire", Modifier.padding(top = 14.dp), fontSize = 15.sp, color = TvoColors.Muted)
+            Text("Bande-annonce VF · ${p.name}  —  Retour pour fermer", Modifier.padding(top = 14.dp), fontSize = 15.sp, color = TvoColors.Muted)
         }
     }
     }
