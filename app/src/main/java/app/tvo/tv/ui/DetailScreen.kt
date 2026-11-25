@@ -50,6 +50,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -97,7 +99,7 @@ fun resumeTarget(meta: MetaDetail, progress: List<Progress>): Pair<String, Progr
     return next.id to progress.firstOrNull { it.videoId == next.id }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val store = Tvo.store
@@ -219,31 +221,35 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             if (meta.people.isNotEmpty()) item(key = "cast") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(if (p.type == "series") "Création et distribution" else "Réalisateur et distribution", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer(fr), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        itemsIndexed(meta.people, key = { _, it -> it.id }) { i, person -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PersonBubble(person) { nav.openPerson(person.id) } } }
                     }
                 }
             }
             if (similar.isNotEmpty()) item(key = "similar") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer(fr), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        itemsIndexed(similar, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
                     }
                 }
             }
             if (seasons.isNotEmpty()) {
                 item {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(seasons) { s -> Chip(if (s == 0) "Bonus" else "Saison $s", s == season, { season = s }) }
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer(fr), contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        itemsIndexed(seasons) { i, s -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { Chip(if (s == 0) "Bonus" else "Saison $s", s == season, { season = s }) } }
                     }
                 }
                 item {
                     val eps = meta.episodes.filter { it.season == season }
                     val startIndex = eps.indexOfFirst { it.id == target }.coerceAtLeast(0)
                     val listState = rememberLazyListState(startIndex)
-                    LazyRow(state = listState, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        items(eps, key = { it.id }) { v -> EpisodeCard(v, p.background ?: p.poster, progress.firstOrNull { it.videoId == v.id }) { nav.openStreams(p.type, p.id, v.id) } }
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer(fr), state = listState, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        itemsIndexed(eps, key = { _, it -> it.id }) { i, v -> Box(if (i == startIndex) Modifier.focusRequester(fr).focusGroup() else Modifier) { EpisodeCard(v, p.background ?: p.poster, progress.firstOrNull { it.videoId == v.id }) { nav.openStreams(p.type, p.id, v.id) } } }
                     }
                     val current = eps.getOrNull(startIndex)
                     if (current?.overview != null) Text(current.overview, Modifier.padding(start = 48.dp, top = 4.dp).width(700.dp),
@@ -254,9 +260,10 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 val nm = sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim()
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("$nm - Saga", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer(fr), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         itemsIndexed(sg.second, key = { _, m -> m.id }) { i, m ->
-                            Column(Modifier.width(280.dp)) {
+                            Column(Modifier.width(280.dp).let { if (i == 0) it.focusRequester(fr).focusGroup() else it }) {
                                 WideCard(image = m.background ?: m.poster, title = m.name,
                                     subtitle = listOfNotNull("SAGA ${i + 1}/${sg.second.size}", m.genres.firstOrNull()?.let { genreLabel(it) }, m.imdbRating?.let { "★ $it" }, m.releaseInfo).joinToString(" • "),
                                     progress = null, onClick = { nav.openMeta(m) }, width = 280.dp)
