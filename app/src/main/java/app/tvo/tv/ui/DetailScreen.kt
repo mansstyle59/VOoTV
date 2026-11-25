@@ -326,6 +326,7 @@ fun PersonBubble(person: app.tvo.tv.data.Person, onFocus: () -> Unit = {}, onCli
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PersonScreen(id: String, nav: Nav) {
     val page by produceState<app.tvo.tv.data.Tmdb.PersonPage?>(null, id) { value = app.tvo.tv.data.Tmdb.person(id) }
@@ -341,7 +342,10 @@ fun PersonScreen(id: String, nav: Nav) {
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     val gridScope = androidx.compose.runtime.rememberCoroutineScope()
     // Quand le focus remonte sur « Connu pour » (1re zone cliquable), on remonte la page tout en haut : bio et photo visibles
-    val backToTop = Modifier.onFocusChanged { if (it.hasFocus) gridScope.launch { gridState.animateScrollToItem(0) } }
+    var topFocus by remember { mutableStateOf(false) }
+    val backToTop = Modifier.onFocusChanged { topFocus = it.hasFocus }
+    // On attend la fin du défilement automatique de la télé, puis on remonte tout en haut (sinon les deux se battent et l'en-tête reste coupé)
+    LaunchedEffect(topFocus) { if (topFocus) { kotlinx.coroutines.delay(250); runCatching { gridState.animateScrollToItem(0) } } }
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         state = gridState,
         columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
@@ -370,12 +374,11 @@ fun PersonScreen(id: String, nav: Nav) {
             }
         }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-            Row(if (p.knownFor.size < 3) backToTop.padding(vertical = 4.dp) else Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.FlowRow((if (p.knownFor.size < 3) backToTop else Modifier).padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Chip("Tout (${p.works.size})", kind == "all", { kind = "all" }, Modifier.focusRequester(first))
                 Chip("Films (${p.works.count { it.type == "movie" }})", kind == "movie", { kind = "movie" })
                 Chip("Séries (${p.works.count { it.type == "series" }})", kind == "series", { kind = "series" })
                 if (p.directed.isNotEmpty()) Chip("Réalisation (${p.works.count { it.id in p.directed }})", kind == "dir", { kind = "dir" })
-                Spacer(Modifier.width(24.dp))
                 Chip("Plus récents", sort == "new", { sort = "new" })
                 Chip("Plus anciens", sort == "old", { sort = "old" })
                 Chip("Populaires", sort == "pop", { sort = "pop" })
