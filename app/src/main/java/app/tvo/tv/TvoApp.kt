@@ -1,5 +1,7 @@
 package app.tvo.tv
 
+import app.tvo.tv.ui.TvoColors
+import kotlinx.coroutines.launch
 import app.tvo.tv.data.Tmdb
 import android.app.Application
 import app.tvo.tv.data.AddonClient
@@ -33,6 +35,10 @@ object Tvo {
         store = Store(app)
         Tmdb.loadRemoteCached()
         client = AddonClient(http)
+        // La couleur d'accent suit le profil actif tout de suite (sans attendre une recomposition de l'écran)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+            store.currentProfile.collect { TvoColors.setAccent(it?.color) }
+        }
     }
 }
 

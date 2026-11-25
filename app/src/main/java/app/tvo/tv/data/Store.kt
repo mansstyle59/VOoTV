@@ -1,5 +1,6 @@
 package app.tvo.tv.data
 
+import app.tvo.tv.ui.TvoColors
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.serialization.encodeToString
@@ -91,6 +92,7 @@ class Store(ctx: Context) {
     // ---- profiles ----
     fun selectProfile(p: Profile) {
         currentProfile.value = p
+        TvoColors.setAccent(p.color)
         prefs.edit().putString("last_profile", p.id).apply()
         library.value = load("library_${p.id}") ?: emptyList()
         progress.value = load("progress_${p.id}") ?: emptyList()
