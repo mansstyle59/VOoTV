@@ -2467,6 +2467,7 @@ var qrcode = function() {
   }
   const fraction = (p) => (p && p.duration > 0 ? Math.min(1, p.position / p.duration) : 0);
   const finished = (p) => fraction(p) >= 0.92;
+  const seenMovie = (id) => S.prog.some((p) => p.metaId === id && p.type === "movie" && finished(p));
   function saveProgress(p) {
     S.prog = [p, ...S.prog.filter((x) => x.videoId !== p.videoId)].slice(0, 400);
     saveProg();
@@ -3723,7 +3724,7 @@ var qrcode = function() {
     const tv = m.type === "tv" || m.type === "channel";
     return `<button class="pcard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
       <span class="pimg ${tv ? "channel" : ""}">${m.poster || m.background ? `<img src="${esc(m.poster || m.background)}" alt="" loading="lazy" onerror="this.remove()">` : `<span class="pfall">${esc(m.name)}</span>`}
-        ${m.imdbRating ? `<span class="rate">★ ${esc(m.imdbRating)}</span>` : tv ? '<span class="rate live">● En direct</span>' : ""}</span>
+        ${m.imdbRating ? `<span class="rate">★ ${esc(m.imdbRating)}</span>` : tv ? '<span class="rate live">● En direct</span>' : ""}${m.type === "movie" && seenMovie(m.id) ? '<span class="seen">✓ Vu</span>' : ""}</span>
       <span class="pname">${esc(m.name)}</span></button>`;
   };
   const landCard = (m) => `<button class="lcard" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}">
@@ -4682,6 +4683,7 @@ var qrcode = function() {
         ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
         <div class="dt-actions">
           <button id="lib">${inLib(m.id) ? ICON.check : ICON.plus}<span>Ma liste</span></button>
+          <button id="seen" class="${prog && finished(prog) ? "on" : ""}">${ICON.check}<span>${prog && finished(prog) ? "Vu" : (tv && tv.season != null ? `Vu É${tv.episode}` : "Marquer vu")}</span></button>
           ${m.tmdbId ? `<button id="trailer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg><span>Bande-annonce</span></button>` : ""}
           <button id="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg><span>Partager</span></button>
         </div>
@@ -4739,6 +4741,13 @@ var qrcode = function() {
     drawTabs(); drawPane();
 
     $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
+    $("#seen").addEventListener("click", (e) => {
+      const was = !!(prog && finished(prog));
+      saveProgress({ videoId: vid, metaId: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background,
+        season: tv ? tv.season : null, episode: tv ? tv.episode : null, episodeTitle: tv ? tv.title : null,
+        position: was ? 0 : 1, duration: 1, updatedAt: Date.now() });
+      toast(was ? "Marqué non vu" : "Marqué comme vu ✓"); route();
+    });
     $("#lib").addEventListener("click", (e) => { toggleLib(m); e.currentTarget.innerHTML = (inLib(m.id) ? ICON.check : ICON.plus) + "<span>Ma liste</span>"; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); });
     $("#share").addEventListener("click", async () => {
       const text = `${m.name}${m.releaseInfo ? " (" + m.releaseInfo + ")" : ""} — à regarder sur TVO`;
@@ -5654,13 +5663,23 @@ var qrcode = function() {
         .filter((r) => r.code > fromCode && r.code <= toCode && r.notes).sort((a, b) => b.code - a.code);
     } catch { return []; }
   }
-  /** Après une mise à jour : petite bannière discrète en haut ; « Voir » déplie les nouveautés. */
+  /** Chaque ligne de nouveauté est rangée par appareil : TV, téléphone, ou tous. */
+  function noteDev(line) {
+    const l = line.replace(/^[-•]\s*/, "");
+    if (/^(TV|Android TV|Télé)\b/i.test(l)) return { dev: "tv", text: l.replace(/^(TV|Android TV|Télé)\s*:?\s*/i, "") };
+    if (/^(Mobile|Lecteur mobile|iPhone|Téléphone|Android|Mac)\b/i.test(l)) return { dev: "phone", text: l.replace(/^(Mobile|Téléphone)\s*:?\s*/i, "") };
+    return { dev: "all", text: l };
+  }
+  const devName = () => (document.documentElement.classList.contains("mac") ? "ce Mac" : isIOS ? "cet iPhone" : "ce téléphone");
+  /** Après une mise à jour : petite bannière discrète en haut ; « Voir » déplie les nouveautés de CET appareil. */
   function showWhatsNew(list, name) {
-    if (!list.length || $("#wnBar")) return;
+    const items = list.flatMap((r) => r.notes.split("\n").map(noteDev).filter((n) => n.dev !== "tv" && n.text).map((n) => ({ ...n, v: r.name })));
+    if (!items.length || $("#wnBar")) return;
     const b = document.createElement("div"); b.id = "wnBar"; b.className = "upd-banner wn-bar";
-    b.innerHTML = `<span class="ub-ic">✓</span><span class="ub-t"><b>TVO ${esc(name)} installée</b><small>${list.length > 1 ? list.length + " mises à jour" : "Nouveautés disponibles"}</small></span>
+    const lab = { phone: "📱 Téléphone", all: "📱📺 Tous les appareils" };
+    b.innerHTML = `<span class="ub-ic">✓</span><span class="ub-t"><b>${devName()[0].toUpperCase() + devName().slice(1)} est à jour · TVO ${esc(name)}</b><small>${items.length} nouveauté${items.length > 1 ? "s" : ""} pour cet appareil</small></span>
       <button class="btn sm ghost" id="wnMore">Voir</button><button class="icon-btn" id="wnX" aria-label="Fermer">✕</button>
-      <div class="wn-drop" hidden>${list.map((r) => `<div class="wn-item"><span class="tag">${esc(r.name)}</span><p>${esc(r.notes).replace(/\n/g, "<br>")}</p></div>`).join("")}</div>`;
+      <div class="wn-drop" hidden>${items.map((n) => `<div class="wn-item"><span class="tag">${lab[n.dev]}</span><p>${esc(n.text)}</p></div>`).join("")}</div>`;
     document.body.appendChild(b);
     const t = setTimeout(() => b.remove(), 9000);
     $("#wnX").addEventListener("click", () => { clearTimeout(t); b.remove(); });

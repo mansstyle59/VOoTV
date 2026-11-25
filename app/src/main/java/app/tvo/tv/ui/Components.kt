@@ -88,6 +88,8 @@ fun PosterCard(
 ) {
     val shape = RoundedCornerShape(12.dp)
     var menu by remember { mutableStateOf(false) }
+    val prog by app.tvo.tv.Tvo.store.progress.collectAsState()
+    val seen = remember(prog, item.id) { item.type == "movie" && prog.any { it.metaId == item.id && it.finished } }
     QuickMenuHost(item, onClick, menu) { menu = false }
     Card(
         onClick = onClick,
@@ -104,6 +106,8 @@ fun PosterCard(
                     fontSize = 14.sp, color = TvoColors.Text)
             }
             AsyncImage(item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            if (seen) Text("✓ VU", Modifier.align(Alignment.TopStart).padding(6.dp).clip(RoundedCornerShape(50))
+                .background(TvoColors.Success).padding(horizontal = 7.dp, vertical = 2.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         }
     }
 }

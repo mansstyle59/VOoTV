@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -183,7 +184,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             }
                             if (p.type == "movie") {
                                 val seen = targetProgress?.finished == true
-                                RoundButton(Icons.Default.Check, active = seen) {
+                                RoundButton(Icons.Default.CheckCircle, active = seen) {
                                     val pid = store.currentProfile.value?.id
                                     if (pid != null) store.saveProgress(pid, Progress(target, p.id, p.type, p.name, p.poster, p.background,
                                         position = if (seen) 0 else 1, duration = 1, updatedAt = System.currentTimeMillis()))

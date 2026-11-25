@@ -300,11 +300,16 @@ private fun WhatsNew() {
     if (notes.isEmpty()) return
     // Bannière discrète, sans prendre le focus : disparaît seule après quelques secondes
     LaunchedEffect(notes) { delay(9000); notes = emptyList() }
-    val first = notes.firstOrNull()?.second?.lineSequence()?.firstOrNull { it.isNotBlank() }?.removePrefix("- ")?.trim()
+    // Seulement ce qui concerne la TV (les lignes « Mobile : … » sont pour le téléphone)
+    val tvLines = notes.flatMap { it.second.lines() }.map { it.trim().removePrefix("- ") }
+        .filter { it.isNotBlank() && !Regex("^(Mobile|Lecteur mobile|iPhone|Téléphone|Mac)\\b", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+        .map { it.replace(Regex("^(TV|Android TV)\\s*:?\\s*", RegexOption.IGNORE_CASE), "") }
+    if (tvLines.isEmpty()) return
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(top = 20.dp, end = 40.dp), contentAlignment = androidx.compose.ui.Alignment.TopEnd) {
-        Column(Modifier.width(420.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(horizontal = 18.dp, vertical = 10.dp)) {
-            Text("✓  TVO ${app.tvo.tv.BuildConfig.VERSION_NAME} installée", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-            if (!first.isNullOrBlank()) Text(first, fontSize = 13.sp, color = TvoColors.Muted, maxLines = 2)
+        Column(Modifier.width(440.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(horizontal = 18.dp, vertical = 10.dp)) {
+            Text("📺  Cette TV est à jour · TVO ${app.tvo.tv.BuildConfig.VERSION_NAME}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            Text("${tvLines.size} nouveauté${if (tvLines.size > 1) "s" else ""} pour la TV", fontSize = 12.sp, color = TvoColors.Cyan)
+            tvLines.take(3).forEach { Text("• $it", fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1) }
         }
     }
 }
