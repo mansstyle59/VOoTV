@@ -190,18 +190,17 @@ private fun UpdatePrompt() {
     }
     val r = release ?: return
     val fr = remember { FocusRequester() }
-    Dialog(onDismissRequest = { release = null }) {
-        Surface(shape = RoundedCornerShape(16.dp), colors = SurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text)) {
-            Column(Modifier.width(460.dp).padding(28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Mise à jour disponible : TVO ${r.versionName}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text("Ta liste, ta progression et tes réglages sont conservés.", fontSize = 15.sp, color = TvoColors.Muted)
-                Updater.cleanNotes(r.notes).takeIf { it.isNotBlank() }?.let { Text("Nouveautés : $it", fontSize = 14.sp, color = TvoColors.Text, maxLines = 6) }
-                msg?.let { Text(it, fontSize = 15.sp, color = TvoColors.Cyan) }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvoButton("Mettre à jour", { start() }, Modifier.focusRequester(fr), primary = true)
-                    TvoButton("Plus tard", { release = null })
-                }
+    androidx.activity.compose.BackHandler { release = null }
+    // Petite bannière discrète en haut à droite (plus de grande fenêtre)
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(top = 20.dp, end = 40.dp), contentAlignment = androidx.compose.ui.Alignment.TopEnd) {
+        Row(Modifier.clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column {
+                Text("Nouvelle version TVO ${r.versionName}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                Text(msg ?: "Tes réglages sont conservés", fontSize = 12.sp, color = if (msg != null) TvoColors.Cyan else TvoColors.Muted)
             }
+            TvoButton("Installer", { start() }, Modifier.focusRequester(fr), primary = true)
+            TvoButton("Plus tard", { release = null })
         }
     }
     LaunchedEffect(r) { delay(100); runCatching { fr.requestFocus() } }
@@ -297,21 +296,15 @@ private fun WhatsNew() {
         if (seen in 0 until cur) { delay(3000); notes = Updater.notesSince(seen, cur) }
     }
     if (notes.isEmpty()) return
-    val fr = remember { FocusRequester() }
-    Dialog(onDismissRequest = { notes = emptyList() }) {
-        Surface(shape = RoundedCornerShape(20.dp), colors = SurfaceDefaults.colors(containerColor = TvoColors.Surface, contentColor = TvoColors.Text)) {
-            Column(Modifier.width(620.dp).padding(30.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("TVO ${app.tvo.tv.BuildConfig.VERSION_NAME} est installée ✓", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-                Text("Récapitulatif : tout ce qui a été ajouté, amélioré et réparé", fontSize = 14.sp, color = TvoColors.Muted)
-                androidx.compose.foundation.lazy.LazyColumn(Modifier.heightIn(max = 340.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(notes.size) { i -> val (v, n) = notes[i]
-                        Column { Text("Version $v", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan); Text(n, fontSize = 15.sp) } }
-                }
-                TvoButton("Super, on y va !", { notes = emptyList() }, Modifier.focusRequester(fr), primary = true)
-            }
+    // Bannière discrète, sans prendre le focus : disparaît seule après quelques secondes
+    LaunchedEffect(notes) { delay(9000); notes = emptyList() }
+    val first = notes.firstOrNull()?.second?.lineSequence()?.firstOrNull { it.isNotBlank() }?.removePrefix("- ")?.trim()
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(top = 20.dp, end = 40.dp), contentAlignment = androidx.compose.ui.Alignment.TopEnd) {
+        Column(Modifier.width(420.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(horizontal = 18.dp, vertical = 10.dp)) {
+            Text("✓  TVO ${app.tvo.tv.BuildConfig.VERSION_NAME} installée", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            if (!first.isNullOrBlank()) Text(first, fontSize = 13.sp, color = TvoColors.Muted, maxLines = 2)
         }
     }
-    LaunchedEffect(notes) { delay(150); runCatching { fr.requestFocus() } }
 }
 
 object PendingUpdate { val release = mutableStateOf<Updater.Release?>(null) }

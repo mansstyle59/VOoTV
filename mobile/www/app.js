@@ -5651,14 +5651,17 @@ var qrcode = function() {
         .filter((r) => r.code > fromCode && r.code <= toCode && r.notes).sort((a, b) => b.code - a.code);
     } catch { return []; }
   }
+  /** Après une mise à jour : petite bannière discrète en haut ; « Voir » déplie les nouveautés. */
   function showWhatsNew(list, name) {
-    if (!list.length) return;
-    const box = document.createElement("div"); box.className = "wn-sheet";
-    box.innerHTML = `<div class="wn-card"><div class="wn-head"><img src="logo-mark.png" alt=""><div><b>TVO ${esc(name)} est installée ✓</b><span class="small muted">Récapitulatif : tout ce qui a été ajouté, amélioré et réparé</span></div></div>
-      <div class="wn-list">${list.map((r) => `<div class="wn-item"><span class="tag">${esc(r.name)}</span><p>${esc(r.notes).replace(/\n/g, "<br>")}</p></div>`).join("")}</div>
-      <button class="btn primary block" data-x>Super, on y va !</button></div>`;
-    document.body.appendChild(box);
-    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) box.remove(); });
+    if (!list.length || $("#wnBar")) return;
+    const b = document.createElement("div"); b.id = "wnBar"; b.className = "upd-banner wn-bar";
+    b.innerHTML = `<span class="ub-ic">✓</span><span class="ub-t"><b>TVO ${esc(name)} installée</b><small>${list.length > 1 ? list.length + " mises à jour" : "Nouveautés disponibles"}</small></span>
+      <button class="btn sm ghost" id="wnMore">Voir</button><button class="icon-btn" id="wnX" aria-label="Fermer">✕</button>
+      <div class="wn-drop" hidden>${list.map((r) => `<div class="wn-item"><span class="tag">${esc(r.name)}</span><p>${esc(r.notes).replace(/\n/g, "<br>")}</p></div>`).join("")}</div>`;
+    document.body.appendChild(b);
+    const t = setTimeout(() => b.remove(), 9000);
+    $("#wnX").addEventListener("click", () => { clearTimeout(t); b.remove(); });
+    $("#wnMore").addEventListener("click", () => { clearTimeout(t); const d = b.querySelector(".wn-drop"); d.hidden = !d.hidden; $("#wnMore").textContent = d.hidden ? "Voir" : "Masquer"; });
   }
   async function latestRelease() {
     // Version la plus haute parmi les dernières publications (« latest » peut être en retard si deux compilations finissent dans le désordre)
@@ -5678,8 +5681,8 @@ var qrcode = function() {
   function showUpdateBanner(rel) {
     if (!rel || $("#updBanner")) return;
     const b = document.createElement("div"); b.id = "updBanner"; b.className = "upd-banner";
-    b.innerHTML = `<span class="ub-ic">⬆</span><span class="ub-t"><b>Mise à jour disponible</b><small>TVO ${esc(rel.name)}</small></span>
-      <button class="btn sm primary" id="ubGo">Mettre à jour</button><button class="icon-btn" id="ubX" aria-label="Plus tard">✕</button>`;
+    b.innerHTML = `<span class="ub-ic">⬆</span><span class="ub-t"><b>Nouvelle version</b><small>TVO ${esc(rel.name)}</small></span>
+      <button class="btn sm primary" id="ubGo">Installer</button><button class="icon-btn" id="ubX" aria-label="Plus tard">✕</button>`;
     document.body.appendChild(b);
     $("#ubX").addEventListener("click", () => b.remove());
     $("#ubGo").addEventListener("click", async () => {
@@ -5708,7 +5711,7 @@ var qrcode = function() {
   function applyUpdate() {
     if (!$("#player").hidden) return; // ne jamais couper une vidéo
     LS.set("seen_code", VERSION.code); // le récapitulatif s'affichera après le redémarrage
-    document.body.insertAdjacentHTML("beforeend", `<div class="toast" style="bottom:50%">Installation de TVO ${esc(updateInfo.name)}…</div>`);
+    const ub = $("#updBanner"); if (ub) ub.querySelector(".ub-t small").textContent = "Installation…"; else toast(`Installation de TVO ${updateInfo.name}…`);
     setTimeout(() => location.reload(), 600);
   }
 
