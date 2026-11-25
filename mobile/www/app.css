@@ -1870,3 +1870,6 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
 .castgrid::-webkit-scrollbar { display: none; }
 .castgrid .bubble { flex: 0 0 84px; }
 .castgrid .castsep { display: block; flex: none; }
+
+/* Zone de sécurité iPhone : une fois la page défilée, la barre de l'heure et de la batterie est pleine (rien ne passe dessous), avec un fondu léger sous elle */
+body.scrolled-bg::after { background: linear-gradient(180deg, var(--bg) 0, var(--bg) var(--safe-top), rgba(0,0,0,0) 100%) !important; }
