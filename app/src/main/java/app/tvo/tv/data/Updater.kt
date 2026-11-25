@@ -34,7 +34,28 @@ object Updater {
         }.sortedByDescending { it.first }.map { it.second to it.third }
     }.getOrDefault(emptyList())
 
+    /** D'où vient l'appli : un magasin (Google Play, Amazon) gère lui-même les mises à jour, on ne doit pas le faire à sa place. */
+    enum class Source { PLAY, AMAZON, SIDELOAD }
+    fun source(ctx: Context): Source {
+        val pm = ctx.packageManager
+        val inst = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) pm.getInstallSourceInfo(ctx.packageName).installingPackageName
+            else @Suppress("DEPRECATION") pm.getInstallerPackageName(ctx.packageName)
+        }.getOrNull()
+        return when (inst) { "com.android.vending", "com.google.android.feedback" -> Source.PLAY; "com.amazon.venezia" -> Source.AMAZON; else -> Source.SIDELOAD }
+    }
+    fun isFireTv(ctx: Context) = Build.MANUFACTURER.equals("Amazon", true) || ctx.packageManager.hasSystemFeature("amazon.hardware.fire_tv")
+    fun isFreebox() = listOf(Build.MANUFACTURER, Build.BRAND, Build.MODEL, Build.DEVICE).any { it?.contains("freebox", true) == true || it.equals("Free", true) }
+    /** Où activer l'installation pour TVO, selon l'appareil. */
+    fun unknownSourcesHelp(ctx: Context): String = when {
+        isFireTv(ctx) -> "Sur Fire TV : Paramètres › Ma Fire TV › Options pour les développeurs › Installer des applis inconnues › TVO : Activé. (Si « Options pour les développeurs » est absent : Ma Fire TV › À propos, appuie 7 fois sur le nom de l'appareil.)"
+        isFreebox() -> "Sur la Freebox : Paramètres › Applications › Sécurité et restrictions › Sources inconnues › TVO : Activé."
+        else -> "Paramètres › Applications › Sécurité et restrictions › Sources inconnues › TVO : Activé."
+    }
+
     suspend fun check(): Release? = runCatching {
+        // Installée depuis Google Play ou l'Amazon Appstore : c'est le magasin qui met à jour (leurs règles l'imposent)
+        if (source(Tvo.app) != Source.SIDELOAD) return@runCatching null
         // On prend la version la plus haute parmi les dernières publications (et non « latest »,
         // qui peut pointer sur une version plus ancienne si deux compilations finissent dans le désordre).
         val arr = Tvo.client.getJsonArray("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases?per_page=15")
@@ -58,7 +79,8 @@ object Updater {
     }.getOrDefault(0)
 
     suspend fun download(ctx: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
-        val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
+        val dir = File(ctx.cacheDir, "updates").apply { deleteRecursively(); mkdirs() }
+        if (dir.usableSpace in 1 until 250L * 1024 * 1024) throw IOException("espace de stockage insuffisant sur la TV (libère de la place puis réessaie)")
         val out = File(dir, "tvo-update.apk")
         Tvo.http.newCall(Request.Builder().url(url).build()).execute().use { r ->
             if (!r.isSuccessful) throw IOException("HTTP ${r.code}")
@@ -89,9 +111,9 @@ object Updater {
                     Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}"))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 )
-                "Autorise TVO à installer des applis, puis appuie à nouveau sur Installer."
-            } catch (e: ActivityNotFoundException) {
-                "Active « Sources inconnues » pour TVO dans les paramètres de la TV, puis réessaie."
+                "Autorise TVO à installer des applis, puis appuie à nouveau sur Installer. " + unknownSourcesHelp(ctx)
+            } catch (e: Exception) {
+                unknownSourcesHelp(ctx) + " Puis appuie à nouveau sur Installer."
             }
         }
         val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.updates", file)
@@ -101,8 +123,8 @@ object Updater {
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
             )
             null
-        } catch (e: ActivityNotFoundException) {
-            "Impossible d'ouvrir l'installateur sur cet appareil."
+        } catch (e: Exception) {
+            "Impossible d'ouvrir l'installateur sur cet appareil. " + unknownSourcesHelp(ctx)
         }
     }
 }

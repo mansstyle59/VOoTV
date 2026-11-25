@@ -24,8 +24,10 @@ object Tvo {
             .build()
     }
 
+    lateinit var app: Application
     fun init(app: Application) {
         if (::store.isInitialized) return
+        this.app = app
         store = Store(app)
         Tmdb.loadRemoteCached()
         client = AddonClient(http)
