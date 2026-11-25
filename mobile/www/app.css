@@ -2158,3 +2158,6 @@ html:root .floating-back svg, html[data-mode="light"]:root .floating-back svg { 
 .profiles .prole { font-size: 9.5px; text-align: center; }
 .profile .pmove { gap: 4px; }
 .profile .pmove .mv { width: 28px; height: 28px; font-size: 18px; }
+
+/* Logo de titre sombre rendu en blanc (détecté par app.js) */
+img.logo-white { filter: brightness(0) invert(1); }

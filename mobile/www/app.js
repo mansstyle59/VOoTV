@@ -6079,3 +6079,30 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   document.addEventListener("visibilitychange", () => { if (document.hidden && syncTimer) { clearTimeout(syncTimer); syncTimer = null; syncNow(); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate().then(async (r) => { if (!r) return; if ($("#player").hidden && await autoUpdate(true)) applyUpdate(); else showUpdateBanner(r); }); });
 })();
+
+// ---- Logos de titre sombres (noir sur fond sombre) : passés en blanc, comme sur la TV ----
+(function () {
+  const SEL = "img.hlogo, img.logo-img, img.dt-logo";
+  const cache = new Map();
+  const isDark = (url) => {
+    if (cache.has(url)) return cache.get(url);
+    const p = new Promise((res) => {
+      const im = new Image(); im.crossOrigin = "anonymous";
+      im.onload = () => { try {
+        const w = 96, h = Math.max(1, Math.round(96 * im.naturalHeight / (im.naturalWidth || 1)));
+        const c = document.createElement("canvas"); c.width = w; c.height = h;
+        const x = c.getContext("2d"); x.drawImage(im, 0, 0, w, h);
+        const d = x.getImageData(0, 0, w, h).data; let n = 0, sum = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) { n++; sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; }
+        res(n > 20 && sum / n < 0.45);
+      } catch (e) { res(false); } };
+      im.onerror = () => res(false); im.src = url;
+    });
+    cache.set(url, p); return p;
+  };
+  const fix = (img) => { const u = img.currentSrc || img.src; if (!u || img.dataset.lw === u) return; img.dataset.lw = u;
+    isDark(u).then((dk) => { if (img.dataset.lw === u) img.classList.toggle("logo-white", dk); }); };
+  const scan = (root) => (root.querySelectorAll ? root.querySelectorAll(SEL) : []).forEach(fix);
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType !== 1) return; if (n.matches && n.matches(SEL)) fix(n); scan(n); }))).observe(document.documentElement, { childList: true, subtree: true });
+  scan(document);
+})();
