@@ -1,4 +1,4 @@
 {
-  "note": "Mises à jour importantes : la télé ne propose l'installation que si sa version est inférieure à minTv. Les catalogues (catalogs.json) se mettent à jour seuls, en arrière-plan.",
-  "minTv": 128
+  "note": "La TV propose automatiquement chaque nouvelle version (bannière en haut). minTv très haut = les anciennes versions de la TV, qui ne proposaient que les mises à jour importantes, voient aussi la bannière.",
+  "minTv": 999999
 }

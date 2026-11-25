@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         // Retour dans l'appli : nouvelle recherche de mise à jour (au plus une fois toutes les 20 minutes)
         if (System.currentTimeMillis() - lastCheck > 20 * 60_000 && PendingUpdate.release.value == null) {
             lastCheck = System.currentTimeMillis()
-            lifecycleScope.launch { Updater.check()?.takeIf { it.important }?.let { PendingUpdate.release.value = it } }
+            lifecycleScope.launch { Updater.check()?.let { PendingUpdate.release.value = it } }
         }
     }
 
@@ -323,7 +323,7 @@ private fun SplashScreen(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         val t0 = System.currentTimeMillis()
         val r = kotlinx.coroutines.withTimeoutOrNull(5000) { Updater.check() }
-        if (r != null && r.important) { status = "Mise à jour importante ${r.versionName} trouvée"; PendingUpdate.release.value = r }
+        if (r != null) { status = "Mise à jour ${r.versionName} trouvée"; PendingUpdate.release.value = r }
         else status = "TVO est à jour ✓"
         delay((2400 - (System.currentTimeMillis() - t0)).coerceAtLeast(500))
         onDone()
