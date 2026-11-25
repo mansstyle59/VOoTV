@@ -75,18 +75,34 @@ import kotlinx.coroutines.launch
 @Composable
 fun LibrarySection(nav: Nav) {
     val library by Tvo.store.library.collectAsState()
+    val prog by Tvo.store.progress.collectAsState()
     if (library.isEmpty()) {
         CenterMessage("Ta liste est vide", "Ouvre un film ou une série et appuie sur « Ma liste » pour le retrouver ici.")
         return
     }
-    PosterGrid("Ma liste", library.map { it.toPreview() }, nav)
+    // Filtres : Tout, Films, Séries, À voir, Vus ; tri par ajout récent ou A → Z
+    var f by rememberSaveable { mutableStateOf("all") }
+    var az by rememberSaveable { mutableStateOf(false) }
+    val seen = remember(prog) { prog.filter { it.type == "movie" && it.finished }.map { it.metaId }.toSet() }
+    fun count(k: String) = library.count { x -> when (k) { "movie", "series" -> x.type == k; "todo" -> x.id !in seen; "seen" -> x.id in seen; else -> true } }
+    val list = library.filter { x -> when (f) { "movie", "series" -> x.type == f; "todo" -> x.id !in seen; "seen" -> x.id in seen; else -> true } }
+        .let { l -> if (az) l.sortedBy { it.name.lowercase() } else l }
+    PosterGrid("Ma liste", list.map { it.toPreview() }, nav, header = {
+        androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf("all" to "Tout", "movie" to "Films", "series" to "Séries", "todo" to "À voir", "seen" to "Vus").forEach { (k, t) ->
+                item { Chip("$t (${count(k)})", f == k, { f = k }) }
+            }
+            item { Chip(if (az) "Tri : A → Z" else "Tri : ajout récent", false, { az = !az }) }
+        }
+    })
 }
 
 @Composable
-fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () -> Unit = {}) {
+fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () -> Unit = {}, header: @Composable () -> Unit = {}) {
     val first = remember { FocusRequester() }
     Column(Modifier.fillMaxSize()) {
         Text(title, Modifier.padding(start = 48.dp, top = 36.dp, bottom = 8.dp), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+        header()
         LazyVerticalGrid(
             columns = GridCells.Adaptive(136.dp),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 16.dp),
