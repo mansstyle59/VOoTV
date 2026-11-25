@@ -614,9 +614,9 @@ val WhiteLogoFilter: androidx.compose.ui.graphics.ColorFilter = androidx.compose
 
 /** Image de titre avec secours : si l'adresse échoue (ou manque), on tente l'image Metahub par id IMDb. */
 @Composable
-fun FbImage(model: String?, id: String, poster: Boolean, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit) {
+fun FbImage(model: String?, id: String, poster: Boolean, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit, alignment: Alignment = Alignment.Center) {
     var url by remember(model) { mutableStateOf(model ?: metahubUrl(poster, id)) }
-    AsyncImage(url, contentDescription, modifier, contentScale = contentScale, onError = {
+    AsyncImage(url, contentDescription, modifier, contentScale = contentScale, alignment = alignment, onError = {
         val fb = metahubUrl(poster, id)
         if (fb != null && url != fb) url = fb
     })
