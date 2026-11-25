@@ -735,14 +735,16 @@ private fun HomeEditor() {
         val ordered = all.sortedBy { r -> home.order.indexOf(r.key).let { if (it < 0) Int.MAX_VALUE else it } }
         special + ordered.map { it.key to it.title }
     }
-    fun move(k: String, d: Int) {
+    // Déplacer : on choisit la rangée, puis l'emplacement où la mettre
+    var moving by remember { mutableStateOf<String?>(null) }
+    fun placeAt(k: String, target: String) {
         val keys = rows.drop(special.size).map { it.first }.toMutableList()
-        val i = keys.indexOf(k); val j = i + d
-        if (i < 0 || j !in keys.indices) return
+        val i = keys.indexOf(k); val j = keys.indexOf(target)
+        if (i < 0 || j < 0) return
         keys.add(j, keys.removeAt(i)); store.setHome(home.copy(order = keys))
     }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Choisis les rangées affichées sur l'accueil et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.",
+        Text(if (moving != null) "Choisis l'emplacement : appuie sur « Mettre ici » à la place voulue." else "Choisis les rangées affichées. Pour changer l'ordre : « Déplacer » puis choisis l'emplacement.",
             fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
         rows.forEachIndexed { idx, (k, title) ->
             val visible = k !in home.hidden
@@ -753,8 +755,12 @@ private fun HomeEditor() {
                     store.setHome(home.copy(hidden = if (visible) home.hidden + k else home.hidden - k))
                 })
                 if (idx >= special.size) {
-                    Chip("▲", false, { move(k, -1) })
-                    Chip("▼", false, { move(k, 1) })
+                    val m = moving
+                    when {
+                        m == null -> Chip("Déplacer", false, { moving = k })
+                        m == k -> Chip("Annuler", true, { moving = null })
+                        else -> Chip("Mettre ici (${idx - special.size + 1})", false, { placeAt(m, k); moving = null })
+                    }
                 }
             }
         }

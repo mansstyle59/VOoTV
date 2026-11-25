@@ -1729,3 +1729,14 @@ html.in-pip, html.in-pip body { background: #000; }
 /* Vu */
 .pimg .seen { position: absolute; left: 6px; top: 6px; padding: 2px 7px; border-radius: 999px; background: var(--success); color: #062; font-size: 11px; font-weight: 800; }
 .dt-actions button.on { color: var(--success); }
+
+/* Choisir l'emplacement d'une rangée (appui long sur le titre) */
+#app .section[data-key] .section-title { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.mv-sheet { position: fixed; inset: 0; z-index: 700; background: rgba(0,0,0,.6); display: grid; place-items: end center; padding: 12px 12px calc(var(--safe-bottom) + 12px); }
+.mv-card { width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 6px; }
+.mv-card small { color: var(--muted); }
+.mv-list { display: grid; gap: 4px; max-height: 52vh; overflow-y: auto; margin: 8px 0; }
+.mv-list button { display: flex; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; border: 0; border-radius: 12px; background: rgba(255,255,255,.05); color: var(--text); font-size: 15px; }
+.mv-list button i { font-style: normal; font-weight: 800; min-width: 22px; color: var(--muted); }
+.mv-list button.on { background: var(--blue); } .mv-list button.on i { color: #fff; }
+@media (min-width: 900px) { .mv-sheet { place-items: center; } }

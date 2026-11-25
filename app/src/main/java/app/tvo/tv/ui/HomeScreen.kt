@@ -805,7 +805,7 @@ private fun Top10Row(type: String?, nav: Nav) {
     val select = LocalSelect.current
     val items by produceState<List<MetaPreview>>(emptyList(), type) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.top10(type) else emptyList() }
     if (items.size < 3) return
-    PanelSection("Top 10 " + when (type) { "movie" -> "films"; "series" -> "séries"; else -> "de la semaine" }) {
+    PanelSection("Top 10 " + when (type) { "movie" -> "films de la semaine"; "series" -> "séries de la semaine"; else -> "de la semaine" }) {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(items, key = { _, it -> it.id }) { i, m -> RowItem(rf, i) {

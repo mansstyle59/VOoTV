@@ -298,12 +298,12 @@ object Tmdb {
 
     /** Top 10 de la semaine : films, séries, ou les deux mélangés (accueil). */
     suspend fun top10(type: String?): List<MetaPreview> = runCatching {
-        val m = if (type != "series") get("/trending/movie/week").arr("results")?.mapNotNull { it as? JsonObject }?.mapNotNull { preview(it, "movie") }?.filter { it.poster != null } ?: emptyList() else emptyList()
-        val t = if (type != "movie") get("/trending/tv/week").arr("results")?.mapNotNull { it as? JsonObject }?.mapNotNull { preview(it, "series") }?.filter { it.poster != null } ?: emptyList() else emptyList()
-        val mix = ArrayList<MetaPreview>()
-        var i = 0
-        while (mix.size < 10 && (i < m.size || i < t.size)) { m.getOrNull(i)?.let { mix += it }; if (mix.size < 10) t.getOrNull(i)?.let { mix += it }; i++ }
-        mix
+        // Vrai classement TMDB de la semaine ; accueil = films et séries mélangés selon leur popularité réelle
+        val path = when (type) { "movie" -> "/trending/movie/week"; "series" -> "/trending/tv/week"; else -> "/trending/all/week" }
+        get(path).arr("results").orEmpty().mapNotNull { it as? JsonObject }.mapNotNull { o ->
+            val t = when { type != null -> type; o.s("media_type") == "tv" -> "series"; o.s("media_type") == "movie" -> "movie"; else -> null } ?: return@mapNotNull null
+            preview(o, t)
+        }.filter { it.poster != null }.distinctBy { it.id }.take(10)
     }.getOrDefault(emptyList())
 
     /** Grandes sagas du cinéma (Harry Potter, Star Wars, James Bond…). */

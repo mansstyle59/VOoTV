@@ -3774,6 +3774,41 @@ var qrcode = function() {
     const idx = (k) => { const i = h.order.indexOf(k); return i < 0 ? 1e9 : i; };
     return rows.filter((r) => !h.hidden.includes(r.key)).sort((a, b) => idx(a.key) - idx(b.key));
   }
+  /** Appui long sur le titre d'une rangée : choisir sa place (ou la masquer). Marche sur Accueil, Films et Séries. */
+  function moveSheet(sec) {
+    const secs = [...document.querySelectorAll("#app .section[data-key]")];
+    const keys = secs.map((x) => x.dataset.key), titles = secs.map((x) => x.querySelector(".st").textContent.trim());
+    const cur = keys.indexOf(sec.dataset.key); if (cur < 0) return;
+    const sh = document.createElement("div"); sh.className = "mv-sheet";
+    sh.innerHTML = `<div class="mv-card"><b>Déplacer « ${esc(titles[cur])} »</b><small>Choisis son nouvel emplacement</small>
+      <div class="mv-list">${titles.map((t, i) => `<button data-pos="${i}" class="${i === cur ? "on" : ""}"><i>${i + 1}</i><span>${i === cur ? "Position actuelle" : esc(t)}</span></button>`).join("")}</div>
+      <div class="two-btn"><button class="btn" data-hide>Masquer</button><button class="btn primary" data-x>Annuler</button></div></div>`;
+    document.body.appendChild(sh);
+    const close = () => sh.remove();
+    sh.addEventListener("click", (e) => {
+      if (e.target === sh || e.target.closest("[data-x]")) return close();
+      if (e.target.closest("[data-hide]")) { const h = homeLayout(); setHome({ ...h, hidden: [...new Set([...h.hidden, keys[cur]])] }); close(); toast("Rangée masquée (Réglages › Page d'accueil pour la remettre)"); return route(); }
+      const b = e.target.closest("[data-pos]"); if (!b) return;
+      const to = Number(b.dataset.pos); if (to === cur) return close();
+      const page = [...keys]; page.splice(to, 0, page.splice(cur, 1)[0]);
+      // On garde l'ordre des autres pages : seules les places de cette page sont réattribuées
+      const h = homeLayout(); const order = [...h.order]; keys.forEach((k) => { if (!order.includes(k)) order.push(k); });
+      const slots = keys.map((k) => order.indexOf(k)).sort((x, y) => x - y);
+      slots.forEach((sl, i) => (order[sl] = page[i]));
+      setHome({ ...h, order }); close(); toast(`Déplacé en position ${to + 1}`); route();
+    });
+  }
+  (() => {
+    let t = null, sx = 0, sy = 0;
+    const start = (e) => { const h = e.target.closest("#app .section[data-key] .section-title"); if (!h || e.target.closest("a,button")) return;
+      const p = e.touches ? e.touches[0] : e; sx = p.clientX; sy = p.clientY;
+      t = setTimeout(() => { t = null; if (navigator.vibrate) navigator.vibrate(15); moveSheet(h.closest(".section")); }, 500); };
+    const cancel = () => { clearTimeout(t); t = null; };
+    document.addEventListener("touchstart", start, { passive: true });
+    document.addEventListener("touchmove", (e) => { const p = e.touches[0]; if (Math.abs(p.clientX - sx) + Math.abs(p.clientY - sy) > 10) cancel(); }, { passive: true });
+    document.addEventListener("touchend", cancel); document.addEventListener("touchcancel", cancel);
+    document.addEventListener("contextmenu", (e) => { const h = e.target.closest("#app .section[data-key] .section-title"); if (h) { e.preventDefault(); moveSheet(h.closest(".section")); } });
+  })();
   /** Même barre du haut sur Accueil, Films, Séries, Live TV et Ma liste. */
   function topBar(title) {
     const p = S.profile;
@@ -3805,7 +3840,7 @@ var qrcode = function() {
 
   function rowShell(row) {
     const sec = document.createElement("section");
-    sec.className = "section";
+    sec.className = "section"; sec.dataset.key = row.key;
     sec.innerHTML = `<h2 class="section-title"><span class="st">${rowIcon(row.title)}${esc(row.title)}</span><a href="#/catalog/${enc(row.key)}" aria-label="Voir tout">Voir tout ›</a></h2>
       <div class="row">${Array.from({ length: 4 }, () => isLandRow(row.title) && !isDesk() ? '<div class="lcard"><span class="limg skeleton"></span></div>' : '<div class="pcard"><span class="pimg skeleton"></span></div>').join("")}</div>`;
     return sec;
@@ -3927,17 +3962,31 @@ var qrcode = function() {
   }
 
   /** Top 10 de la semaine (films et séries mélangés), affiché en premier sur l'accueil. */
+  /** Top 10 de la semaine : vrai classement TMDB. Accueil/Découvrir = films et séries mélangés selon leur popularité réelle. */
+  async function top10Items(type) {
+    const path = type === "movie" ? "/trending/movie/week" : type === "series" ? "/trending/tv/week" : "/trending/all/week";
+    const r = await tget(path);
+    const kids = S.profile && S.profile.kids;
+    const out = [], ids = new Set();
+    for (const o of r.results || []) {
+      const t = o.media_type === "tv" || type === "series" ? "series" : o.media_type === "movie" || type === "movie" ? "movie" : null;
+      if (!t || (kids && o.adult)) continue;
+      const m = tpreview(o, t);
+      if (!m || !m.poster || ids.has(m.id)) continue;
+      ids.add(m.id); out.push(m);
+      if (out.length === 10) break;
+    }
+    return out;
+  }
+  const t10HTML = (list) => list.map((m, i) => `<button class="t10" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${i + 1}. ${esc(m.name)}"><span class="t10n">${i + 1}</span><img src="${esc(m.poster)}" alt="" loading="lazy"></button>`).join("");
   function top10Section(type) {
     const sec = document.createElement("section"); sec.className = "section"; sec.hidden = true;
-    sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.trophy}Top 10 ${type === "movie" ? "films" : type === "series" ? "séries" : "de la semaine"}</span></h2><div class="row top10"></div>`;
+    sec.innerHTML = `<h2 class="section-title"><span class="st">${ICON.trophy}Top 10 ${type === "movie" ? "films de la semaine" : type === "series" ? "séries de la semaine" : "de la semaine"}</span></h2><div class="row top10"></div>`;
     if (tmdbOn()) (async () => {
       try {
-        const [mv, tv] = await Promise.all([type === "series" ? { results: [] } : tget("/trending/movie/week"), type === "movie" ? { results: [] } : tget("/trending/tv/week")]);
-        const a = (mv.results || []).map((o) => tpreview(o, "movie")).filter((x) => x && x.poster);
-        const b = (tv.results || []).map((o) => tpreview(o, "series")).filter((x) => x && x.poster);
-        const mix = []; for (let i = 0; mix.length < 10 && (a[i] || b[i]); i++) { if (a[i]) mix.push(a[i]); if (mix.length < 10 && b[i]) mix.push(b[i]); }
+        const mix = await top10Items(type);
         if (mix.length < 3) return;
-        sec.querySelector(".row").innerHTML = mix.map((m, i) => `<button class="t10" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}"><span class="t10n">${i + 1}</span><img src="${esc(m.poster)}" alt="" loading="lazy"></button>`).join("");
+        sec.querySelector(".row").innerHTML = t10HTML(mix);
         sec.hidden = false;
       } catch { /* hors ligne */ }
     })();
@@ -3997,7 +4046,7 @@ var qrcode = function() {
       rowsEl.appendChild(cs);
       loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, S.profile && S.profile.kids);
     }
-    const rows = type ? buildRows(type) : applyHome(buildRows(null));
+    const rows = applyHome(buildRows(type || null));
     if (!rows.length) rowsEl.insertAdjacentHTML("beforeend", `<div class="empty"><h2>Aucun catalogue</h2>Ajoute un add-on de catalogue dans Réglages.</div>`);
     let heroDone = false;
     lazyRows(rowsEl, rows, (list) => {
@@ -4447,11 +4496,9 @@ var qrcode = function() {
             if (ul.length) dr.insertAdjacentHTML("beforeend", `<section class="section"><h2 class="section-title"><span class="st plain">Bientôt au cinéma</span></h2><div class="row">${ul.map(landHTML).join("")}</div></section>`);
           } catch { /* */ }
         }
-        const top = [...(mv.results || []).map((o) => tpreview(o, "movie")), ...(tv.results || []).map((o) => tpreview(o, "series"))]
-          .filter((x) => x && x.poster).sort(() => 0).slice(0, 20);
-        const mix = []; for (let i = 0; i < 10; i++) { const a = top[i % 2 ? 10 + Math.floor(i / 2) : Math.floor(i / 2)]; if (a) mix.push(a); }
-        const row = $("#top10Row"); if (!row) return;
-        row.innerHTML = mix.slice(0, 10).map((m, i) => `<button class="t10" data-open="${esc(m.type)}|${esc(m.id)}" aria-label="${esc(m.name)}"><span class="t10n">${i + 1}</span><img src="${esc(m.poster)}" alt="" loading="lazy"></button>`).join("");
+        const mix = await top10Items(null);
+        const row = $("#top10Row"); if (!row || mix.length < 3) return;
+        row.innerHTML = t10HTML(mix);
         $("#top10").hidden = false;
       } catch { /* hors ligne */ }
     })();
@@ -5040,9 +5087,9 @@ var qrcode = function() {
           <div class="hsub">Rangées spéciales</div>
           ${special.map(([k, t, d]) => `<div class="card hrow"><span class="ht"><b>${esc(t)}</b><small>${esc(d)}</small></span>${sw(k, !h.hidden.includes(k))}</div>`).join("")}
           <div class="hsub">Catalogues affichés <span>${shown.length}</span></div>
+          <div class="card small muted">Pour changer l'ordre : sur Accueil, Films ou Séries, appuie longuement sur le titre d'une rangée puis choisis sa place.</div>
           ${shown.map(([k, t], i) => `<div class="card hrow"><span class="ht"><b>${esc(t)}</b></span>
-            <button class="icon-btn hmv" data-mv="${esc(k)}|-1" ${i === 0 ? "disabled" : ""} aria-label="Monter">${ICON.up}</button>
-            <button class="icon-btn hmv down" data-mv="${esc(k)}|1" ${i === shown.length - 1 ? "disabled" : ""} aria-label="Descendre">${ICON.up}</button>${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogue affiché.</div>`}
+${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogue affiché.</div>`}
           ${off.length ? `<details class="card hoff"><summary><b>Catalogues masqués</b> <span class="small muted">${off.length}</span><i class="chev"></i></summary>
             ${off.map(([k, t]) => `<div class="hrow"><span class="ht"><b style="color:var(--muted)">${esc(t)}</b></span>${sw(k, false)}</div>`).join("")}</details>` : ""}
           <div class="two-btn"><button class="btn" id="hAll">Tout afficher</button><button class="btn" id="hReset">Ordre par défaut</button></div>`;
