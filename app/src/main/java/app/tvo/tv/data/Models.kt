@@ -195,6 +195,8 @@ data class SyncDoc(
     val home: HomeLayout? = null,
     val bad: Map<String, Long> = emptyMap(),
     val qpref: SyncQPref? = null,
+    val porder: List<String>? = null,
+    val porderT: Long = 0,
 )
 
 @Serializable

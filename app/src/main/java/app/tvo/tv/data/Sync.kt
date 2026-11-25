@@ -143,7 +143,8 @@ object Sync {
         val (tk, tt) = if (b.tmdbT > a.tmdbT) b.tmdbKey to b.tmdbT else a.tmdbKey to a.tmdbT
         return SyncDoc(1, profiles, addons, addonsT, lib.filterKeys { profiles[it]?.del != true }, prog.filterKeys { profiles[it]?.del != true }, tk, tt,
             listOfNotNull(a.home, b.home).maxByOrNull { it.t },
-            mergeMap(a.bad, b.bad) { it }, listOfNotNull(a.qpref, b.qpref).maxByOrNull { it.t })
+            mergeMap(a.bad, b.bad) { it }, listOfNotNull(a.qpref, b.qpref).maxByOrNull { it.t },
+            if (b.porderT > a.porderT) b.porder else a.porder, maxOf(a.porderT, b.porderT))
     }
 
 }

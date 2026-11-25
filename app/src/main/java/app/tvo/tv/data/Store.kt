@@ -241,14 +241,18 @@ class Store(ctx: Context) {
             lib[p.id] = m
             prog[p.id] = (load<List<Progress>>("progress_${p.id}") ?: emptyList()).associateBy { it.videoId }
         }
-        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0), home.value, cleanBad(badSources.value), qpref.value)
+        return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0), home.value, cleanBad(badSources.value), qpref.value,
+            load<List<String>>("porder"), prefs.getLong("porder_t", 0))
     }
 
     @Synchronized
     fun importDoc(d: SyncDoc) {
         // profiles (keep local order, append new ones)
         val alive = d.profiles.values.filter { !it.del }
-        val order = profiles.value.map { it.id }
+        // Ordre choisi sur le téléphone (admin) : s'il est plus récent que le nôtre, il s'applique aussi ici
+        val newOrder = d.porder != null && d.porderT > prefs.getLong("porder_t", 0)
+        val order = if (newOrder) d.porder!! else profiles.value.map { it.id }
+        if (newOrder) { save("porder", d.porder!!); prefs.edit().putLong("porder_t", d.porderT).apply() }
         val list = alive.sortedBy { order.indexOf(it.id).let { i -> if (i < 0) Int.MAX_VALUE else i } }
             .map { Profile(it.id, it.name, color(it.color), it.t, it.icon, it.kids, it.pin, it.admin, it.off, it.disabled, it.trialUntil, it.trialDays, it.limit) }
         profiles.value = list; save("profiles", list)

@@ -3630,7 +3630,7 @@ var qrcode = function() {
       lib[p.id] = m;
       const pm = {}; LS.get("prog." + p.id, []).forEach((x) => (pm[x.videoId] = x)); prog[p.id] = pm;
     });
-    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout(), bad: badMap(), qpref: LS.get("qpref", { v: "all", t: 0 }) };
+    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout(), bad: badMap(), qpref: LS.get("qpref", { v: "all", t: 0 }), porder: LS.get("porder", null), porderT: LS.get("porder_t", 0) };
   }
   function mergeDocs(a, b) {
     const mm = (x = {}, y = {}, t) => { const o = { ...x }; Object.entries(y).forEach(([k, v]) => { if (!o[k] || t(v) > t(o[k])) o[k] = v; }); return o; };
@@ -3649,10 +3649,14 @@ var qrcode = function() {
       tmdbKey: tB ? b.tmdbKey || null : a.tmdbKey || null, tmdbT: tB ? b.tmdbT : (a.tmdbT || 0),
       home: ((b.home && b.home.t) || 0) > ((a.home && a.home.t) || 0) ? b.home : (a.home || null),
       bad: mm(a.bad, b.bad, (t) => t || 0),
-      qpref: ((b.qpref && b.qpref.t) || 0) > ((a.qpref && a.qpref.t) || 0) ? b.qpref : (a.qpref || { v: "all", t: 0 }) };
+      qpref: ((b.qpref && b.qpref.t) || 0) > ((a.qpref && a.qpref.t) || 0) ? b.qpref : (a.qpref || { v: "all", t: 0 }),
+      porder: (b.porderT || 0) > (a.porderT || 0) ? b.porder : a.porder, porderT: Math.max(a.porderT || 0, b.porderT || 0) };
   }
   function importDoc(d) {
-    const order = S.profiles.map((p) => p.id);
+    // Ordre des profils choisi par l'admin sur un autre appareil : s'il est plus récent, on le reprend
+    const newOrder = Array.isArray(d.porder) && (d.porderT || 0) > LS.get("porder_t", 0);
+    if (newOrder) { LS.set("porder", d.porder); LS.set("porder_t", d.porderT); }
+    const order = newOrder ? d.porder : S.profiles.map((p) => p.id);
     S.profiles = Object.values(d.profiles || {}).filter((p) => !p.del)
       .sort((x, y) => ((order.indexOf(x.id) + 1 || 1e9) - (order.indexOf(y.id) + 1 || 1e9)))
       .map((p) => { const { del, ...rest } = p; return { ...rest, t: p.t || 0 }; });
@@ -3950,7 +3954,8 @@ var qrcode = function() {
         const i = +m.dataset.mv, j = i + +m.dataset.d;
         if (j < 0 || j >= S.profiles.length) return;
         const [mv] = S.profiles.splice(i, 1); S.profiles.splice(j, 0, mv);
-        LS.set("profiles", S.profiles); draw();
+        LS.set("porder", S.profiles.map((p) => p.id)); LS.set("porder_t", Date.now());
+        saveProfiles(); draw();
       }));
       app.querySelectorAll("[data-p]").forEach((b) => b.addEventListener("click", () => {
         const p = S.profiles.find((x) => x.id === b.dataset.p);
