@@ -144,7 +144,8 @@ object Sync {
         return SyncDoc(1, profiles, addons, addonsT, lib.filterKeys { profiles[it]?.del != true }, prog.filterKeys { profiles[it]?.del != true }, tk, tt,
             listOfNotNull(a.home, b.home).maxByOrNull { it.t },
             mergeMap(a.bad, b.bad) { it }, listOfNotNull(a.qpref, b.qpref).maxByOrNull { it.t },
-            if (b.porderT > a.porderT) b.porder else a.porder, maxOf(a.porderT, b.porderT))
+            if (b.porderT > a.porderT) b.porder else a.porder, maxOf(a.porderT, b.porderT),
+            if (b.fanartT > a.fanartT) b.fanartKey else a.fanartKey, maxOf(a.fanartT, b.fanartT))
     }
 
 }

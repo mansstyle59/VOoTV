@@ -61,6 +61,8 @@ class Store(ctx: Context) {
     val afr = MutableStateFlow(prefs.getBoolean("afr", true))
     fun setAfr(v: Boolean) { afr.value = v; prefs.edit().putBoolean("afr", v).apply() }
     val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
+    @Volatile var fanartKey: String? = prefs.getString("fanart_key", null)
+    fun setFanartKey(k: String?) { fanartKey = k?.trim()?.ifBlank { null }; prefs.edit().putString("fanart_key", fanartKey).putLong("fanart_t", now()).apply(); onChange() }
 
     // ---- sources signalées (masquées sur tous les appareils pendant 14 jours) et qualité souhaitée ----
     private val badTtl = 14L * 86_400_000
@@ -242,7 +244,7 @@ class Store(ctx: Context) {
             prog[p.id] = (load<List<Progress>>("progress_${p.id}") ?: emptyList()).associateBy { it.videoId }
         }
         return SyncDoc(1, profs, addons.value, prefs.getLong("addons_t", 0), lib, prog, tmdbKey.value, prefs.getLong("tmdb_t", 0), home.value, cleanBad(badSources.value), qpref.value,
-            load<List<String>>("porder"), prefs.getLong("porder_t", 0))
+            load<List<String>>("porder"), prefs.getLong("porder_t", 0), fanartKey, prefs.getLong("fanart_t", 0))
     }
 
     @Synchronized
@@ -269,6 +271,7 @@ class Store(ctx: Context) {
         if (d.home != null && d.home.t > home.value.t) { home.value = d.home; save("home", d.home) }
         badSources.value = cleanBad(d.bad); save("badsrc", badSources.value)
         d.qpref?.let { if (it.t > qpref.value.t) { qpref.value = it; save("qpref", it) } }
+        if (d.fanartT > prefs.getLong("fanart_t", 0)) { fanartKey = d.fanartKey; prefs.edit().putString("fanart_key", d.fanartKey).putLong("fanart_t", d.fanartT).apply() }
         if (d.tmdbT > prefs.getLong("tmdb_t", 0)) {
             tmdbKey.value = d.tmdbKey; prefs.edit().putString("tmdb_key", d.tmdbKey).putLong("tmdb_t", d.tmdbT).apply()
         }

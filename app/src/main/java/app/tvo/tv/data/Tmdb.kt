@@ -254,7 +254,13 @@ object Tmdb {
     /** Logo HD de Fanart.tv (via le relais Supabase, clé côté serveur). Null si absent ou indisponible. */
     private suspend fun fanartLogo(type: String, id: String): String? = runCatching {
         val rid = if (id.startsWith("tmdb:")) id.split(":").getOrNull(2) else id.substringBefore(":")
-        if (rid.isNullOrBlank()) null else Tvo.client.getJson("$FANART?type=$type&id=$rid").s("logo")?.takeIf { it.isNotBlank() }
+        if (rid.isNullOrBlank()) return@runCatching null
+        // séries : Fanart.tv les range par identifiant TheTVDB, retrouvé avec la clé TMDB de l'appareil
+        val tvdb = if (type == "series") {
+            val tid = if (id.startsWith("tmdb:")) rid else (get("/find/$rid", mapOf("external_source" to "imdb_id")).arr("tv_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
+            tid?.let { get("/tv/$it/external_ids").i("tvdb_id")?.toString() }
+        } else null
+        Tvo.client.getJson("$FANART?type=$type&id=$rid" + (Tvo.store.fanartKey?.let { "&key=$it" } ?: "") + (tvdb?.let { "&tvdb=$it" } ?: "")).s("logo")?.takeIf { it.isNotBlank() }
     }.getOrNull()
 
     private val logos = ConcurrentHashMap<String, String>()

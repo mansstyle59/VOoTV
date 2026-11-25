@@ -2725,11 +2725,12 @@ var qrcode = function() {
     try { return (await tget(`/${tkind(type)}/${tid}/external_ids`)).imdb_id || null; } catch { return null; }
   }
   // Fanart.tv via le relais Supabase (clé côté serveur) : logos, affiches et fonds HD. Jamais bloquant.
+  const fanartKey = () => LS.get("fanart_key", null);
   const FANART_CACHE = new Map();
-  function fanartGet(type, id) {
+  function fanartGet(type, id, tvdb) {
     const key = type + ":" + id; if (FANART_CACHE.has(key)) return FANART_CACHE.get(key);
     const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 2500);
-    const p = fetch(`${TMDB_PROXY.replace("tvo-tmdb", "tvo-fanart")}?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`, { signal: ctl.signal })
+    const p = fetch(`${TMDB_PROXY.replace("tvo-tmdb", "tvo-fanart")}?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}${fanartKey() ? "&key=" + encodeURIComponent(fanartKey()) : ""}${tvdb ? "&tvdb=" + encodeURIComponent(tvdb) : ""}`, { signal: ctl.signal })
       .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.error ? j : null)).catch(() => null).finally(() => clearTimeout(to));
     FANART_CACHE.set(key, p); return p;
   }
@@ -2743,8 +2744,9 @@ var qrcode = function() {
         tid = r[0] && r[0].id;
       }
       if (!tid) return base;
-      const faP = fanartGet(type, imdb || String(tid));
-      const d = await tget(`/${k}/${tid}`, { append_to_response: "credits,images," + (k === "tv" ? "content_ratings" : "release_dates"), include_image_language: "fr,en,null" });
+      const faEarly = k === "movie" ? fanartGet(type, imdb || String(tid)) : null;
+      const d = await tget(`/${k}/${tid}`, { append_to_response: "credits,images,external_ids," + (k === "tv" ? "content_ratings" : "release_dates"), include_image_language: "fr,en,null" });
+      const faP = faEarly || fanartGet(type, imdb || String(tid), d.external_ids && d.external_ids.tvdb_id);
       const logos = (d.images && d.images.logos) || [];
       const logo = (logos.find((l) => l.iso_639_1 === "fr") || logos.find((l) => l.iso_639_1 === "en") || {}).file_path;
       const b = base || {};
@@ -3642,7 +3644,7 @@ var qrcode = function() {
       lib[p.id] = m;
       const pm = {}; LS.get("prog." + p.id, []).forEach((x) => (pm[x.videoId] = x)); prog[p.id] = pm;
     });
-    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout(), bad: badMap(), qpref: LS.get("qpref", { v: "all", t: 0 }), porder: LS.get("porder", null), porderT: LS.get("porder_t", 0) };
+    return { v: 1, profiles, addons: S.addons, addonsT: LS.get("addons_t", 0), lib, prog, tmdbKey: tmdbKey(), tmdbT: LS.get("tmdb_t", 0), home: homeLayout(), bad: badMap(), qpref: LS.get("qpref", { v: "all", t: 0 }), porder: LS.get("porder", null), porderT: LS.get("porder_t", 0), fanartKey: fanartKey(), fanartT: LS.get("fanart_t", 0) };
   }
   function mergeDocs(a, b) {
     const mm = (x = {}, y = {}, t) => { const o = { ...x }; Object.entries(y).forEach(([k, v]) => { if (!o[k] || t(v) > t(o[k])) o[k] = v; }); return o; };
@@ -3659,6 +3661,7 @@ var qrcode = function() {
     const tB = (b.tmdbT || 0) > (a.tmdbT || 0);
     return { v: 1, profiles, addons: useB ? b.addons : a.addons, addonsT: useB ? b.addonsT : (a.addonsT || 0), lib, prog,
       tmdbKey: tB ? b.tmdbKey || null : a.tmdbKey || null, tmdbT: tB ? b.tmdbT : (a.tmdbT || 0),
+      fanartKey: (b.fanartT || 0) > (a.fanartT || 0) ? b.fanartKey || null : a.fanartKey || null, fanartT: Math.max(a.fanartT || 0, b.fanartT || 0),
       home: ((b.home && b.home.t) || 0) > ((a.home && a.home.t) || 0) ? b.home : (a.home || null),
       bad: mm(a.bad, b.bad, (t) => t || 0),
       qpref: ((b.qpref && b.qpref.t) || 0) > ((a.qpref && a.qpref.t) || 0) ? b.qpref : (a.qpref || { v: "all", t: 0 }),
@@ -3684,6 +3687,7 @@ var qrcode = function() {
     if (d.home && (d.home.t || 0) > homeLayout().t) LS.set("home", d.home);
     if (d.bad) { const now = Date.now(), m = {}; Object.entries(d.bad).forEach(([k, t]) => { if (now - t <= BAD_TTL) m[k] = t; }); LS.set("badsrc", m); }
     if (d.qpref && (d.qpref.t || 0) > (LS.get("qpref", { t: 0 }).t || 0)) LS.set("qpref", d.qpref);
+    if ((d.fanartT || 0) > LS.get("fanart_t", 0)) { LS.set("fanart_key", d.fanartKey || null); LS.set("fanart_t", d.fanartT); FANART_CACHE.clear(); }
     if ((d.tmdbT || 0) > LS.get("tmdb_t", 0) || (d.tmdbKey && !tmdbKey())) { LS.set("tmdb_key", d.tmdbKey || null); LS.set("tmdb_t", d.tmdbT); cache.clear(); metaCache.clear(); }
     if ((d.addonsT || 0) > LS.get("addons_t", 0) && d.addons && d.addons.length) { S.addons = cleanAddons(d.addons); LS.set("addons", S.addons); LS.set("addons_t", d.addonsT); cache.clear(); }
     if (S.profile) { const p = S.profiles.find((x) => x.id === S.profile.id); if (p) selectProfile(p); else S.profile = null; }
@@ -5133,6 +5137,10 @@ var qrcode = function() {
         <div class="keybox"><input class="field selectable" id="kTmdb" type="password" autocomplete="off" spellcheck="false" value="${esc(tmdbKey() || "")}" placeholder="Aucune clé">
           <button class="icon-btn" data-eye="kTmdb" aria-label="Afficher">👁</button><button class="icon-btn" data-copy="kTmdb" aria-label="Copier">⧉</button></div>
         <div class="two-btn"><button class="btn primary" id="kSave">Enregistrer</button>${tmdbKey() ? '<button class="btn danger" id="kDel">Retirer</button>' : ""}</div>
+        <div class="card keyrow"><span class="ht"><b>Fanart.tv</b><small>Logos de titre, affiches et fonds HD</small></span></div>
+        <div class="keybox"><input class="field selectable" id="kFanart" type="password" autocomplete="off" spellcheck="false" value="${esc(fanartKey() || "")}" placeholder="Aucune clé">
+          <button class="icon-btn" data-eye="kFanart" aria-label="Afficher">👁</button><button class="icon-btn" data-copy="kFanart" aria-label="Copier">⧉</button></div>
+        <div class="two-btn"><button class="btn primary" id="kfSave">Enregistrer</button>${fanartKey() ? '<button class="btn danger" id="kfDel">Retirer</button>' : ""}</div>
         <div class="card keyrow"><span class="ht"><b>Clé de synchronisation</b><small>Identifie tes données sur le serveur. Ne la partage jamais.</small></span></div>
         <div class="keybox"><input class="field selectable" id="kSync" type="password" readonly value="${esc(syncId())}"><button class="icon-btn" data-eye="kSync" aria-label="Afficher">👁</button><button class="icon-btn" data-copy="kSync" aria-label="Copier">⧉</button></div>
       </div>` : ""}
@@ -5369,6 +5377,15 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
         try { await tget("/configuration", {}, k); } catch (e) { return toast("Clé refusée par TMDB", 4000); }
         LS.set("tmdb_key", k); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); syncNow(); toast("Clé enregistrée ✓"); draw();
       });
+      if ($("#kfSave")) $("#kfSave").addEventListener("click", async () => {
+        const k = $("#kFanart").value.trim(); if (!/^[0-9a-fA-F]{32}$/.test(k)) return toast("Clé Fanart.tv invalide (32 caractères)", 4000);
+        toast("Vérification…");
+        let ok = false;
+        try { const r = await fetch(`${TMDB_PROXY.replace("tvo-tmdb", "tvo-fanart")}?type=movie&id=tt0133093&key=${k}`); const j = await r.json(); ok = r.ok && !j.error; } catch (e) {}
+        if (!ok) return toast("Clé refusée par Fanart.tv", 4000);
+        LS.set("fanart_key", k); LS.set("fanart_t", Date.now()); FANART_CACHE.clear(); metaCache.clear(); changed(); syncNow(); toast("Clé Fanart.tv enregistrée ✓"); draw();
+      });
+      if ($("#kfDel")) $("#kfDel").addEventListener("click", () => { if (!confirm("Retirer la clé Fanart.tv ?")) return; LS.set("fanart_key", null); LS.set("fanart_t", Date.now()); FANART_CACHE.clear(); metaCache.clear(); changed(); syncNow(); draw(); });
       if ($("#kDel")) $("#kDel").addEventListener("click", () => { if (!confirm("Retirer la clé TMDB ?")) return; LS.set("tmdb_key", null); LS.set("tmdb_t", Date.now()); cache.clear(); metaCache.clear(); changed(); draw(); });
       if ($("#pman")) {
         const drawP = () => {

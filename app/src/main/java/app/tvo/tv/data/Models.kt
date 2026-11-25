@@ -197,6 +197,8 @@ data class SyncDoc(
     val qpref: SyncQPref? = null,
     val porder: List<String>? = null,
     val porderT: Long = 0,
+    val fanartKey: String? = null,
+    val fanartT: Long = 0,
 )
 
 @Serializable
