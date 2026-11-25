@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -187,13 +189,15 @@ fun ProfileEditScreen(id: String, onDone: () -> Unit) {
                 if (existing != null) TvoButton("Supprimer", { store.deleteProfile(existing.id); onDone() }, icon = Icons.Default.Delete)
             }
         }
-        Column {
+        Column(Modifier.weight(1f)) {
             Text("Tape le prénom", fontSize = 16.sp, color = TvoColors.Muted, modifier = Modifier.padding(bottom = 12.dp))
             TvKeyboard(
                 onKey = { if (name.length < 16) name = if (name.isEmpty()) it.uppercase() else name + it },
                 onBackspace = { name = name.dropLast(1) },
                 onClear = { name = "" },
                 firstKey = firstKey,
+                fill = true,
+                modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
             )
         }
     }

@@ -284,16 +284,21 @@ fun TvKeyboard(
     modifier: Modifier = Modifier,
     url: Boolean = false,
     firstKey: FocusRequester? = null,
+    fill: Boolean = false,
 ) {
     val keys = if (url) "abcdefghijklmnopqrstuvwxyz0123456789.:/-_?=&%~".map { it.toString() } + listOf(".com", "https://", "/manifest.json")
     else "abcdefghijklmnopqrstuvwxyz0123456789".map { it.toString() } + listOf("'", "-")
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        val singles = keys.filter { it.length == 1 }.chunked(if (url) 8 else 9)
+        val perRow = if (url) 8 else 9
+        val singles = keys.filter { it.length == 1 }.chunked(perRow)
         singles.forEachIndexed { r, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEachIndexed { c, k ->
-                    Key(k, { onKey(k) }, Modifier.width(44.dp).let { if (r == 0 && c == 0 && firstKey != null) it.focusRequester(firstKey) else it })
+                    // fill = les touches se partagent la largeur disponible (aucune ne peut être écrasée)
+                    val base = if (fill) Modifier.weight(1f) else Modifier.width(44.dp)
+                    Key(k, { onKey(k) }, base.let { if (r == 0 && c == 0 && firstKey != null) it.focusRequester(firstKey) else it })
                 }
+                if (fill) repeat(perRow - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
