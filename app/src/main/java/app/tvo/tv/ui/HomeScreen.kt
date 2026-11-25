@@ -459,8 +459,8 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (kidsPage) item(key = "kidstiles") { KidsTiles(kidsFilter) { kidsFilter = it } }
         if (kidsPage && (kidsFilter == "all" || kidsFilter == "sagas")) item(key = "sagas") { SagaTiles(nav) }
         if (!kidsPage && "top10" !in hidden) item(key = "top10") { Top10Row(type, nav) }
-        if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
-        if (type == null && "collections" !in hidden) item(key = "sagas") { SagaTiles(nav) }
+        if (!kidsPage && (type != null || "genres" !in hidden)) item(key = "genres") { GenreTiles(nav, type ?: "movie") { } }
+        if ((type == null && "collections" !in hidden) || type == "movie") item(key = "sagas") { SagaTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav, seen) }
         if (rows.isEmpty() && kidsFilter != "sagas") item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
@@ -579,7 +579,7 @@ private fun GenreTilesSelect(g: String, img: String?) = MetaPreview("genre:$g", 
     img?.let { TMDB_IMG + "w1280" + it }, null, GENRE_TXT[g] ?: "Les meilleurs titres de la catégorie ${genreLabel(g)}.")
 
 @Composable
-private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
+private fun GenreTiles(nav: Nav, type: String = "movie", onFocus: () -> Unit) {
     val select = LocalSelect.current
     val fresh by produceState<Map<String, String>>(emptyMap()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.genreBackdrops(homeGenres) else emptyMap() }
     PanelSection("Catégories") {
@@ -588,7 +588,7 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
             itemsIndexed(homeGenres) { gi, g -> RowItem(rf, gi) {
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
-                    onClick = { nav.openGenre("movie", g) },
+                    onClick = { nav.openGenre(type, g) },
                     modifier = Modifier.width(240.dp).height(135.dp).onFocused { onFocus(); select(GenreTilesSelect(g, fresh[g] ?: GENRE_IMG[g])) },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
