@@ -422,11 +422,12 @@ fun BrowseSection(type: String?, nav: Nav) {
         }
         else buildRows(addons, type).let { if (type == null) applyHome(it, home) else it }
     }
-    val seen = remember(rows) { SeenRows() }
+    val epoch = Tvo.refreshEpoch.intValue
+    val seen = remember(rows, epoch) { SeenRows() }
     val hidden = if (type == null) home.hidden else emptyList()
     val cont = remember(progress, type) { if (kidsPage) emptyList() else store.continueWatching(progress).filter { type == null || it.type == type } }
     val lib = remember(library, type) { if (kidsPage) emptyList() else library.filter { type == null || it.type == type } }
-    val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key) {
+    val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key, epoch) {
         val r = rows.firstOrNull()
         value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(5) ?: emptyList()
     }
@@ -509,7 +510,7 @@ class SeenRows { val ids = HashSet<String>(); val byRow = HashMap<String, List<M
 
 @Composable
 private fun CatalogRow(row: RowSource, nav: Nav, seen: SeenRows = SeenRows()) {
-    val state by produceState<List<MetaPreview>?>(null, row.key) {
+    val state by produceState<List<MetaPreview>?>(null, row.key, Tvo.refreshEpoch.intValue) {
         value = seen.byRow[row.key] ?: run {
             val all = runCatching { Tvo.client.catalog(row.addon, row.cat, row.extra) }.getOrDefault(emptyList())
             val fresh = all.filter { it.id !in seen.ids }
@@ -773,7 +774,7 @@ fun LiveSection(nav: Nav) {
         }
         return
     }
-    val hero by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key) {
+    val hero by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key, Tvo.refreshEpoch.intValue) {
         val r = rows.firstOrNull()
         value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(1) ?: emptyList()
     }
@@ -850,7 +851,7 @@ fun fmtTime(ms: Long): String { val t = ms / 1000; val h = t / 3600; val m = (t 
 @Composable
 private fun Top10Row(type: String?, nav: Nav) {
     val select = LocalSelect.current
-    val items by produceState<List<MetaPreview>>(emptyList(), type) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.top10(type) else emptyList() }
+    val items by produceState<List<MetaPreview>>(emptyList(), type, Tvo.refreshEpoch.intValue) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.top10(type) else emptyList() }
     if (items.size < 3) return
     PanelSection("Top 10 " + when (type) { "movie" -> "films de la semaine"; "series" -> "séries de la semaine"; else -> "de la semaine" }) {
         val rf = rememberRowFocus()

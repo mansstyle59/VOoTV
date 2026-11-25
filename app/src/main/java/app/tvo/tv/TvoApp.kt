@@ -10,6 +10,8 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 
 object Tvo {
+    /** Monte d'un cran quand on revient dans l'appli après longtemps : les rangées se rechargent (nouveautés). */
+    val refreshEpoch = androidx.compose.runtime.mutableIntStateOf(0)
     lateinit var store: Store
         private set
     lateinit var client: AddonClient

@@ -98,6 +98,7 @@ object Tmdb {
         return proxyOk
     }
     private val cache = ConcurrentHashMap<String, JsonObject>()
+    fun clearCache() = cache.clear()
     private fun today() = java.time.LocalDate.now().toString()
     private fun monthsAgo(n: Long) = java.time.LocalDate.now().minusMonths(n).toString()
 

@@ -61,8 +61,12 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var lastCheck = System.currentTimeMillis()
+    private var leftAt = 0L
+    override fun onStop() { super.onStop(); leftAt = System.currentTimeMillis() }
     override fun onResume() {
         super.onResume()
+        // Absent depuis plus d'une heure : on vide les caches et les catalogues se rechargent tout seuls (dernières nouveautés)
+        if (leftAt > 0 && System.currentTimeMillis() - leftAt > 60 * 60_000) { Tvo.client.clearCaches(); Tvo.refreshEpoch.intValue++ }
         app.tvo.tv.data.Sync.syncInBackground()
         // Retour dans l'appli : nouvelle recherche de mise à jour (au plus une fois toutes les 20 minutes)
         if (System.currentTimeMillis() - lastCheck > 20 * 60_000 && PendingUpdate.release.value == null) {

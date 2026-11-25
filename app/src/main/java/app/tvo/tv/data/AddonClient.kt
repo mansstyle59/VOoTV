@@ -125,7 +125,7 @@ class AddonClient(private val http: OkHttpClient) {
         return m
     }
 
-    fun clearCaches() { catalogCache.clear(); metaCache.clear() }
+    fun clearCaches() { catalogCache.clear(); metaCache.clear(); Tmdb.clearCache() }
 
     fun streams(addons: List<Addon>, type: String, videoId: String): Flow<AddonStreams> = channelFlow {
         addons.filter { supports(it, "stream", type, videoId) }.forEach { a ->

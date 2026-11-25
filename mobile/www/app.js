@@ -6028,6 +6028,16 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   setInterval(() => document.hidden || syncNow(), 120000);
   acctRefresh().then(() => { if (!acctOk() && !location.hash.startsWith("#/legal")) route(); });
   setInterval(() => { if (!document.hidden) acctRefresh().then(() => { if (!acctOk() && !location.hash.startsWith("#/legal")) route(); }); }, 30 * 60000);
+  // Retour dans l'appli après plus d'une heure : on vide les catalogues et on recharge la page de catalogue ouverte (dernières nouveautés)
+  let leftAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { leftAt = Date.now(); return; }
+    if (!leftAt || Date.now() - leftAt < 3600000) return;
+    leftAt = 0; cache.clear(); metaCache.clear(); refreshRemote();
+    const h = (location.hash.replace(/^#\/?/, "").split("/")[0] || "home");
+    const pl = $("#player"); if (pl && !pl.hidden) return;
+    if (["home", "movies", "series", "kids", "discover", "films", "series"].includes(h)) route();
+  });
   // À l'ouverture : télécharge la nouvelle version et l'applique tout de suite (hors lecture vidéo).
   (async () => {
     const sp = $("#splash"), msg = $("#splashMsg"), t0 = Date.now();
