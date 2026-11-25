@@ -1800,3 +1800,30 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
 .lgrid .pcard.started .pimg::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--blue); }
 .empty .btn { margin-top: 14px; }
 @media (min-width: 1024px) { .lgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 16px; } }
+
+/* ===== Fiche film (même présentation que la TV) ===== */
+.dt-cta { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.dt-cta .dt-play { flex: 1; min-height: 46px; border-radius: 999px; background: #fff; color: #000; font-size: 16px; }
+.dt-cta .dt-play svg { fill: #000; }
+.dt-rb { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); color: #fff; }
+.dt-rb svg { width: 22px; height: 22px; } .dt-rb.on { background: var(--blue); border-color: var(--blue); }
+.dt-dir { margin: 12px 0 0; font-size: 14px; color: var(--muted); } .dt-dir b { color: var(--text); font-weight: 700; }
+.dt-rates { display: flex; gap: 14px; margin-top: 8px; font-size: 14px; font-weight: 800; }
+.dt-rates .rt i { font-style: normal; margin-right: 6px; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+.dt-rates .tmdb { color: #01b4e4; } .dt-rates .tmdb i { background: #0d253f; color: #01b4e4; }
+.dt-rates .imdb { color: #facc15; } .dt-rates .imdb i { padding: 0; font-size: 14px; }
+.dt-desc { margin-top: 10px; }
+.dt-gd { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+.dt-badges { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.dt-badges .age { color: #fff; border: 1px solid rgba(255,255,255,.6); border-radius: 4px; padding: 1px 6px; }
+.dt-actions { display: none; }
+.castgrid .bubble.dir .ph { box-shadow: 0 0 0 2px var(--blue); }
+.castsep { width: 1px; align-self: stretch; margin: 10px 2px; background: var(--line); }
+.sgcard { flex: none; width: clamp(220px, 70vw, 300px); text-align: left; display: grid; gap: 4px; scroll-snap-align: start; }
+.sgimg { position: relative; display: block; aspect-ratio: 16/9; border-radius: var(--r-card); overflow: hidden; background: var(--surface); }
+.sgimg img { width: 100%; height: 100%; object-fit: cover; }
+.sgb { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px; background: rgba(0,0,0,.7); font-size: 11px; font-weight: 800; color: #fff; }
+.sgcard.cur .sgimg { box-shadow: 0 0 0 2px var(--blue); }
+.sgcard b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sgcard small { color: var(--muted); font-size: 12px; }
+.dt-tmdb { text-align: center; color: var(--muted); font-size: 12px; margin: 26px 0 calc(var(--tabs-h) + var(--safe-bottom) + 20px); }
+.castgrid .castsep { display: none; }

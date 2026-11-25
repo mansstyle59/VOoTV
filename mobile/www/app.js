@@ -2687,7 +2687,7 @@ var qrcode = function() {
         tid = r[0] && r[0].id;
       }
       if (!tid) return base;
-      const d = await tget(`/${k}/${tid}`, { append_to_response: "credits,images", include_image_language: "fr,en,null" });
+      const d = await tget(`/${k}/${tid}`, { append_to_response: "credits,images," + (k === "tv" ? "content_ratings" : "release_dates"), include_image_language: "fr,en,null" });
       const logos = (d.images && d.images.logos) || [];
       const logo = (logos.find((l) => l.iso_639_1 === "fr") || logos.find((l) => l.iso_639_1 === "en") || {}).file_path;
       const b = base || {};
@@ -2704,6 +2704,22 @@ var qrcode = function() {
         director: b.director || [], defaultVideoId: b.defaultVideoId || null, videos: b.videos || [],
       };
       if (!m.cast.length) m.cast = b.cast || [];
+      // Fiche complète : réalisateur, âge, statut, pays, langue, date, note TMDB, saga
+      const dir = ((d.credits && d.credits.crew) || []).find((c) => c.job === "Director");
+      if (dir) { m.people = [{ id: String(dir.id), name: dir.name, photo: timg(dir.profile_path, "w185"), role: "Réalisateur", dir: true }, ...m.people]; if (!m.director.length) m.director = [dir.name]; }
+      if (k === "tv" && !dir && (d.created_by || []).length) m.people = [...d.created_by.map((c) => ({ id: String(c.id), name: c.name, photo: timg(c.profile_path, "w185"), role: "Créateur", dir: true })), ...m.people];
+      const cert = k === "tv" ? (((d.content_ratings || {}).results || []).find((r) => r.iso_3166_1 === "FR") || {}).rating
+        : ((((d.release_dates || {}).results || []).find((r) => r.iso_3166_1 === "FR") || {}).release_dates || []).map((x) => x.certification).find(Boolean);
+      const MO = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+      const dp = date.split("-").map(Number);
+      m.extra = {
+        cert: cert ? (cert === "U" || cert === "TP" ? "TP" : cert) : null,
+        status: { Released: "SORTI", "Returning Series": "EN COURS", Ended: "TERMINÉE", Canceled: "ANNULÉE", Planned: "À VENIR", "In Production": "À VENIR", "Post Production": "À VENIR" }[d.status] || null,
+        country: ((d.production_countries || [])[0] || {}).name || null, lang: d.original_language ? d.original_language.toUpperCase() : null,
+        date: dp.length === 3 && dp[0] ? `${dp[2]} ${MO[dp[1] - 1]} ${dp[0]}` : null,
+        tmdb: d.vote_average > 0 ? Math.round(d.vote_average * 10) : null,
+      };
+      if (d.belongs_to_collection) m.collectionId = String(d.belongs_to_collection.id);
       if (k === "tv") {
         const seasons = (d.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
         const eps = (await Promise.all(seasons.map((n) => tget(`/tv/${tid}/season/${n}`).catch(() => null)))).filter(Boolean).flatMap((x) => x.episodes || []);
@@ -4733,8 +4749,8 @@ var qrcode = function() {
       : (tv && tv.season != null ? `Lecture · S${tv.season} É${tv.episode}` : "Lecture");
     const seasons = [...new Set(m.episodes.map((e) => e.season))];
     let season = tv && tv.season != null ? tv.season : seasons[0];
-    const tabsDef = [...(seasons.length ? [["eps", "Épisodes"]] : []), ...(m.people && m.people.length ? [["cast", "Distribution"]] : []),
-      ...(m.tmdbId ? [["sim", "Similaires"]] : []), ["info", "Infos"]];
+    const tabsDef = [...(seasons.length ? [["eps", "Épisodes"]] : []), ...(m.people && m.people.length ? [["cast", m.type === "series" ? "Création et distribution" : "Créateur et distribution"]] : []),
+      ...(m.tmdbId ? [["sim", "Similaires"], ["trl", "Bande-annonce"]] : []), ...(!m.people || !m.people.length ? [["info", "Infos"]] : [])];
     let tab = tabsDef[0][0];
     const metaRow = [m.releaseInfo, m.imdbRating ? `<span class="stars">${stars(m.imdbRating)}</span>` : "", m.genres && m.genres[0] ? esc(genreLabel(m.genres[0])) : "", m.runtime ? esc(m.runtime) : ""]
       .filter(Boolean).join('<i class="sep"></i>');
@@ -4747,19 +4763,24 @@ var qrcode = function() {
       </div>
       <div class="dt-body">
         ${m.logo ? `<img class="dt-logo" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h1>${esc(m.name)}</h1>`}
-        <div class="dt-meta">${metaRow}</div>
-        ${m.description ? `<p class="dt-desc clamp" id="desc">${esc(m.description)}</p>` : !tmdbOn() ? `<p class="dt-desc small" style="color:var(--cyan)">Résumé en français indisponible pour l'instant.</p>` : ""}
-        <button class="btn pill block" id="play">${ICON.play} ${esc(label)}</button>
-        ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
-        <div class="dt-actions">
-          <button id="lib">${inLib(m.id) ? ICON.check : ICON.plus}<span>Ma liste</span></button>
-          <button id="seen" class="${prog && finished(prog) ? "on" : ""}">${ICON.check}<span>${prog && finished(prog) ? "Vu" : (tv && tv.season != null ? `Vu É${tv.episode}` : "Marquer vu")}</span></button>
-          ${m.tmdbId ? `<button id="trailer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg><span>Bande-annonce</span></button>` : ""}
-          <button id="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg><span>Partager</span></button>
+        <div class="dt-cta">
+          <button class="btn pill dt-play" id="play">${ICON.play} ${esc(label)}</button>
+          <button class="dt-rb" id="lib" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button>
+          <button class="dt-rb ${prog && finished(prog) ? "on" : ""}" id="seen" aria-label="Vu">${ICON.check}</button>
+          ${m.tmdbId ? `<button class="dt-rb" id="trailer" aria-label="Bande-annonce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg></button>` : ""}
+          <button class="dt-rb" id="share" aria-label="Partager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
         </div>
+        ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
+        ${m.director && m.director.length ? `<p class="dt-dir">${m.type === "series" ? "Création" : "Réalisateur"} : <b>${esc(m.director.join(", "))}</b></p>` : ""}
+        ${(m.extra && m.extra.tmdb) || m.imdbRating ? `<div class="dt-rates">${m.extra && m.extra.tmdb ? `<span class="rt tmdb"><i>TMDB</i>${m.extra.tmdb}%</span>` : ""}${m.imdbRating ? `<span class="rt imdb"><i>★</i>${esc(m.imdbRating)}</span>` : ""}</div>` : ""}
+        ${m.description ? `<p class="dt-desc clamp" id="desc">${esc(m.description)}</p>` : !tmdbOn() ? `<p class="dt-desc small" style="color:var(--cyan)">Résumé en français indisponible pour l'instant.</p>` : ""}
+        <p class="dt-gd">${[(m.genres || []).slice(0, 3).map(genreLabel).join(" • "), (m.extra && m.extra.date) || m.releaseInfo].filter(Boolean).map(esc).join(" • ")}</p>
+        <div class="dt-badges">${m.extra && m.extra.cert ? `<span class="age">${esc(m.extra.cert)}</span>` : ""}<span>${[m.extra && m.extra.status, m.runtime, m.extra && m.extra.country, m.extra && m.extra.lang].filter(Boolean).map(esc).join(" • ")}</span></div>
       </div>
       <div class="dt-tabs" id="dtTabs"></div>
-      <div id="dtPane"></div>`;
+      <div id="dtPane"></div>
+      <div id="dtSaga"></div>
+      <p class="dt-tmdb">Données fournies par TMDB</p>`;
 
     const tr = $("#trailer"); if (tr) tr.addEventListener("click", () => playTrailer(m));
     // Ordinateur : la bande-annonce VF démarre toute seule dans le grand visuel (rien si pas de VF)
@@ -4790,8 +4811,11 @@ var qrcode = function() {
         pane.querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(b.dataset.v)}`)));
         const on = pane.querySelector(".snum .on"); if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
       } else if (tab === "cast") {
-        pane.innerHTML = `<div class="castgrid">${m.people.map((pp) => `<a class="bubble" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
+        pane.innerHTML = `<div class="castgrid">${m.people.map((pp, i) => `${i > 0 && m.people[i - 1].dir && !pp.dir ? '<span class="castsep"></span>' : ""}<a class="bubble${pp.dir ? " dir" : ""}" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
           <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div>`;
+      } else if (tab === "trl") {
+        pane.innerHTML = `<div class="pad"><button class="btn block" id="trlGo">${ICON.play} Lancer la bande-annonce</button></div>`;
+        $("#trlGo").addEventListener("click", () => playTrailer(m));
       } else if (tab === "sim") {
         pane.innerHTML = `<div class="empty small">Chargement…</div>`;
         try {
@@ -4809,6 +4833,16 @@ var qrcode = function() {
       }
     };
     drawTabs(); drawPane();
+    if (m.collectionId && tmdbOn()) tget(`/collection/${m.collectionId}`).then((c) => {
+      const parts = (c.parts || []).filter((x) => x.backdrop_path || x.poster_path).sort((a, b) => String(a.release_date || "9999").localeCompare(String(b.release_date || "9999")));
+      const box = $("#dtSaga"); if (!box || parts.length < 2) return;
+      const nm = String(c.name || "").replace(/\s*-\s*Saga$/i, "").replace(/\s*Collection$/i, "").trim();
+      box.innerHTML = `<section class="section"><h2 class="section-title"><span class="st">${ICON.layers}${esc(nm)} - Saga</span></h2><div class="row">${parts.map((x, i) => {
+        const mv = tpreview(x, "movie"); if (!mv) return "";
+        return `<button class="sgcard${mv.id === m.id || String(x.id) === m.tmdbId ? " cur" : ""}" data-open="movie|${esc(mv.id)}"><span class="sgimg">${mv.background || mv.poster ? `<img src="${esc(mv.background || mv.poster)}" alt="" loading="lazy">` : ""}
+          <span class="sgb">SAGA ${i + 1}/${parts.length}</span></span><b>${esc(mv.name)}</b><small>${[mv.releaseInfo, mv.imdbRating ? "★ " + mv.imdbRating : ""].filter(Boolean).map(esc).join(" • ")}</small></button>`;
+      }).join("")}</div></section>`;
+    }).catch(() => {});
 
     $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
     $("#seen").addEventListener("click", (e) => {
@@ -4818,7 +4852,7 @@ var qrcode = function() {
         position: was ? 0 : 1, duration: 1, updatedAt: Date.now() });
       toast(was ? "Marqué non vu" : "Marqué comme vu ✓"); route();
     });
-    $("#lib").addEventListener("click", (e) => { toggleLib(m); e.currentTarget.innerHTML = (inLib(m.id) ? ICON.check : ICON.plus) + "<span>Ma liste</span>"; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); });
+    $("#lib").addEventListener("click", (e) => { toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check : ICON.plus; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); });
     $("#share").addEventListener("click", async () => {
       const text = `${m.name}${m.releaseInfo ? " (" + m.releaseInfo + ")" : ""} — à regarder sur TVO`;
       try { if (navigator.share) await navigator.share({ title: m.name, text }); else { await navigator.clipboard.writeText(text); toast("Copié"); } } catch { /* annulé */ }
