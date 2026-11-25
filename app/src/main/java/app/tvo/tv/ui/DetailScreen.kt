@@ -382,12 +382,18 @@ fun PersonScreen(id: String, nav: Nav) {
 @Composable
 private fun PillButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    // Bouton principal : couleur du profil (texte blanc) ; au focus il devient blanc avec un liseré de la couleur du profil
     androidx.tv.material3.Button(
-        onClick = onClick, modifier = modifier.height(48.dp).widthIn(min = 150.dp), shape = androidx.tv.material3.ButtonDefaults.shape(shape),
-        colors = androidx.tv.material3.ButtonDefaults.colors(containerColor = Color.White, contentColor = Color.Black, focusedContainerColor = Color(0xFFE6E6E6), focusedContentColor = Color.Black),
-        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.04f),
-        border = androidx.tv.material3.ButtonDefaults.border(focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, TvoColors.Blue), shape = shape)),
-    ) { Text(text, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black) }
+        onClick = onClick, modifier = modifier.height(48.dp), shape = androidx.tv.material3.ButtonDefaults.shape(shape),
+        contentPadding = PaddingValues(horizontal = 26.dp),
+        colors = androidx.tv.material3.ButtonDefaults.colors(containerColor = TvoColors.Blue, contentColor = Color.White, focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.06f),
+        border = androidx.tv.material3.ButtonDefaults.border(focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, TvoColors.Cyan), shape = shape)),
+    ) {
+        androidx.tv.material3.Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null, Modifier.size(22.dp))
+        androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+        Text(text, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
 }
 
 @Composable
