@@ -148,7 +148,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val heroFocused = heroHasFocus
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
-    val heroFull = (screenH - 100).coerceIn(300, 480).dp
+    val heroFull = (screenH - 175).coerceIn(320, 390).dp
     Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Visuel plein écran (image puis bande-annonce au même endroit), voilé à gauche et en bas pour garder le texte lisible
@@ -217,19 +217,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
         }
         }
-            if (meta.people.isNotEmpty() || trailer != null) item(key = "tabs") {
-                var tab by remember(p.id) { mutableStateOf(0) }
-                val labels = buildList { if (meta.people.isNotEmpty()) add("Créateur et distribution"); if (trailer != null) add("Bande-annonce") }
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(Modifier.padding(start = 48.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                        labels.forEachIndexed { i, l -> TabLabel(l, i == tab) { tab = i } }
-                    }
-                    when (labels.getOrNull(tab)) {
-                        "Créateur et distribution" -> LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                            items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
-                        }
-                        "Bande-annonce" -> Row(Modifier.padding(start = 48.dp, top = 6.dp)) { TvoButton("Lancer la bande-annonce", { trailerMode = 1 }, icon = Icons.Default.PlayArrow) }
-                        else -> Unit
+            if (meta.people.isNotEmpty()) item(key = "cast") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(if (p.type == "series") "Création et distribution" else "Réalisateur et distribution", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                     }
                 }
             }
