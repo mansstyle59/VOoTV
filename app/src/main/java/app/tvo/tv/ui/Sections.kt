@@ -253,7 +253,7 @@ fun GenreScreen(type: String, genre: String, nav: Nav) {
     LaunchedEffect(src) { items.clear(); end = false; loading = false; more() }
     val label = genreLabel(genre)
     UniversePage(label, "Les meilleurs films et séries « ${label.lowercase()} »", null,
-        GENRE_IMG[genre]?.let { TMDB_IMG + "w1280" + it }, Color(0xFF2F5BFF), t, { t = it }, items, loading, nav) { more() }
+        GENRE_IMG[genre]?.let { TMDB_IMG + "w1280" + it }, TvoColors.Blue, t, { t = it }, items, loading, nav) { more() }
 }
 
 // ---------------------------------------------------------------- Recherche
@@ -287,7 +287,7 @@ fun SearchSection(nav: Nav) {
     val trendMovies by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("movie") else emptyList() }
     val popPeople by produceState<List<app.tvo.tv.data.Person>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.popularPeople().take(20) else emptyList() }
     val trendSeries by produceState<List<MetaPreview>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trending("series") else emptyList() }
-    Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF))) {
+    Row(Modifier.fillMaxSize().imageBackdrop(TvoColors.Blue)) {
         Column(Modifier.width(500.dp).padding(start = 40.dp, top = 28.dp)) {
             Text("Recherche", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x66101A36))
@@ -538,7 +538,7 @@ fun AddonAddScreen(onDone: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF)).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    Row(Modifier.fillMaxSize().imageBackdrop(TvoColors.Blue).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Ajouter un add-on", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
@@ -689,7 +689,7 @@ fun TmdbKeyScreen(onDone: () -> Unit) {
         }
     }
 
-    Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF)).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
+    Row(Modifier.fillMaxSize().imageBackdrop(TvoColors.Blue).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Clé API TMDB", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Text("Sur themoviedb.org : Paramètres › API. La « clé d'API » ou le « jeton d'accès en lecture » fonctionnent.",

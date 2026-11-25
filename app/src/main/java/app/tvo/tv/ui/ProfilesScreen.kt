@@ -134,6 +134,8 @@ fun ProfileEditScreen(id: String, onDone: () -> Unit) {
     val existing = store.profiles.value.firstOrNull { it.id == id }
     var name by rememberSaveable { mutableStateOf(existing?.name ?: "") }
     var color by rememberSaveable { mutableLongStateOf(existing?.color ?: Defaults.profileColors[store.profiles.value.size % Defaults.profileColors.size]) }
+    androidx.compose.runtime.LaunchedEffect(color) { TvoColors.setAccent(color) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { TvoColors.setAccent(store.currentProfile.value?.color) } }
     val firstKey = remember { FocusRequester() }
 
     Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(56.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {

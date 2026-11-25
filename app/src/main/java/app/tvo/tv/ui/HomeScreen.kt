@@ -368,7 +368,7 @@ fun BlueButton(text: String, onClick: () -> Unit, filled: Boolean, modifier: Mod
         colors = androidx.tv.material3.ButtonDefaults.colors(
             containerColor = if (filled) TvoColors.Blue else Color(0xFF6D7691).copy(alpha = 0.45f),
             contentColor = Color.White,
-            focusedContainerColor = if (filled) Color(0xFF5A7DFF) else Color.White,
+            focusedContainerColor = if (filled) TvoColors.Cyan else Color.White,
             focusedContentColor = if (filled) Color.White else Color.Black,
         ),
         border = androidx.tv.material3.ButtonDefaults.border(

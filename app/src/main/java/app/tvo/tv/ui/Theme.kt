@@ -3,6 +3,9 @@ package app.tvo.tv.ui
 import androidx.compose.ui.unit.sp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.tv.material3.MaterialTheme
@@ -14,14 +17,26 @@ object TvoColors {
     val Surface = Color(0xFF2B2B2B)
     val Surface2 = Color(0xFF333333)
     val Line = Color(0xFF404040)
-    val Blue = Color(0xFF3D7CFF)
-    val Violet = Blue
-    val Cyan = Color(0xFF8FC2FF)
     val Text = Color(0xFFF5F5F5)
     val Muted = Color(0xFFB3B3B3)
     val Success = Color(0xFF34D399)
     val Danger = Color(0xFFF87171)
-    val Accent = Brush.horizontalGradient(listOf(Color(0xFF2F5BFF), Color(0xFF4F78FF)))
+
+    // Couleur d'accent = couleur du profil actif (boutons, focus, liens, barres). Bleu par défaut.
+    private var base by androidx.compose.runtime.mutableStateOf(Color(0xFF3D7CFF))
+    fun setAccent(c: Long?) { base = if (c == null) Color(0xFF3D7CFF) else Color(c.toInt()).copy(alpha = 1f) }
+
+    private fun lin(v: Float) = if (v <= 0.03928f) v / 12.92f else Math.pow(((v + 0.055f) / 1.055f).toDouble(), 2.4).toFloat()
+    private fun lum(c: Color) = 0.2126f * lin(c.red) + 0.7152f * lin(c.green) + 0.0722f * lin(c.blue)
+    private fun ratio(a: Color, b: Color): Float { val x = lum(a); val y = lum(b); return (maxOf(x, y) + 0.05f) / (minOf(x, y) + 0.05f) }
+    private fun towards(c: Color, t: Color, k: Float) = androidx.compose.ui.graphics.lerp(c, t, k)
+
+    /** Fond de bouton : assez foncé pour que le texte blanc reste lisible. */
+    val Blue: Color get() { var c = base; var i = 0; while (i < 20 && ratio(c, Color.White) < 3.4f) { c = towards(c, Color.Black, 0.08f); i++ }; return c }
+    val Violet: Color get() = Blue
+    /** Version claire pour textes et icônes sur fond sombre. */
+    val Cyan: Color get() { var c = base; var i = 0; while (i < 20 && ratio(c, Bg) < 6f) { c = towards(c, Color.White, 0.1f); i++ }; return c }
+    val Accent: Brush get() = Brush.horizontalGradient(listOf(Blue, towards(Blue, Color.White, 0.18f)))
 }
 
 /** Police Inter (proche de Netflix Sans) pour tous les textes de la télé. */
@@ -36,6 +51,8 @@ val Inter = androidx.compose.ui.text.font.FontFamily(
 
 @Composable
 fun TvoTheme(content: @Composable () -> Unit) {
+    val prof by app.tvo.tv.Tvo.store.currentProfile.collectAsState()
+    androidx.compose.runtime.SideEffect { TvoColors.setAccent(prof?.color) }
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = TvoColors.Violet,
