@@ -1844,3 +1844,7 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
   .lgrid { padding: 0 var(--pad) 40px; }
   .mv-card, .upd-banner { max-width: 520px; }
 }
+
+/* Page Kids : filtres par thème */
+.kchips { margin: 4px 0 var(--sp-title, 12px); }
+.kchips .chip { flex: none; white-space: nowrap; }

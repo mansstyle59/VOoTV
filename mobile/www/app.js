@@ -4075,18 +4075,36 @@ var qrcode = function() {
   /** Page Kids : films et dessins animés récents pour les enfants (peu de séries, beaucoup de films). */
   function screenKids() {
     setTabs("kids");
-    app.innerHTML = topBar("Kids") + `<div class="kidspage"><div id="hero"></div><div id="rows"></div></div>`;
+    const GROUPS = [["all", "Tout", null], ["new", "Nouveautés", ["kids_new"]], ["tiny", "Tout-petits", ["kids_tiny"]], ["anim", "Animation", ["kids_anim", "kids_tv"]],
+      ["fam", "En famille", ["kids", "kids_fun", "kids_adv"]], ["plat", "Disney · Netflix · Prime", ["kids_disney", "kids_netflix", "kids_prime"]], ["sagas", "Sagas", []]];
+    const st = { f: "all" };
+    const allRows = buildRows(null, true).filter((r) => String(r.c.id).startsWith("kids"));
+    app.innerHTML = topBar("Kids") + `<div class="kidspage"><div id="hero"></div>
+      <div class="chips kchips">${GROUPS.map(([k, t]) => `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}">${t}</button>`).join("")}</div>
+      <div id="rows"></div></div>`;
     const rowsEl = $("#rows");
-    const rows = buildRows(null, true).filter((r) => String(r.c.id).startsWith("kids"));
-    if (!rows.length) rowsEl.innerHTML = `<div class="empty"><h2>Pas de catalogue</h2>Ajoute ta clé TMDB dans Réglages pour voir les films pour enfants.</div>`;
     let heroDone = false;
-    lazyRows(rowsEl, rows, (list) => { if (!heroDone && list.length) { heroDone = true; (isDesk() ? renderHero : renderCarousel)($("#hero"), list); } });
-    if (tmdbOn()) {
+    const sagas = () => {
+      if (!tmdbOn()) return;
       const cs = document.createElement("section"); cs.className = "section";
       cs.innerHTML = `<h2 class="section-title"><span class="st plain">Sagas pour enfants</span><a href="#/collections">Tout voir →</a></h2><div class="row colrow" id="colrow"></div>`;
-      rowsEl.insertBefore(cs, rowsEl.children[2] || null);
+      rowsEl.insertBefore(cs, st.f === "all" ? rowsEl.children[2] || null : rowsEl.firstChild);
       loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, true);
-    }
+    };
+    const draw = () => {
+      rowsEl.innerHTML = "";
+      const ids = (GROUPS.find((g) => g[0] === st.f) || [])[2];
+      const rows = ids ? allRows.filter((r) => ids.includes(String(r.c.id))) : st.f === "all" ? allRows : [];
+      if (!allRows.length) rowsEl.innerHTML = `<div class="empty"><h2>Pas de catalogue</h2>Ajoute ta clé TMDB dans Réglages pour voir les films pour enfants.</div>`;
+      else if (st.f !== "sagas") lazyRows(rowsEl, rows, (list) => { if (!heroDone && list.length) { heroDone = true; (isDesk() ? renderHero : renderCarousel)($("#hero"), list); } });
+      if (st.f === "all" || st.f === "sagas") sagas();
+    };
+    app.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => {
+      st.f = b.dataset.k;
+      app.querySelectorAll("[data-k]").forEach((x) => x.classList.toggle("on", x === b));
+      draw();
+    }));
+    draw();
   }
 
   // ------------------------------------------------------------------ bandes-annonces (TMDB → YouTube), en français si possible
