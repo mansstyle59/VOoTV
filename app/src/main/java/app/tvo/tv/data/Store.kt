@@ -62,7 +62,7 @@ class Store(ctx: Context) {
     fun setAfr(v: Boolean) { afr.value = v; prefs.edit().putBoolean("afr", v).apply() }
     val tmdbKey = MutableStateFlow(prefs.getString("tmdb_key", null))
     @Volatile var fanartKey: String? = prefs.getString("fanart_key", null)
-    fun setFanartKey(k: String?) { fanartKey = k?.trim()?.ifBlank { null }; prefs.edit().putString("fanart_key", fanartKey).putLong("fanart_t", now()).apply(); onChange() }
+    fun saveFanartKey(k: String?) { fanartKey = k?.trim()?.ifBlank { null }; prefs.edit().putString("fanart_key", fanartKey).putLong("fanart_t", now()).apply(); onChange() }
 
     // ---- sources signalées (masquées sur tous les appareils pendant 14 jours) et qualité souhaitée ----
     private val badTtl = 14L * 86_400_000
