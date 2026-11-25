@@ -310,7 +310,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
         if (m != null) {
             val tv = m.type == "tv" || m.type == "channel"
             // Grande image à droite, fondue vers la gauche (façon Nuvio / Netflix)
-            AsyncImage(m.background ?: m.poster, null,
+            FbImage(m.background ?: m.poster, m.id, false, null,
                 Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).let { if (tv) it.padding(60.dp) else it },
                 contentScale = if (tv) ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.TopCenter else Alignment.Center)
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)

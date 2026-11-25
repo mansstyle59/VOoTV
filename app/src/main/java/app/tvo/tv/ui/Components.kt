@@ -106,7 +106,7 @@ fun PosterCard(
                 Text(item.name, Modifier.align(Alignment.Center).padding(10.dp), textAlign = TextAlign.Center,
                     fontSize = 14.sp, color = TvoColors.Text)
             }
-            AsyncImage(item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            FbImage(item.poster, item.id, true, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             if (seen) Text("✓ VU", Modifier.align(Alignment.TopStart).padding(6.dp).clip(RoundedCornerShape(50))
                 .background(TvoColors.Success).padding(horizontal = 7.dp, vertical = 2.dp), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
         }
@@ -366,7 +366,7 @@ fun LandscapeCard(
     ) {
         Box(Modifier.fillMaxSize()) {
             if (item.type == "tv" || item.type == "channel") AsyncImage(item.poster, item.name, Modifier.fillMaxSize().padding(start = 30.dp, end = 30.dp, top = 14.dp, bottom = 40.dp), contentScale = ContentScale.Fit)
-            else AsyncImage(item.background ?: item.poster, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            else FbImage(item.background ?: item.poster, item.id, false, item.name, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to Color(0xF0000000))))
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 12.dp, vertical = 10.dp)) {
                 Text(item.name, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -417,7 +417,7 @@ fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Mo
         ) {
             Box(Modifier.fillMaxSize()) {
                 val tv = item.type == "tv" || item.type == "channel"
-                AsyncImage(item.poster ?: item.background, item.name,
+                FbImage(item.poster ?: item.background, item.id, true, item.name,
                     if (tv) Modifier.fillMaxSize().padding(22.dp) else Modifier.fillMaxSize(),
                     contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
                 // Les affiches portent déjà leur titre : on ne le répète que s'il n'y a pas d'affiche
@@ -468,7 +468,7 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
                     contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
                 else Text(item.name, Modifier.align(Alignment.BottomStart).padding(12.dp), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             } else {
-                AsyncImage(item.poster ?: item.background, item.name, if (tv) Modifier.fillMaxSize().padding(16.dp) else Modifier.fillMaxSize(),
+                FbImage(item.poster ?: item.background, item.id, true, item.name, if (tv) Modifier.fillMaxSize().padding(16.dp) else Modifier.fillMaxSize(),
                     contentScale = if (tv) ContentScale.Fit else ContentScale.Crop)
                 if (item.poster == null || tv) Text(item.name, Modifier.align(Alignment.BottomStart).padding(8.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2)
             }
@@ -611,3 +611,18 @@ suspend fun logoIsDark(ctx: android.content.Context, url: String): Boolean {
     return dark
 }
 val WhiteLogoFilter: androidx.compose.ui.graphics.ColorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
+
+/** Image de titre avec secours : si l'adresse échoue (ou manque), on tente l'image Metahub par id IMDb. */
+@Composable
+fun FbImage(model: String?, id: String, poster: Boolean, contentDescription: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Fit) {
+    var url by remember(model) { mutableStateOf(model ?: metahubUrl(poster, id)) }
+    AsyncImage(url, contentDescription, modifier, contentScale = contentScale, onError = {
+        val fb = metahubUrl(poster, id)
+        if (fb != null && url != fb) url = fb
+    })
+}
+
+private fun metahubUrl(poster: Boolean, id: String): String? {
+    val rid = id.substringBefore(":")
+    return if (Regex("tt\\d+").matches(rid)) "https://images.metahub.space/${if (poster) "poster" else "background"}/medium/$rid/img" else null
+}

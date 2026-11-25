@@ -168,7 +168,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Visuel plein écran (image fixe), voilé à gauche et en bas pour garder le texte lisible
         Box(Modifier.fillMaxSize()) {
-            AsyncImage(p.background ?: p.poster, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            FbImage(p.background ?: p.poster, p.id, false, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
                 0.0f to Color.Black.copy(alpha = 0.94f), 0.5f to Color.Black.copy(alpha = 0.7f), 0.85f to Color.Transparent)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
