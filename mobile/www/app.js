@@ -4089,7 +4089,7 @@ var qrcode = function() {
     const sagas = () => {
       if (!tmdbOn()) return;
       const cs = document.createElement("section"); cs.className = "section";
-      cs.innerHTML = `<h2 class="section-title"><span class="st plain">Sagas pour enfants</span><a href="#/collections/kids">Tout voir →</a></h2><div class="row colrow" id="colrow"></div>`;
+      cs.innerHTML = `<h2 class="section-title"><span class="st"><span class="kemo">🎞️</span>Sagas pour enfants</span><a href="#/collections/kids">Tout voir →</a></h2><div class="row colrow" id="colrow"></div>`;
       rowsEl.insertBefore(cs, st.f === "all" ? rowsEl.children[2] || null : rowsEl.firstChild);
       loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, true);
     };
