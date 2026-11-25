@@ -461,6 +461,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (kidsPage && (kidsFilter == "all" || kidsFilter == "sagas")) item(key = "sagas") { SagaTiles(nav, kids = true) }
         if (!kidsPage && "top10" !in hidden) item(key = "top10") { Top10Row(type, nav) }
         if (!kidsPage && (type != null || "genres" !in hidden)) item(key = "genres") { GenreTiles(nav, type ?: "movie") { } }
+        if (type == null && "platforms" !in hidden) item(key = "platforms") { PlatformTiles(nav) }
         if ((type == null && "collections" !in hidden) || type == "movie") item(key = "sagas") { SagaTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav, seen) }
         if (rows.isEmpty() && kidsFilter != "sagas") item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
