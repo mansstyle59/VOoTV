@@ -180,6 +180,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                 store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                                 android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
                             }
+                            // Bande-annonce : s'ouvre dans une fenêtre au centre (Retour pour fermer)
+                            if (trailer != null) RoundButton(TvIcon) { trailerMode = 2 }
                             if (p.type == "movie") {
                                 val seen = targetProgress?.finished == true
                                 RoundButton(Icons.Default.CheckCircle, active = seen) {
@@ -221,9 +223,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                     }
                 }
-            }
-            if (trailer != null) item(key = "trailer") {
-                Row(Modifier.padding(start = 48.dp)) { TabLabel("Bande-annonce", true) { trailerMode = 2 } }
             }
             if (similar.isNotEmpty()) item(key = "similar") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -426,4 +425,14 @@ private fun TabLabel(text: String, selected: Boolean, onClick: () -> Unit) {
             Box(Modifier.padding(top = 4.dp).height(3.dp).fillMaxWidth().background(if (selected) TvoColors.Blue else Color.Transparent))
         }
     }
+}
+
+/** Icône « télé » (la bibliothèque d'icônes de base n'en a pas). */
+private val TvIcon: androidx.compose.ui.graphics.vector.ImageVector by lazy {
+    androidx.compose.ui.graphics.vector.ImageVector.Builder("Tv", 24.dp, 24.dp, 24f, 24f).addPath(
+        androidx.compose.ui.graphics.vector.PathParser().parsePathString(
+            "M21,3H3C1.9,3 1,3.9 1,5v12c0,1.1 0.9,2 2,2h5v2h8v-2h5c1.1,0 1.99,-0.9 1.99,-2L23,5c0,-1.1 -0.9,-2 -2,-2zM21,17H3V5h18v12z"
+        ).toNodes(),
+        fill = androidx.compose.ui.graphics.SolidColor(Color.White),
+    ).build()
 }
