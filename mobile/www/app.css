@@ -1864,3 +1864,9 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
   .ktile .ke { font-size: 40px; } .ktile b { font-size: 16px; }
   .ktile:hover { transform: translateY(-3px); }
 }
+
+/* Fiche film/série : distribution en liste horizontale (mobile et ordinateur) */
+.castgrid { display: flex; gap: 14px; overflow-x: auto; padding: 10px var(--pad); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.castgrid::-webkit-scrollbar { display: none; }
+.castgrid .bubble { flex: 0 0 84px; }
+.castgrid .castsep { display: block; flex: none; }
