@@ -2726,6 +2726,38 @@ var qrcode = function() {
   }
   // Fanart.tv via le relais Supabase (clé côté serveur) : logos, affiches et fonds HD. Jamais bloquant.
   const fanartKey = () => LS.get("fanart_key", null);
+  // Complétude : images Metahub (sans clé, par id IMDb) + Cinemeta/TVmaze pour synopsis et infos manquants
+  const mhImg = (kind, id) => (/^tt\d+$/.test(id || "") ? `https://images.metahub.space/${kind}/medium/${id}/img` : null);
+  const quickJson = (u) => { const c = new AbortController(); const to = setTimeout(() => c.abort(), 3000); return fetch(u, { signal: c.signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null).finally(() => clearTimeout(to)); };
+  async function completeMeta(type, m) {
+    try {
+      const id = m.id || "";
+      if (!/^tt\d+$/.test(id)) return m;
+      m.poster = m.poster || mhImg("poster", id); m.background = m.background || mhImg("background", id); m.logo = m.logo || mhImg("logo", id);
+      const noList = (l) => !(l && l.length);
+      if (!m.description || noList(m.genres) || !m.runtime || !m.releaseInfo || noList(m.cast)) {
+        const ci = await quickJson(`https://v3-cinemeta.strem.io/meta/${type}/${id}.json`); const o = ci && ci.meta;
+        if (o) {
+          m.description = m.description || o.description || null; if (noList(m.genres)) m.genres = o.genres || [];
+          m.runtime = m.runtime || o.runtime || null; m.releaseInfo = m.releaseInfo || o.releaseInfo || null;
+          if (noList(m.cast)) m.cast = (o.cast || []).slice(0, 6); if (noList(m.director)) m.director = o.director || [];
+          m.imdbRating = m.imdbRating || o.imdbRating || null;
+        }
+        if (!m.description && type === "series") {
+          const tv = await quickJson(`https://api.tvmaze.com/lookup/shows?imdb=${id}`);
+          if (tv) { m.description = (tv.summary || "").replace(/<[^>]*>/g, "").trim() || null; m.poster = m.poster || (tv.image && (tv.image.original || tv.image.medium)) || null; }
+        }
+      }
+    } catch (e) {}
+    return m;
+  }
+  // Une image cassée (404) est remplacée par celle de Metahub avant d'être retirée
+  document.addEventListener("error", (e) => {
+    const im = e.target; if (!im || im.tagName !== "IMG" || im.dataset.fb) return;
+    const host = im.closest("[data-open]"); if (!host) return;
+    const id = (host.dataset.open || "").split("|")[1]; const u = mhImg(im.closest(".poster,.pimg") ? "poster" : "background", id);
+    if (!u) return; im.dataset.fb = "1"; e.stopPropagation(); im.src = u;
+  }, true);
   const FANART_CACHE = new Map();
   function fanartGet(type, id, tvdb) {
     const key = type + ":" + id; if (FANART_CACHE.has(key)) return FANART_CACHE.get(key);
@@ -3115,7 +3147,7 @@ var qrcode = function() {
   function preview(o, type) {
     const id = o.id || o.imdb_id; if (!id) return null;
     return {
-      id, type: o.type || type, name: o.name || o.title || "", poster: o.poster || null, background: o.background || null,
+      id, type: o.type || type, name: o.name || o.title || "", poster: o.poster || mhImg("poster", id), background: o.background || mhImg("background", id),
       logo: o.logo || null, description: o.description || null, releaseInfo: o.releaseInfo || (o.year ? String(o.year) : null),
       imdbRating: o.imdbRating || null, genres: o.genres || o.genre || [],
     };
@@ -3144,6 +3176,7 @@ var qrcode = function() {
     const realId = tmdbId ? (await tmdbImdb(id)) || id : id;
     let m = metaCache.get(type + "/" + realId) || (realId.startsWith("tmdb:") ? null : await addonMeta(type, realId));
     if (tmdbOn()) m = await tmdbEnrich(type, realId.startsWith("tt") ? realId : null, tmdbId, m);
+    if (m) m = await completeMeta(type, m);
     if (m) { metaCache.set(k, m); metaCache.set(type + "/" + m.id, m); }
     return m;
   }

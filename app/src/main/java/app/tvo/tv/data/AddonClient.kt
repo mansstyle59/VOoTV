@@ -123,6 +123,7 @@ class AddonClient(private val http: OkHttpClient) {
         if (m == null && Tmdb.enabled) m = Tmdb.enrich(type, realId.takeIf { it.startsWith("tt") }, tmdbId, null)
         // Certains add-ons renvoient des épisodes en double : une clé en double fait planter la fiche
         if (m != null) m = m.copy(videos = m.videos.distinctBy { it.id })
+        if (m != null) m = complete(type, m)
         if (m != null) { metaCache["$type/$id"] = m; metaCache["$type/${m.preview.id}"] = m }
         return m
     }
@@ -191,14 +192,46 @@ class AddonClient(private val http: OkHttpClient) {
         configurable = o.obj("behaviorHints")?.let { h -> (h["configurable"] as? JsonPrimitive)?.booleanOrNull == true || (h["configurationRequired"] as? JsonPrimitive)?.booleanOrNull == true } ?: false,
     )
 
+    /** Image Metahub (sans clé) par id IMDb : comble les affiches et fonds manquants. */
+    private fun metahub(kind: String, id: String): String? =
+        if (Regex("tt\\d+").matches(id)) "https://images.metahub.space/$kind/medium/$id/img" else null
+
+    /** Synopsis et infos manquants : Cinemeta, puis TVmaze pour les séries. Jamais bloquant. */
+    private suspend fun complete(type: String, m: MetaDetail): MetaDetail {
+        val id = m.preview.id
+        if (!Regex("tt\\d+").matches(id)) return m
+        val p = m.preview
+        if (!p.description.isNullOrBlank() && p.genres.isNotEmpty() && !p.releaseInfo.isNullOrBlank() && !m.runtime.isNullOrBlank() && m.cast.isNotEmpty()) return m
+        return kotlinx.coroutines.withTimeoutOrNull(4000) {
+            runCatching {
+                val c = getJson("https://v3-cinemeta.strem.io/meta/$type/$id.json").obj("meta")
+                var desc = p.description ?: c?.s("description")
+                if (desc.isNullOrBlank() && type == "series") desc = runCatching {
+                    getJson("https://api.tvmaze.com/lookup/shows?imdb=$id").s("summary")?.replace(Regex("<[^>]*>"), "")?.trim()
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+                m.copy(
+                    preview = p.copy(
+                        description = desc,
+                        genres = p.genres.ifEmpty { c?.strList("genres") ?: emptyList() },
+                        releaseInfo = p.releaseInfo ?: c?.s("releaseInfo"),
+                        imdbRating = p.imdbRating ?: c?.s("imdbRating"),
+                    ),
+                    runtime = m.runtime ?: c?.s("runtime"),
+                    cast = m.cast.ifEmpty { c?.strList("cast")?.take(6) ?: emptyList() },
+                    director = m.director.ifEmpty { c?.strList("director") ?: emptyList() },
+                )
+            }.getOrNull()
+        } ?: m
+    }
+
     private fun parsePreview(o: JsonObject, fallbackType: String): MetaPreview? {
         val id = o.s("id") ?: o.s("imdb_id") ?: return null
         return MetaPreview(
             id = id,
             type = o.s("type") ?: fallbackType,
             name = o.s("name") ?: o.s("title") ?: "",
-            poster = o.s("poster"),
-            background = o.s("background"),
+            poster = o.s("poster") ?: metahub("poster", id),
+            background = o.s("background") ?: metahub("background", id),
             logo = o.s("logo"),
             description = o.s("description"),
             releaseInfo = o.s("releaseInfo") ?: o.s("year"),
