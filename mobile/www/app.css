@@ -1430,7 +1430,8 @@ body:has(#app .pv2)::after { background: transparent; }
 
 /* ---------- Page Sources : fluide sur iPhone (pas de flou, lignes légères) ---------- */
 .card.source, details.qgroup, .best-src .card.source { -webkit-backdrop-filter: none; backdrop-filter: none; }
-.card.source { content-visibility: auto; contain-intrinsic-size: auto 96px; contain: layout paint; min-height: 78px; padding: 12px 14px; }
+/* Hauteur toujours calculée par le contenu : pas de contain/content-visibility (ils figeaient la hauteur et coupaient titre et ligne du bas sur iPhone) */
+.card.source { height: auto; min-height: 78px; overflow: visible; padding: 12px 14px; }
 .card.source > span:first-child { display: grid; gap: 3px; min-width: 0; }
 .card.source .name { font-size: 15px; }
 .card.source .desc2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; line-height: 1.3; color: var(--muted); word-break: break-word; }
