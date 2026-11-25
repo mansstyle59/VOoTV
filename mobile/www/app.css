@@ -1827,3 +1827,20 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
 .sgcard b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .sgcard small { color: var(--muted); font-size: 12px; }
 .dt-tmdb { text-align: center; color: var(--muted); font-size: 12px; margin: 26px 0 calc(var(--tabs-h) + var(--safe-bottom) + 20px); }
 .castgrid .castsep { display: none; }
+
+/* ===== Harmonisation ordinateur (design à part, mêmes règles : arrondis, titres, écarts) ===== */
+@media (min-width: 1024px) {
+  :root { --title-size: 22px; --sp-section: 34px; --sp-title: 4px; --gap-card: 12px; }
+  .section, #rows .section, #rows > .section { margin-top: var(--sp-section); }
+  .section-title, #rows .section-title { padding: 0 var(--pad); margin: 0 0 var(--sp-title); }
+  .section-title .st, .section-title .st.plain, #rows .section-title .st, #rows .section-title .st.plain { font-size: var(--title-size); font-weight: 800; letter-spacing: -.3px; }
+  .section-title a, #rows .section-title a { font-size: 14px; color: var(--muted); }
+  .row, #rows .row { gap: var(--gap-card); }
+  .ncard, .ccard, .sgimg, .pcard .pimg, .lcard .limg, #rows .pcard .pimg, #rows .lcard .limg, .t10 img { border-radius: var(--r-card); }
+  .btn { min-height: 48px; } .chip { min-height: 38px; }
+  .dt-cta .dt-play { flex: 0 0 auto; min-width: 220px; padding: 0 28px; }
+  .dt-rb { width: 50px; height: 50px; }
+  .sgcard { width: 320px; }
+  .lgrid { padding: 0 var(--pad) 40px; }
+  .mv-card, .upd-banner { max-width: 520px; }
+}
