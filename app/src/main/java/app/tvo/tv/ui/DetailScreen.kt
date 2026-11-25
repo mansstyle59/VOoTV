@@ -326,7 +326,7 @@ fun PersonBubble(person: app.tvo.tv.data.Person, onFocus: () -> Unit = {}, onCli
     }
 }
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PersonScreen(id: String, nav: Nav) {
     val page by produceState<app.tvo.tv.data.Tmdb.PersonPage?>(null, id) { value = app.tvo.tv.data.Tmdb.person(id) }
@@ -368,8 +368,9 @@ fun PersonScreen(id: String, nav: Nav) {
         if (p.knownFor.size >= 3) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             Column(backToTop, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Connu pour", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
-                    items(p.knownFor.size, key = { p.knownFor[it].id }) { i -> val m = p.knownFor[i]; PortraitCard(m, { nav.openMeta(m) }) }
+                val kfFr = remember { FocusRequester() }
+                androidx.compose.foundation.lazy.LazyRow(Modifier.focusRestorer { kfFr }, horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+                    items(p.knownFor.size, key = { p.knownFor[it].id }) { i -> val m = p.knownFor[i]; PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(kfFr) else Modifier) }
                 }
             }
         }

@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -161,6 +162,7 @@ fun WideCard(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun PosterRow(
     title: String,
@@ -169,10 +171,10 @@ fun PosterRow(
     onFocusItem: (MetaPreview) -> Unit,
     requestFocus: Boolean = false,
 ) {
-    val fr = FocusRequester()
+    val fr = remember { FocusRequester() }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(title)
-        LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyRow(Modifier.focusRestorer { fr }, contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
                 PosterCard(item, { onOpen(item) },
                     modifier = if (i == 0) Modifier.focusRequester(fr) else Modifier,
@@ -375,6 +377,7 @@ fun LandscapeCard(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun LandscapeRow(
     title: String,
@@ -383,10 +386,10 @@ fun LandscapeRow(
     onFocusItem: (MetaPreview) -> Unit = {},
     requestFocus: Boolean = false,
 ) {
-    val fr = FocusRequester()
+    val fr = remember { FocusRequester() }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle(title)
-        LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyRow(Modifier.focusRestorer { fr }, contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
                 LandscapeCard(item, { onOpen(item) }, if (i == 0) Modifier.focusRequester(fr) else Modifier, onFocus = { onFocusItem(item) })
             }

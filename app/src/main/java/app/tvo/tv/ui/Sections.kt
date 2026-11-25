@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
@@ -347,6 +348,7 @@ fun SearchSection(nav: Nav) {
 private data class SetPage(val key: String, val title: String)
 
 /** Réglages façon télé : menu à gauche (comme les blocs du téléphone), contenu à droite. */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun SettingsSection(nav: Nav) {
     val store = Tvo.store
@@ -368,13 +370,15 @@ fun SettingsSection(nav: Nav) {
 
     Row(Modifier.fillMaxSize().background(Color(0xFF0A0F1E)).padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
         // Menu : liste simple
-        Column(Modifier.width(280.dp).fillMaxHeight()) {
+        // En revenant du contenu avec ◀, on retombe toujours sur la page ouverte (et pas sur l'entrée la plus proche, qui changerait de page)
+        val menuFr = remember { FocusRequester() }
+        Column(Modifier.width(280.dp).fillMaxHeight().focusProperties { enter = { menuFr } }) {
             Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(bottom = 14.dp))
             pages.forEach { pg ->
                 val on = pg.key == page
                 Surface(
                     onClick = { page = pg.key },
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).onFocused { page = pg.key },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).let { if (on) it.focusRequester(menuFr) else it }.onFocused { page = pg.key },
                     shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                     colors = ClickableSurfaceDefaults.colors(
