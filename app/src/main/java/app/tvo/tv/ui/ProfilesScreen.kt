@@ -60,6 +60,13 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
     LaunchedEffect(profiles.isEmpty()) { if (profiles.isEmpty()) onEdit("new") }
     val ctxP = androidx.compose.ui.platform.LocalContext.current
     var pinFor by remember { mutableStateOf<Pair<app.tvo.tv.data.Profile, Boolean>?>(null) }
+    var manageAuth by remember { mutableStateOf<app.tvo.tv.data.Profile?>(null) }
+    manageAuth?.let { adm ->
+        PinDialog("Code administrateur (${adm.name})", onCancel = { manageAuth = null }) { code ->
+            if (pinHash(code) == adm.pin) { manageAuth = null; manage = true; true } else false
+        }
+        return
+    }
     pinFor?.let { (p, forEdit) ->
         PinDialog("Code de ${p.name}", onCancel = { pinFor = null }) { code ->
             if (pinHash(code) == p.pin) { pinFor = null; if (forEdit) onEdit(p.id) else { store.selectProfile(p); onSelected() } ; true } else false
@@ -74,17 +81,27 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
             Spacer(Modifier.height(40.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                 profiles.forEachIndexed { i, p ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     ProfileTile(p, manage, Modifier.let { if (i == 0) it.focusRequester(first) else it }) {
                         val blocked = !store.isAdmin(p) && (p.disabled || (p.trialUntil != null && System.currentTimeMillis() > p.trialUntil))
                         if (blocked && !manage) android.widget.Toast.makeText(ctxP, if (p.disabled) "Ce profil est désactivé par l'administrateur." else "La période d'essai de ce profil est terminée.", android.widget.Toast.LENGTH_LONG).show()
                         else if (p.pin != null) pinFor = p to manage
                         else if (manage) onEdit(p.id) else { store.selectProfile(p); onSelected() }
                     }
+                    if (manage) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (i > 0) TvoButton("◀", { store.moveProfile(p.id, -1) })
+                        if (i < profiles.size - 1) TvoButton("▶", { store.moveProfile(p.id, 1) })
+                    }
+                    }
                 }
                 if (profiles.size < 6) AddTile { onEdit("new") }
             }
             Spacer(Modifier.height(44.dp))
-            TvoButton(if (manage) "Terminé" else "Gérer les profils", { manage = !manage },
+            TvoButton(if (manage) "Terminé" else "Gérer les profils", {
+                // Gérer / réordonner : réservé à l'administrateur (son code s'il en a un)
+                val adm = profiles.firstOrNull { store.isAdmin(it) }
+                if (!manage && adm?.pin != null) manageAuth = adm else manage = !manage
+            },
                 icon = if (manage) Icons.Default.Check else Icons.Default.Edit)
         }
     }

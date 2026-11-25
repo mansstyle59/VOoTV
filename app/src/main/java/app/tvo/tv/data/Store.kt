@@ -137,6 +137,16 @@ class Store(ctx: Context) {
         return p
     }
 
+    /** Change l'ordre des profils (administrateur) : delta = -1 vers la gauche, +1 vers la droite. */
+    fun moveProfile(id: String, delta: Int) {
+        val list = profiles.value.toMutableList()
+        val i = list.indexOfFirst { it.id == id }; val j = i + delta
+        if (i < 0 || j < 0 || j >= list.size) return
+        val p = list.removeAt(i); list.add(j, p)
+        profiles.value = list; save("profiles", list)
+        onChange()
+    }
+
     fun deleteProfile(id: String) {
         val list = profiles.value.filterNot { it.id == id }
         profiles.value = list; save("profiles", list)
