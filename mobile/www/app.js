@@ -3933,16 +3933,25 @@ var qrcode = function() {
     setTabs(null);
     if (!S.profiles.length) return go("#/profile/new");
     let manage = false;
+    // Ordre des profils : réservé au profil principal (administrateur), uniquement sur téléphone
+    const canOrder = !!(S.profile && isAdmin(S.profile));
     const draw = () => {
       app.innerHTML = `<div class="profiles-screen">${LOGO}
         <h1>${manage ? "Gérer les profils" : "Qui regarde ?"}</h1>
         <div class="profiles">
-          ${S.profiles.map((p) => `<button class="profile" data-p="${esc(p.id)}">${avatar(p).replace(/<\/div>$/, (manage ? `<span class="edit">${ICON.edit}</span>` : "") + (p.pin && !manage ? '<span class="pbadge">🔒</span>' : "") + "</div>")}<span>${esc(p.name)}</span>
-            <small class="prole ${profileStatus(p)[1]}">${esc(profileStatus(p)[0])}</small></button>`).join("")}
+          ${S.profiles.map((p, i) => `<button class="profile" data-p="${esc(p.id)}">${avatar(p).replace(/<\/div>$/, (manage ? `<span class="edit">${ICON.edit}</span>` : "") + (p.pin && !manage ? '<span class="pbadge">🔒</span>' : "") + "</div>")}<span>${esc(p.name)}</span>
+            <small class="prole ${profileStatus(p)[1]}">${esc(profileStatus(p)[0])}</small>${manage && canOrder ? `<span class="pmove">${i > 0 ? `<span class="mv" role="button" data-mv="${i}" data-d="-1" aria-label="Déplacer à gauche">‹</span>` : '<span class="mv off"></span>'}${i < S.profiles.length - 1 ? `<span class="mv" role="button" data-mv="${i}" data-d="1" aria-label="Déplacer à droite">›</span>` : '<span class="mv off"></span>'}</span>` : ""}</button>`).join("")}
           ${S.profiles.length < 6 ? `<button class="profile" data-new><div class="avatar add-avatar">${ICON.plus}</div><span>Ajouter</span></button>` : ""}
         </div>
         <div style="margin-top:36px"><button class="btn" id="manage">${manage ? ICON.check + " Terminé" : ICON.edit + " Gérer les profils"}</button></div>
       </div>`;
+      app.querySelectorAll("[data-mv]").forEach((m) => m.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const i = +m.dataset.mv, j = i + +m.dataset.d;
+        if (j < 0 || j >= S.profiles.length) return;
+        const [mv] = S.profiles.splice(i, 1); S.profiles.splice(j, 0, mv);
+        LS.set("profiles", S.profiles); draw();
+      }));
       app.querySelectorAll("[data-p]").forEach((b) => b.addEventListener("click", () => {
         const p = S.profiles.find((x) => x.id === b.dataset.p);
         if (manage) {
