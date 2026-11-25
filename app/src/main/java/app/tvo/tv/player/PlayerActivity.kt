@@ -572,7 +572,7 @@ class PlayerActivity : ComponentActivity() {
             playNext()
         }
         Box(Modifier.fillMaxSize().padding(48.dp), contentAlignment = Alignment.BottomEnd) {
-            Column(Modifier.width(380.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xEE161622)).padding(20.dp),
+            Column(Modifier.width(380.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xEE161622)).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(if (n.loading) n.label else "${n.label} dans $count s", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 if (!n.loading) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

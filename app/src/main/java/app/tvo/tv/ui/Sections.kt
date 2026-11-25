@@ -274,8 +274,8 @@ fun SearchSection(nav: Nav) {
     Row(Modifier.fillMaxSize().imageBackdrop(Color(0xFF2F5BFF))) {
         Column(Modifier.width(500.dp).padding(start = 40.dp, top = 28.dp)) {
             Text("Recherche", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-            Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(RoundedCornerShape(14.dp)).background(Color(0x66101A36))
-                .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x66101A36))
+                .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("🔍", fontSize = 18.sp)
                 Spacer(Modifier.width(10.dp))
                 Text(query.ifEmpty { "Film, série, saga ou acteur" }, fontSize = 19.sp,
@@ -493,7 +493,7 @@ private fun AddonRow(a: Addon, index: Int) {
     val kinds = m.resources.map { it.name }.mapNotNull {
         when (it) { "catalog" -> "catalogues"; "meta" -> "fiches"; "stream" -> "vidéos"; "subtitles" -> "sous-titres"; else -> null }
     }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(14.dp)).padding(16.dp),
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("${m.name}  ${m.version}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
         Text(kinds.joinToString(" · ").ifEmpty { "—" }, fontSize = 13.sp, color = TvoColors.Cyan)

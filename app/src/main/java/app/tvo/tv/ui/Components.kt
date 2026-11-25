@@ -534,7 +534,7 @@ fun QuickMenuHost(item: MetaPreview, onOpen: () -> Unit, show: Boolean, onDismis
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(440.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF2161622)).padding(24.dp),
+        Column(Modifier.width(440.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(item.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
             Spacer(Modifier.height(4.dp))
@@ -563,7 +563,7 @@ fun ContinueMenuHost(p: app.tvo.tv.data.Progress, show: Boolean, nav: Nav, ctx: 
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(460.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xF2161622)).padding(24.dp),
+        Column(Modifier.width(460.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(p.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
             if (p.season != null) Text("S${p.season} : É${p.episode}", fontSize = 15.sp, color = Color(0xCCFFFFFF))

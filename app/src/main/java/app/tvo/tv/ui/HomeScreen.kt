@@ -760,7 +760,7 @@ private fun LiveSuggestions() {
             items(LIVE_SUGG, key = { it[0] }) { sg ->
                 val (url, name, desc, ic, c1) = sg; val c2 = sg[5]
                 val added = addons.any { it.url.endsWith(url) }
-                val shape = RoundedCornerShape(14.dp)
+                val shape = RoundedCornerShape(16.dp)
                 Surface(
                     onClick = {
                         if (added || busy != null) return@Surface

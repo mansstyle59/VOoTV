@@ -159,7 +159,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
             if (video != null && video.title.isNotBlank()) Text(video.title, fontSize = 15.sp, color = TvoColors.Muted, maxLines = 2)
         }
         Column(Modifier.fillMaxSize().padding(top = 48.dp, end = 48.dp)) {
-            Text("Choisis une source", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+            Text("Choisis une source", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             val status = when {
                 total == 0 -> "Aucun add-on de sources installé."
                 done < total -> "Recherche en cours… ($done/$total add-ons)"
@@ -211,7 +211,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
     }
     reportFor?.let { rs ->
         androidx.compose.ui.window.Dialog(onDismissRequest = { reportFor = null }) {
-            Column(Modifier.width(480.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xF2161622)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.width(480.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Signaler cette source ?", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(rs.name.replace("\n", " "), fontSize = 14.sp, color = Color(0xCCFFFFFF), maxLines = 2)
                 Text("Elle disparaît de la liste (sur la télé et le téléphone) jusqu'à sa mise à jour.", fontSize = 14.sp, color = Color(0xCCFFFFFF))
@@ -303,7 +303,7 @@ private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean,
         ),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(72.dp).clip(RoundedCornerShape(6.dp)).background(if (s.quality >= 3) TvoColors.Violet else TvoColors.Surface2)
+            Box(Modifier.width(72.dp).clip(RoundedCornerShape(50)).background(if (s.quality >= 3) TvoColors.Blue else TvoColors.Surface2)
                 .padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
                 Text(AddonClient.qualityLabel(s.quality), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }

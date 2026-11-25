@@ -1740,3 +1740,18 @@ html.in-pip, html.in-pip body { background: #000; }
 .mv-list button i { font-style: normal; font-weight: 800; min-width: 22px; color: var(--muted); }
 .mv-list button.on { background: var(--blue); } .mv-list button.on i { color: #fff; }
 @media (min-width: 900px) { .mv-sheet { place-items: center; } }
+
+/* ===== Sources : même style que le reste de l'appli ===== */
+#info img { border-radius: var(--r-card) !important; width: 72px !important; }
+#info b { font-size: 18px !important; font-weight: 800; letter-spacing: -.2px; }
+#status { color: var(--muted); }
+.card.source, .best-src .card.source { border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--line); }
+.best-src .card.source { border-color: var(--blue); background: color-mix(in srgb, var(--blue) 14%, var(--surface)); }
+.card.source .name { font-size: 15px; font-weight: 700; }
+.card.source .tag, .card.source .sp { border-radius: 999px; font-size: 11px; font-weight: 700; padding: 2px 8px; }
+.card.source .tag { background: color-mix(in srgb, var(--blue) 22%, transparent); color: #dbe6ff; }
+.card.source .from { color: var(--muted); font-size: 11.5px; }
+.card.source .playic { width: 40px; height: 40px; border-radius: 50%; background: var(--blue); }
+details.qgroup { border-radius: var(--r-panel); background: var(--surface); border: 1px solid var(--line); }
+details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
+.source .q { border-radius: 999px; } .source .q.hd { background: var(--blue); }
