@@ -264,32 +264,46 @@ private fun RoundIconButton(icon: ImageVector, label: String, modifier: Modifier
 fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     var selected by remember(key) { mutableStateOf<MetaPreview?>(null) }
     var heroIndex by remember(hero) { mutableStateOf(0) }
-    var shown by remember(key) { mutableStateOf<MetaPreview?>(null) }
+    var mState by remember(key) { mutableStateOf<MetaPreview?>(null) }
+    var logoState by remember(key) { mutableStateOf<String?>(null) }
+    val m = mState
+    val logo = logoState
     val target = selected ?: hero.getOrNull(heroIndex)
-    LaunchedEffect(target) { if (shown == null) shown = target else { delay(200); shown = target } }
     LaunchedEffect(hero, selected) { if (selected == null && hero.size > 1) while (true) { delay(9000); heroIndex = (heroIndex + 1) % hero.size } }
     val watchFr = remember(key) { FocusRequester() }
     val library by Tvo.store.library.collectAsState()
     var inRows by remember(key) { mutableStateOf(false) }
+    val ctxH = androidx.compose.ui.platform.LocalContext.current
 
-    // Les cartes « Continuer à regarder » n'ont pas le résumé : on va chercher la fiche complète (genre, année, note, résumé)
-    val full by produceState<MetaPreview?>(null, shown?.id) {
-        val s0 = shown
-        value = if (s0 != null && s0.description.isNullOrBlank() && s0.type !in listOf("tv", "channel", "genre", "platform", "collection", "person"))
-            runCatching { Tvo.client.metaCache["${s0.type}/${s0.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), s0.type, s0.id)?.preview }.getOrNull()
-        else if (s0 != null && s0.type == "person") runCatching {
-            app.tvo.tv.data.Tmdb.person(s0.id.removePrefix("person:"))?.let { pg -> s0.copy(description = pg.bio?.takeIf { it.isNotBlank() } ?: s0.description, releaseInfo = "${pg.works.size} films et séries") }
-        }.getOrNull()
-        else null
+    // Bannière fluide : on prépare TOUT (résumé, logo, image) avant de changer d'affiche, puis on change d'un seul coup.
+    // Avant, le titre, le logo, le résumé et l'image arrivaient les uns après les autres : l'écran sautait.
+    LaunchedEffect(target) {
+        val t = target ?: return@LaunchedEffect
+        if (mState == null) mState = t else delay(200)
+        val special = t.type in listOf("tv", "channel", "genre", "platform", "collection", "person")
+        val merged = kotlinx.coroutines.withTimeoutOrNull(3500) {
+            var out = t
+            if (!special && t.description.isNullOrBlank()) {
+                val f = runCatching { Tvo.client.metaCache["${t.type}/${t.id}"]?.preview ?: Tvo.client.meta(Tvo.store.allowed(Tvo.store.addons.value), t.type, t.id)?.preview }.getOrNull()
+                if (f != null) out = t.copy(description = f.description, genres = t.genres.ifEmpty { f.genres }, releaseInfo = t.releaseInfo ?: f.releaseInfo,
+                    imdbRating = t.imdbRating ?: f.imdbRating, logo = t.logo ?: f.logo, background = t.background ?: f.background)
+            } else if (t.type == "person") {
+                runCatching { app.tvo.tv.data.Tmdb.person(t.id.removePrefix("person:")) }.getOrNull()?.let { pg ->
+                    out = t.copy(description = pg.bio?.takeIf { it.isNotBlank() } ?: t.description, releaseInfo = "${pg.works.size} films et séries")
+                }
+            }
+            out
+        } ?: t
+        val lg = merged.logo ?: if (!special && app.tvo.tv.data.Tmdb.enabled) kotlinx.coroutines.withTimeoutOrNull(2000) { runCatching { app.tvo.tv.data.Tmdb.logo(merged.type, merged.id) }.getOrNull() } else null
+        // Images chargées en mémoire avant l'affichage
+        kotlinx.coroutines.withTimeoutOrNull(2500) {
+            val loader = coil.Coil.imageLoader(ctxH)
+            listOfNotNull(merged.background ?: merged.poster, lg).forEach { u -> runCatching { loader.execute(coil.request.ImageRequest.Builder(ctxH).data(u).build()) } }
+        }
+        mState = merged; logoState = lg
     }
-    val m = shown?.let { sh -> full?.takeIf { it.id == sh.id }?.let { f -> sh.copy(description = f.description, genres = sh.genres.ifEmpty { f.genres },
-        releaseInfo = sh.releaseInfo ?: f.releaseInfo, imdbRating = sh.imdbRating ?: f.imdbRating, logo = sh.logo ?: f.logo, background = sh.background ?: f.background) } ?: sh }
     val navHidden = LocalNavHidden.current
     LaunchedEffect(inRows) { navHidden.value = inRows }
-    val logo by produceState<String?>(m?.logo, m?.id) {
-        val mm = m
-        value = mm?.logo ?: if (mm != null && mm.type !in listOf("tv", "channel", "genre", "platform", "collection", "person") && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.logo(mm.type, mm.id) else null
-    }
     Box(Modifier.fillMaxSize()) {
         if (m != null) {
             val tv = m.type == "tv" || m.type == "channel"
