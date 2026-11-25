@@ -227,7 +227,7 @@ html[data-mode="light"] { color-scheme: light; }
 html[data-mode="light"]:root {
   --bg: #f2f3f6; --panel: #ffffff; --surface: #ffffff; --surface-2: #eceef2; --line: #d8dce3;
   --text: #12151a; --text-2: #3b434d; --muted: #5d6773;
-  --blue-2: #2563eb; --cyan: #2563c9;
+  --blue-2: var(--acc-lo,#2563eb); --cyan: var(--acc-lo,#2563c9);
   --success: #15803d; --danger: #dc2626;
   --g-fill: linear-gradient(160deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 100%);
   --g-fill-strong: linear-gradient(160deg, #fff 0%, rgba(255,255,255,.96) 100%);
@@ -247,5 +247,10 @@ for media, new, body in blocks:
 if cur_media: out.append("}")
 out.append("")
 out.append(END)
-CSS.write_text(src.rstrip() + "\n\n" + "\n".join(out) + TAIL.rstrip("\n") + "\n")
+BLOCK = "\n".join(out)
+# La couleur d'accent du profil suit aussi en mode clair (variante foncée, lisible sur fond blanc)
+BLOCK = BLOCK.replace("var(--acc-hi,", "var(--acc-lo,")
+import re as _re
+BLOCK = _re.sub(r"(?<!,)#2457c5", "var(--acc-lo,#2457c5)", BLOCK)
+CSS.write_text(src.rstrip() + "\n\n" + BLOCK + TAIL.rstrip("\n") + "\n")
 print("règles générées :", len(blocks))

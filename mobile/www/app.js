@@ -2372,6 +2372,30 @@ var qrcode = function() {
   const theme = () => (LS.get("theme", "glass") === "classic" ? "classic" : "glass");
   function setTheme(t) { LS.set("theme", t); document.documentElement.classList.toggle("glass", t === "glass"); }
   setTheme(theme());
+
+  // Couleur d'accent = couleur du profil actif (boutons, onglet actif, liens, barres…). Les variantes sont calculées pour rester lisibles.
+  function applyAccent(hex) {
+    let st = document.getElementById("accentStyle");
+    const m = /^#([0-9a-f]{6})$/i.exec(hex || "");
+    if (!m) { if (st) st.textContent = ""; return; }
+    const n = parseInt(m[1], 16), rgb = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const lum = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const mix = (c, t, k) => c.map((v, i) => Math.round(v + (t[i] - v) * k));
+    const hexOf = (c) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+    const W = [255, 255, 255], K = [0, 0, 0];
+    // Fond de bouton : assez foncé pour un texte blanc lisible
+    let acc = rgb.slice(); for (let i = 0; i < 20 && ratio(acc, W) < 3.4; i++) acc = mix(acc, K, 0.08);
+    // Version claire pour textes/icônes sur fond sombre
+    let hi = rgb.slice(); for (let i = 0; i < 20 && ratio(hi, [20, 20, 20]) < 6; i++) hi = mix(hi, W, 0.1);
+    // Version foncée pour textes sur fond clair
+    let lo = rgb.slice(); for (let i = 0; i < 20 && ratio(lo, W) < 5.5; i++) lo = mix(lo, K, 0.08);
+    const dk = mix(acc, K, 0.25);
+    if (!st) { st = document.createElement("style"); st.id = "accentStyle"; document.head.appendChild(st); }
+    st.textContent = `:root{--acc:${hexOf(acc)};--acc-hi:${hexOf(hi)};--acc-lo:${hexOf(lo)};--acc-dk:${hexOf(dk)};--acc-rgb:${acc.join(",")}}`;
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc && document.documentElement.getAttribute("data-mode") !== "light") tc.setAttribute("content", "#141414");
+  }
   /** Mode d'affichage : « auto » (suit l'iPhone / l'ordinateur), « dark » (sombre) ou « light » (clair). */
   const MODES = ["auto", "dark", "light"];
   const viewMode = () => { const m = LS.get("mode", "auto"); return MODES.includes(m) ? m : "auto"; };
@@ -2468,7 +2492,7 @@ var qrcode = function() {
   }, 30000);
 
   function selectProfile(p) {
-    S.profile = p; LS.set("current", p.id);
+    S.profile = p; LS.set("current", p.id); applyAccent(p.color);
     S.lib = LS.get("lib." + p.id, []);
     S.prog = LS.get("prog." + p.id, []);
   }
@@ -3963,7 +3987,8 @@ var qrcode = function() {
         ${S.profiles.length ? `<button class="btn block" id="cancel">Annuler</button>` : ""}
       </div></div>`;
     const name = $("#name");
-    const redraw = () => ($("#av").innerHTML = avatar({ name: name.value || "?", color, icon }));
+    const redraw = () => { $("#av").innerHTML = avatar({ name: name.value || "?", color, icon }); applyAccent(color); };
+    applyAccent(color);
     app.querySelectorAll("[data-ic]").forEach((b) => b.addEventListener("click", () => {
       icon = b.dataset.ic; app.querySelectorAll("[data-ic]").forEach((x) => x.classList.toggle("on", x === b)); redraw();
     }));
@@ -5943,6 +5968,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   let introDone = false;
   function route() {
     if (!$("#player").hidden) closePlayer();
+    applyAccent(S.profile && S.profile.color);
     const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
     const isHome = (parts[0] || "home") === "home";
     app.classList.toggle("is-home", isHome);
