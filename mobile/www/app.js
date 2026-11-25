@@ -4621,7 +4621,7 @@ var qrcode = function() {
       const chips = [["all", "Tout"], ["movie", "Films"], ["series", "Séries"], ["todo", "À voir"], ["seen", "Vus"]];
       app.innerHTML = topBar("Ma liste") + (S.lib.length ? `
         <div class="chips lchips">${chips.map(([k, t]) => `<button class="chip ${st.f === k ? "on" : ""}" data-f="${k}">${t} <small>${n(k)}</small></button>`).join("")}</div>
-        <div class="pad lbar"><span class="small muted">${l.length} titre${l.length > 1 ? "s" : ""}</span>
+        <div class="pad lsortbar"><span class="small muted">${l.length} titre${l.length > 1 ? "s" : ""}</span>
           <button class="linkbtn" id="lSort">${st.sort === "az" ? "Tri : A → Z" : "Tri : ajout récent"}</button></div>
         ${l.length ? `<div class="grid lgrid">${l.map((x) => portraitHTML(x).replace('class="pcard"', `class="pcard${started(x) ? " started" : ""}"`)).join("")}</div>`
           : `<div class="empty"><h2>Rien ici</h2>Aucun titre dans ce filtre.</div>`}`

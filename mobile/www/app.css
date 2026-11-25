@@ -1794,7 +1794,7 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
 
 /* Ma liste */
 .lchips { margin: 6px 0 4px; } .lchips .chip small { opacity: .7; font-weight: 700; margin-left: 4px; }
-.lbar { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 10px; }
+.lsortbar { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 10px; }
 .lgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 10px; padding: 0 var(--pad) 24px; }
 .lgrid .pcard { width: auto; flex: none; }
 .lgrid .pcard.started .pimg::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--blue); }
