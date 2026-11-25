@@ -137,16 +137,25 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         if (heroHasFocus && (mainState.firstVisibleItemIndex > 0 || mainState.firstVisibleItemScrollOffset > 0)) mainState.animateScrollToItem(0)
     }
     // Défilement de la page : quand le focus est sur les boutons du haut, la page ne bouge JAMAIS (cause du clignotement).
-    val parentSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
     val density = androidx.compose.ui.platform.LocalDensity.current.density
-    val heroPx = ((androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 175).coerceIn(320, 390) + 40) * density
-    // Basé sur la POSITION de l'élément (et non sur un état mis à jour trop tard) : les boutons du haut ne font jamais défiler la page,
-    // mais dès qu'on descend vers une rangée, la page défile tout de suite pour la montrer (sinon le focus part hors écran et on est « bloqué »).
-    val pageSpec = remember(parentSpec, heroPx) {
+    val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+    val heroFullPx = (cfg.screenHeightDp - 175).coerceIn(320, 390) * density
+    val widthPx = cfg.screenWidthDp * density
+    // Une seule règle de défilement pour toute la fiche, basée sur la POSITION de l'élément choisi :
+    //  - boutons du haut : la page ne bouge pas ;
+    //  - retour vers le haut : la page remonte d'un coup tout en haut (synopsis + boutons entiers) ;
+    //  - rangée du bas : elle se cale en haut de l'écran, titre compris (comme sur l'accueil) ;
+    //  - défilement horizontal dans une rangée : marge normale à gauche et à droite.
+    val pageSpec = remember(widthPx, heroFullPx, density) {
         object : androidx.compose.foundation.gestures.BringIntoViewSpec {
-            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                if (mainState.firstVisibleItemIndex == 0 && mainState.firstVisibleItemScrollOffset == 0 && offset >= 0f && offset + size <= heroPx) 0f
-                else parentSpec.calculateScrollDistance(offset, size, containerSize)
+            override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+                if (kotlin.math.abs(containerSize - widthPx) < 8f) return RowSideSpec.calculateScrollDistance(offset, size, containerSize)
+                val idx = mainState.firstVisibleItemIndex
+                val so = mainState.firstVisibleItemScrollOffset
+                if (idx == 0 && so == 0 && offset >= 0f && offset + size <= heroFullPx + 40f * density) return 0f
+                if (offset < 0f && idx <= 1) return -(if (idx == 0) so.toFloat() else heroFullPx + 10f * density + so)
+                return offset - 50f * density
+            }
         }
     }
     // Basé sur le focus (et non sur le défilement) : plus de clignotement du voile quand on passe d'un bouton à l'autre
