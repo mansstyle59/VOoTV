@@ -121,6 +121,8 @@ class AddonClient(private val http: OkHttpClient) {
             if (m != null && Tmdb.enabled) m = Tmdb.enrich(type, realId, tmdbId, m)
         }
         if (m == null && Tmdb.enabled) m = Tmdb.enrich(type, realId.takeIf { it.startsWith("tt") }, tmdbId, null)
+        // Certains add-ons renvoient des épisodes en double : une clé en double fait planter la fiche
+        if (m != null) m = m.copy(videos = m.videos.distinctBy { it.id })
         if (m != null) { metaCache["$type/$id"] = m; metaCache["$type/${m.preview.id}"] = m }
         return m
     }

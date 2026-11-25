@@ -74,7 +74,7 @@ fun DetailScreen(type: String, id: String, nav: Nav) {
     val rawA by Tvo.store.addons.collectAsState()
     val addons = remember(rawA) { Tvo.store.allowed(rawA) }
     val state by produceState<Load<MetaDetail>>(Load.Loading, type, id) {
-        value = Tvo.client.meta(addons, type, id)?.let { Load.Ok(it) } ?: Load.Failed
+        value = runCatching { Tvo.client.meta(addons, type, id) }.getOrNull()?.let { Load.Ok(it) } ?: Load.Failed
     }
     when (val s = state) {
         Load.Loading -> CenterMessage("Chargement…")
@@ -236,7 +236,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     Text(if (p.type == "series") "Création et distribution" else "Réalisateur et distribution", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        itemsIndexed(meta.people, key = { _, it -> it.id }) { i, person -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PersonBubble(person) { nav.openPerson(person.id) } } }
+                        itemsIndexed(meta.people.distinctBy { it.id }, key = { _, it -> it.id }) { i, person -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PersonBubble(person) { nav.openPerson(person.id) } } }
                     }
                 }
             }
@@ -245,7 +245,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        itemsIndexed(similar, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
+                        itemsIndexed(similar.distinctBy { it.id }, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
                     }
                 }
             }
@@ -257,7 +257,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
                 }
                 item {
-                    val eps = meta.episodes.filter { it.season == season }
+                    val eps = meta.episodes.filter { it.season == season }.distinctBy { it.id }
                     val startIndex = eps.indexOfFirst { it.id == target }.coerceAtLeast(0)
                     val listState = rememberLazyListState(startIndex)
                     val fr = remember { FocusRequester() }
@@ -275,7 +275,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     Text("$nm - Saga", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        itemsIndexed(sg.second, key = { _, m -> m.id }) { i, m ->
+                        itemsIndexed(sg.second.distinctBy { it.id }, key = { _, m -> m.id }) { i, m ->
                             Column(Modifier.width(280.dp).let { if (i == 0) it.focusRequester(fr).focusGroup() else it }) {
                                 WideCard(image = m.background ?: m.poster, title = m.name,
                                     subtitle = listOfNotNull("SAGA ${i + 1}/${sg.second.size}", m.genres.firstOrNull()?.let { genreLabel(it) }, m.imdbRating?.let { "★ $it" }, m.releaseInfo).joinToString(" • "),
@@ -348,7 +348,7 @@ fun PersonScreen(id: String, nav: Nav) {
     var kind by remember { mutableStateOf("all") }
     var sort by remember { mutableStateOf("new") }
     val works = remember(p, kind, sort) {
-        val f = p.works.filter { (kind == "all" || it.type == kind || (kind == "dir" && it.id in p.directed)) }
+        val f = p.works.distinctBy { it.id }.filter { (kind == "all" || it.type == kind || (kind == "dir" && it.id in p.directed)) }
         val y = { m: app.tvo.tv.data.MetaPreview -> m.releaseInfo?.take(4)?.toIntOrNull() ?: 0 }
         when (sort) { "new" -> f.sortedByDescending(y); "old" -> f.filter { y(it) > 0 }.sortedBy(y) + f.filter { y(it) == 0 }; else -> f }
     }
@@ -383,7 +383,7 @@ fun PersonScreen(id: String, nav: Nav) {
                 Text("Connu pour", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                 val kfFr = remember { FocusRequester() }
                 androidx.compose.foundation.lazy.LazyRow(Modifier.focusRestorer { kfFr }, horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
-                    items(p.knownFor.size, key = { p.knownFor[it].id }) { i -> val m = p.knownFor[i]; PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(kfFr) else Modifier) }
+                    items(p.knownFor.distinctBy { it.id }.size, key = { p.knownFor.distinctBy { it.id }[it].id }) { i -> val m = p.knownFor.distinctBy { it.id }[i]; PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(kfFr) else Modifier) }
                 }
             }
         }

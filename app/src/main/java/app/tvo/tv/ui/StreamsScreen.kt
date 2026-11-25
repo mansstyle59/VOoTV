@@ -69,7 +69,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
     val rawA by Tvo.store.addons.collectAsState()
     val addons = remember(rawA) { Tvo.store.allowed(rawA) }
     val meta by produceState<MetaDetail?>(Tvo.client.metaCache["$type/$metaId"], metaId) {
-        if (value == null) value = Tvo.client.meta(addons, type, metaId)
+        if (value == null) value = runCatching { Tvo.client.meta(addons, type, metaId) }.getOrNull()
     }
     val video = meta?.videos?.firstOrNull { it.id == videoId }
     val streams = remember(videoId) { mutableStateListOf<StreamItem>() }
