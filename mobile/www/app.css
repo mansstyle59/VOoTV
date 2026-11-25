@@ -1780,3 +1780,23 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
   .page-title { padding: 0 var(--pad); margin: 8px 0 4px; font-size: 26px; font-weight: 800; letter-spacing: -.4px; }
   .empty { padding: 44px var(--pad); }
 }
+
+/* Bande-annonce : jamais plus large que l'écran, bouton ✕ toujours visible */
+.tr-sheet { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.tr-card { max-width: 100%; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.tr-top { min-width: 0; padding-right: 52px; }
+.tr-top b { display: block; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tr-frame, .tr-yt { min-width: 0; max-width: 100%; }
+.tr-yt { text-align: center; }
+.tr-close { position: fixed; z-index: 2; top: calc(var(--safe-top) + 10px); right: calc(var(--safe-right) + 12px); width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.25); }
+.tr-close svg { width: 22px; height: 22px; }
+
+/* Ma liste */
+.lchips { margin: 6px 0 4px; } .lchips .chip small { opacity: .7; font-weight: 700; margin-left: 4px; }
+.lbar { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 10px; }
+.lgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 14px 10px; padding: 0 var(--pad) 24px; }
+.lgrid .pcard { width: auto; flex: none; }
+.lgrid .pcard.started .pimg::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--blue); }
+.empty .btn { margin-top: 14px; }
+@media (min-width: 1024px) { .lgrid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 22px 16px; } }

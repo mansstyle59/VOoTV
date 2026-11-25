@@ -4097,12 +4097,15 @@ var qrcode = function() {
     const pick = await trailerVF(m);
     if (!pick) return toast("Pas de bande-annonce en français pour ce titre.");
     const box = document.createElement("div"); box.className = "tr-sheet";
-    box.innerHTML = `<div class="tr-card"><div class="tr-top"><b>${esc(pick.name || "Bande-annonce")}</b><button class="icon-btn" data-x aria-label="Fermer">✕</button></div>
+    box.innerHTML = `<button class="tr-close" data-x aria-label="Fermer la bande-annonce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="tr-card"><div class="tr-top"><b>${esc(pick.name || "Bande-annonce")}</b></div>
       <div class="tr-frame"><iframe src="${esc(ytSrc(pick.key))}"
         allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
       <a class="tr-yt" href="https://www.youtube.com/watch?v=${encodeURIComponent(pick.key)}" target="_blank" rel="noopener">Ça ne se lance pas ? Ouvrir dans YouTube</a></div>`;
     document.body.appendChild(box);
-    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) box.remove(); });
+    const close = () => { box.remove(); window.removeEventListener("popstate", close); };
+    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) close(); });
+    window.addEventListener("popstate", close); // geste retour = fermer
   }
 
   // ------------------------------------------------------------------ appui long : menu d'options sur les cartes
@@ -4586,11 +4589,31 @@ var qrcode = function() {
     load();
   }
 
+  /** Ma liste : filtres (Tout, Films, Séries, À voir, Vus), tri, compteur, badge « Vu ». */
   function screenList() {
     setTabs("list");
-    app.innerHTML = topBar("Ma liste") + (S.lib.length
-      ? `<div class="grid" style="margin-top:8px">${S.lib.map(posterHTML).join("")}</div>`
-      : `<div class="empty"><h2>Ta liste est vide</h2>Ouvre un film ou une série et appuie sur « Ma liste ».</div>`);
+    const st = LS.get("listui", { f: "all", sort: "recent" });
+    const seenItem = (x) => x.type === "movie" ? seenMovie(x.id) : false;
+    const started = (x) => S.prog.some((p) => p.metaId === x.id && !finished(p) && fraction(p) > 0.02);
+    const draw = () => {
+      let l = [...S.lib];
+      if (st.f === "movie" || st.f === "series") l = l.filter((x) => x.type === st.f);
+      if (st.f === "todo") l = l.filter((x) => !seenItem(x));
+      if (st.f === "seen") l = l.filter(seenItem);
+      if (st.sort === "az") l.sort((a, b) => String(a.name).localeCompare(String(b.name), "fr"));
+      const n = (f) => f === "all" ? S.lib.length : f === "todo" ? S.lib.filter((x) => !seenItem(x)).length : f === "seen" ? S.lib.filter(seenItem).length : S.lib.filter((x) => x.type === f).length;
+      const chips = [["all", "Tout"], ["movie", "Films"], ["series", "Séries"], ["todo", "À voir"], ["seen", "Vus"]];
+      app.innerHTML = topBar("Ma liste") + (S.lib.length ? `
+        <div class="chips lchips">${chips.map(([k, t]) => `<button class="chip ${st.f === k ? "on" : ""}" data-f="${k}">${t} <small>${n(k)}</small></button>`).join("")}</div>
+        <div class="pad lbar"><span class="small muted">${l.length} titre${l.length > 1 ? "s" : ""}</span>
+          <button class="linkbtn" id="lSort">${st.sort === "az" ? "Tri : A → Z" : "Tri : ajout récent"}</button></div>
+        ${l.length ? `<div class="grid lgrid">${l.map((x) => portraitHTML(x).replace('class="pcard"', `class="pcard${started(x) ? " started" : ""}"`)).join("")}</div>`
+          : `<div class="empty"><h2>Rien ici</h2>Aucun titre dans ce filtre.</div>`}`
+        : `<div class="empty"><h2>Ta liste est vide</h2><p>Ouvre un film ou une série et appuie sur « Ma liste » pour le retrouver ici.</p><a class="btn primary" href="#/home">Découvrir des titres</a></div>`);
+      app.querySelectorAll("[data-f]").forEach((b) => b.addEventListener("click", () => { st.f = b.dataset.f; LS.set("listui", st); draw(); }));
+      const so = $("#lSort"); if (so) so.addEventListener("click", () => { st.sort = st.sort === "az" ? "recent" : "az"; LS.set("listui", st); draw(); });
+    };
+    draw();
   }
 
   /** Recherche vide : recherches récentes, idées de recherche, genres et tendances. */
