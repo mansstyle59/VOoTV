@@ -5543,9 +5543,12 @@ var qrcode = function() {
       const subs = ctx.subs.slice(0, 20).map((x, i) => ({ url: x.url, lang: x.lang || "und", title: LANG[(x.lang || "").toLowerCase()] || x.lang || "Sous-titres " + (i + 1) }));
       video.start(s.url, ctx.start > 0 ? ctx.start : 0, s.headers || {}, subs).catch(() => fail("Lecteur MPV indisponible"));
     } else if (isHls && !isIOS && window.Hls && window.Hls.isSupported()) {
-      hls = new window.Hls({ enableWorker: true, lowLatencyMode: true, backBufferLength: 60 });
+      // Films/séries : pas de mode « faible latence » (réservé au direct), tampon plus large ; 3 reprises max puis on propose une autre source
+      hls = new window.Hls({ enableWorker: true, lowLatencyMode: m.type === "tv", backBufferLength: 60, maxBufferLength: 60 });
       hls.loadSource(s.url); hls.attachMedia(video);
-      hls.on(window.Hls.Events.ERROR, (_, d) => { if (d.fatal) { if (d.type === "networkError") hls.startLoad(); else if (d.type === "mediaError") hls.recoverMediaError(); } });
+      let hlsTries = 0;
+      hls.on(window.Hls.Events.ERROR, (_, d) => { if (!d.fatal) return; if (++hlsTries > 3) return fail("La source ne répond plus");
+        if (d.type === "networkError") hls.startLoad(); else if (d.type === "mediaError") hls.recoverMediaError(); else fail("Lecture impossible"); });
     } else {
       video.src = s.url;
     }

@@ -150,7 +150,9 @@ class PlayerActivity : ComponentActivity() {
             DefaultRenderersFactory(this)
                 .setEnableDecoderFallback(true)
                 .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON),
-        ).setSeekBackIncrementMs(10_000).setSeekForwardIncrementMs(10_000).build()
+).setLoadControl(androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(30_000, 120_000, 2_500, 5_000).build())
+            .setSeekBackIncrementMs(10_000).setSeekForwardIncrementMs(10_000).build()
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .setPreferredAudioLanguages("fr", "fre", "fra")
             .build()
@@ -185,6 +187,11 @@ class PlayerActivity : ComponentActivity() {
                         PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED, PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED)) {
                     fallbackPlayer(req.copy(startPosition = player.currentPosition.coerceAtLeast(req.startPosition)))
                     finish(); return
+                }
+                if (netRetries < 2 && e.errorCode in listOf(PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW)) {
+                    netRetries++; val at = player.currentPosition
+                    watchdog.postDelayed({ player.prepare(); if (at > 0) player.seekTo(at); player.play() }, 1500); return
                 }
                 Tvo.store.clearLastStream(req.videoId)
                 error = when (e.errorCode) {
@@ -243,8 +250,9 @@ class PlayerActivity : ComponentActivity() {
         }
     }
 
+    private var netRetries = 0
     private fun load(r: PlayRequest) {
-        req = r
+        req = r; netRetries = 0
         error = null; nextUp = null; nextDismissed = false
         watchdog.removeCallbacks(stuck); watchdog.postDelayed(stuck, 25_000)
         val dsf = OkHttpDataSource.Factory(Tvo.http).setUserAgent(r.headers["User-Agent"] ?: USER_AGENT)
@@ -337,7 +345,8 @@ class PlayerActivity : ComponentActivity() {
     private fun playEpisode(next: app.tvo.tv.data.Video, showName: String) {
         nextUp = NextUp("Recherche de la source…", loading = true)
         lifecycleScope.launch {
-            saveProgress(finished = true)
+            val d = player.duration
+            saveProgress(finished = d > 0 && d - player.currentPosition < 120_000)
             val addons = Tvo.store.allowed(Tvo.store.addons.value)
             val all = withTimeoutOrNull(20_000) {
                 Tvo.client.streams(addons, req.type, next.id).toList().flatMap { it.items }
@@ -830,7 +839,6 @@ class PlayerActivity : ComponentActivity() {
         saveProgress()
         app.tvo.tv.data.Sync.syncInBackground()
         player.pause()
-        app.tvo.tv.data.Sync.syncInBackground()
     }
 
     override fun onDestroy() {
