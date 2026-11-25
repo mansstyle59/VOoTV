@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
         val lastCrash = runCatching { crashFile.takeIf { it.exists() }?.readText() }.getOrNull()
         if (lastCrash != null) runCatching { crashFile.delete() }
         setContent {
-            var crash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(lastCrash) }
+            var crash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // plus d'écran d'erreur : l'appli repart simplement
             if (crash != null) {
                 // Écran de diagnostic : la photo de cet écran suffit pour corriger le plantage
                 TvoTheme {
