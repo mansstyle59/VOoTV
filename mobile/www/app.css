@@ -225,9 +225,9 @@ body.no-tabs #app { padding-bottom: calc(var(--safe-bottom) + 24px); }
   display: flex; flex-direction: column; align-items: center;
   background: radial-gradient(120% 70% at 50% 0%, #1d1636 0%, var(--bg) 60%);
 }
-.profiles-screen .logo { height: 34px; margin-bottom: 8vh; }
-.profiles-screen h1 { font-size: 26px; margin: 0 0 28px; }
-.profiles { display: grid; grid-template-columns: repeat(2, minmax(0, 130px)); gap: 26px 28px; justify-content: center; width: 100%; }
+.profiles-screen .logo { height: 30px; margin-bottom: 5vh; }
+.profiles-screen h1 { font-size: 24px; margin: 0 0 24px; }
+.profiles { display: grid; grid-template-columns: repeat(3, minmax(0, 92px)); gap: 22px 20px; justify-content: center; width: 100%; }
 .profile { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); font-weight: 600; }
 .avatar { width: 100%; aspect-ratio: 1; border-radius: 26%; display: grid; place-items: center; font-size: 44px; font-weight: 800; color: #fff; position: relative; }
 .avatar.sm { width: 34px; height: 34px; font-size: 15px; border-radius: 10px; flex: none; }
@@ -2147,3 +2147,11 @@ html:root .floating-back svg, html[data-mode="light"]:root .floating-back svg { 
 .profile .pmove{display:flex;gap:10px;justify-content:center;margin-top:8px}
 .profile .pmove .mv{width:40px;height:34px;border-radius:10px;background:var(--surface-2,rgba(255,255,255,.14));display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1;cursor:pointer}
 .profile .pmove .mv.off{visibility:hidden}
+
+/* Écran « Qui regarde ? » : cartes plus petites (3 par ligne sur téléphone) */
+.profiles .profile { gap: 6px; font-size: 14px; }
+.profiles .avatar { font-size: 34px; }
+.profiles .avatar .edit svg { width: 26px; height: 26px; }
+.profiles .add-avatar svg { width: 32px; height: 32px; }
+.profiles .prole { font-size: 10.5px; }
+.profile .pmove .mv { width: 34px; height: 30px; font-size: 20px; }
