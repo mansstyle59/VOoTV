@@ -338,7 +338,12 @@ fun PersonScreen(id: String, nav: Nav) {
         val y = { m: app.tvo.tv.data.MetaPreview -> m.releaseInfo?.take(4)?.toIntOrNull() ?: 0 }
         when (sort) { "new" -> f.sortedByDescending(y); "old" -> f.filter { y(it) > 0 }.sortedBy(y) + f.filter { y(it) == 0 }; else -> f }
     }
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    val gridScope = androidx.compose.runtime.rememberCoroutineScope()
+    // Quand le focus remonte sur « Connu pour » (1re zone cliquable), on remonte la page tout en haut : bio et photo visibles
+    val backToTop = Modifier.onFocusChanged { if (it.hasFocus) gridScope.launch { gridState.animateScrollToItem(0) } }
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        state = gridState,
         columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
         modifier = Modifier.fillMaxSize().imageBackdrop(Color(0xFF8B5CF6), p.works.firstNotNullOfOrNull { it.background }),
         contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 40.dp, bottom = 48.dp),
@@ -357,7 +362,7 @@ fun PersonScreen(id: String, nav: Nav) {
             }
         }
         if (p.knownFor.size >= 3) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(backToTop, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Connu pour", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                     items(p.knownFor.size, key = { p.knownFor[it].id }) { i -> val m = p.knownFor[i]; PortraitCard(m, { nav.openMeta(m) }) }
@@ -365,7 +370,7 @@ fun PersonScreen(id: String, nav: Nav) {
             }
         }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(if (p.knownFor.size < 3) backToTop else Modifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Chip("Tout (${p.works.size})", kind == "all", { kind = "all" }, Modifier.focusRequester(first))
                 Chip("Films (${p.works.count { it.type == "movie" }})", kind == "movie", { kind = "movie" })
                 Chip("Séries (${p.works.count { it.type == "series" }})", kind == "series", { kind = "series" })
