@@ -164,7 +164,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, androidx.compose.animation.core.snap(), label = "scrim")
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
-        LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
         Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 48.dp).width(640.dp)) {
@@ -217,9 +217,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
         }
         }
-            if (meta.people.isNotEmpty() || similar.isNotEmpty() || trailer != null) item(key = "tabs") {
+            if (meta.people.isNotEmpty() || trailer != null) item(key = "tabs") {
                 var tab by remember(p.id) { mutableStateOf(0) }
-                val labels = buildList { if (meta.people.isNotEmpty()) add("Créateur et distribution"); if (similar.isNotEmpty()) add(if (p.type == "series") "Séries similaires" else "Similaires"); if (trailer != null) add("Bande-annonce") }
+                val labels = buildList { if (meta.people.isNotEmpty()) add("Créateur et distribution"); if (trailer != null) add("Bande-annonce") }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.padding(start = 48.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                         labels.forEachIndexed { i, l -> TabLabel(l, i == tab) { tab = i } }
@@ -229,9 +229,15 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                         }
                         "Bande-annonce" -> Row(Modifier.padding(start = 48.dp, top = 6.dp)) { TvoButton("Lancer la bande-annonce", { trailerMode = 1 }, icon = Icons.Default.PlayArrow) }
-                        else -> LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
-                        }
+                        else -> Unit
+                    }
+                }
+            }
+            if (similar.isNotEmpty()) item(key = "similar") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
                     }
                 }
             }

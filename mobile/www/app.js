@@ -4770,7 +4770,7 @@ var qrcode = function() {
     const seasons = [...new Set(m.episodes.map((e) => e.season))];
     let season = tv && tv.season != null ? tv.season : seasons[0];
     const tabsDef = [...(seasons.length ? [["eps", "Épisodes"]] : []), ...(m.people && m.people.length ? [["cast", m.type === "series" ? "Création et distribution" : "Créateur et distribution"]] : []),
-      ...(m.tmdbId ? [["sim", "Similaires"], ["trl", "Bande-annonce"]] : []), ...(!m.people || !m.people.length ? [["info", "Infos"]] : [])];
+      ...(m.tmdbId ? [["trl", "Bande-annonce"]] : []), ...(!m.people || !m.people.length ? [["info", "Infos"]] : [])];
     let tab = tabsDef[0][0];
     const metaRow = [m.releaseInfo, m.imdbRating ? `<span class="stars">${stars(m.imdbRating)}</span>` : "", m.genres && m.genres[0] ? esc(genreLabel(m.genres[0])) : "", m.runtime ? esc(m.runtime) : ""]
       .filter(Boolean).join('<i class="sep"></i>');
@@ -4799,6 +4799,7 @@ var qrcode = function() {
       </div>
       <div class="dt-tabs" id="dtTabs"></div>
       <div id="dtPane"></div>
+      <div id="dtSim"></div>
       <div id="dtSaga"></div>
       <p class="dt-tmdb">Données fournies par TMDB</p>`;
 
@@ -4853,6 +4854,11 @@ var qrcode = function() {
       }
     };
     drawTabs(); drawPane();
+    if (m.tmdbId && tmdbOn()) tget(`/${m.tmdbKind}/${m.tmdbId}/recommendations`).then((r) => {
+      const box = $("#dtSim"); if (!box) return;
+      const list = (r.results || []).map((o) => tpreview(o, m.tmdbKind === "tv" ? "series" : "movie")).filter((x) => x && x.poster);
+      if (list.length) box.innerHTML = `<section class="section"><h2 class="section-title"><span class="st">${m.type === "series" ? ICON.series : ICON.movie}${m.type === "series" ? "Séries similaires" : "Films similaires"}</span></h2><div class="row">${list.slice(0, 20).map(portraitHTML).join("")}</div></section>`;
+    }).catch(() => { /* */ });
     if (m.collectionId && tmdbOn()) tget(`/collection/${m.collectionId}`).then((c) => {
       const parts = (c.parts || []).filter((x) => x.backdrop_path || x.poster_path).sort((a, b) => String(a.release_date || "9999").localeCompare(String(b.release_date || "9999")));
       const box = $("#dtSaga"); if (!box || parts.length < 2) return;
