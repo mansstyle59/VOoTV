@@ -261,7 +261,7 @@ fun Chip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifie
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
     ) {
-        Text(text, Modifier.padding(horizontal = 18.dp, vertical = 8.dp), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(text, Modifier.padding(horizontal = 18.dp, vertical = 8.dp), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
     }
 }
 

@@ -364,13 +364,13 @@ fun PersonScreen(id: String, nav: Nav) {
         if (p.knownFor.size >= 3) item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             Column(backToTop, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Connu pour", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                     items(p.knownFor.size, key = { p.knownFor[it].id }) { i -> val m = p.knownFor[i]; PortraitCard(m, { nav.openMeta(m) }) }
                 }
             }
         }
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-            Row(if (p.knownFor.size < 3) backToTop else Modifier, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(if (p.knownFor.size < 3) backToTop.padding(vertical = 4.dp) else Modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Chip("Tout (${p.works.size})", kind == "all", { kind = "all" }, Modifier.focusRequester(first))
                 Chip("Films (${p.works.count { it.type == "movie" }})", kind == "movie", { kind = "movie" })
                 Chip("Séries (${p.works.count { it.type == "series" }})", kind == "series", { kind = "series" })
