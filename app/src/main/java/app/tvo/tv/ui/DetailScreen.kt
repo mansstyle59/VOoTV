@@ -191,7 +191,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                     android.widget.Toast.makeText(ctx, if (seen) "Marqué non vu" else "Marqué comme vu", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
-                            if (trailer != null) RoundButton(Icons.Default.PlayArrow) { trailerMode = if (trailerMode == 0) 1 else 2 }
                         }
                         if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 12.dp), fontSize = 14.sp, color = TvoColors.Text, maxLines = 1)
                         val tm = meta.extra["tmdb"]
@@ -224,6 +223,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                     }
                 }
+            }
+            if (trailer != null) item(key = "trailer") {
+                Row(Modifier.padding(start = 48.dp)) { TabLabel("Bande-annonce", true) { trailerMode = 1 } }
             }
             if (similar.isNotEmpty()) item(key = "similar") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -4787,7 +4787,7 @@ var qrcode = function() {
           <button class="btn pill dt-play" id="play">${ICON.play} ${esc(label)}</button>
           <button class="dt-rb" id="lib" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button>
           <button class="dt-rb ${prog && finished(prog) ? "on" : ""}" id="seen" aria-label="Vu">${ICON.check}</button>
-          ${m.tmdbId ? `<button class="dt-rb" id="trailer" aria-label="Bande-annonce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z" fill="currentColor"/></svg></button>` : ""}
+
           <button class="dt-rb" id="share" aria-label="Partager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
         </div>
         ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
