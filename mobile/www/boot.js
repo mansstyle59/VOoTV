@@ -10,6 +10,8 @@
     window.TVO_VERSION = { code: b.code, name: b.name, repo: V.repo, shell: V.code };
     var s = document.createElement("script"); s.text = b.js; document.body.appendChild(s);
   } else {
+    // Ancienne version téléchargée devenue inutile (l'appli installée est plus récente) : on la supprime
+    if (b) try { localStorage.removeItem("tvo.bundle"); } catch (e) {}
     var s2 = document.createElement("script"); s2.src = "app.js"; document.body.appendChild(s2);
   }
 })();

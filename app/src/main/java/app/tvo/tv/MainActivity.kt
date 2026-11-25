@@ -293,6 +293,8 @@ private fun WhatsNew() {
         val seen = prefs.getInt("seen_code", -1)
         val cur = app.tvo.tv.BuildConfig.VERSION_CODE
         prefs.edit().putInt("seen_code", cur).apply()
+        // Nouvelle version installée : on efface le fichier d'installation de l'ancienne mise à jour
+        if (seen != cur) runCatching { java.io.File(ctx.cacheDir, "updates").deleteRecursively() }
         if (seen in 0 until cur) { delay(3000); notes = Updater.notesSince(seen, cur) }
     }
     if (notes.isEmpty()) return
