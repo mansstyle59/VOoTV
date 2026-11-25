@@ -266,6 +266,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     var heroIndex by remember(hero) { mutableStateOf(0) }
     var mState by remember(key) { mutableStateOf<MetaPreview?>(null) }
     var logoState by remember(key) { mutableStateOf<String?>(null) }
+    var logoDark by remember(key) { mutableStateOf(false) }
     val m = mState
     val logo = logoState
     val target = selected ?: hero.getOrNull(heroIndex)
@@ -300,7 +301,8 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
             val loader = coil.Coil.imageLoader(ctxH)
             listOfNotNull(merged.background ?: merged.poster, lg).forEach { u -> runCatching { loader.execute(coil.request.ImageRequest.Builder(ctxH).data(u).build()) } }
         }
-        mState = merged; logoState = lg
+        val dk = lg != null && logoIsDark(ctxH, lg)
+        mState = merged; logoState = lg; logoDark = dk
     }
     val navHidden = LocalNavHidden.current
     LaunchedEffect(inRows) { navHidden.value = inRows }
@@ -324,7 +326,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                         Spacer(Modifier.width(16.dp))
                         Text(m.name, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
                     }
-                    else if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart)
+                    else if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, colorFilter = if (logoDark) WhiteLogoFilter else null)
                     else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
                     Spacer(Modifier.height(10.dp))
                     Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films" else if (m.type == "person") listOfNotNull("Acteur / actrice", m.releaseInfo).joinToString("  •  ")

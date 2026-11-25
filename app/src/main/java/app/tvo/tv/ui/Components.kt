@@ -588,3 +588,26 @@ fun ContinueMenuHost(p: app.tvo.tv.data.Progress, show: Boolean, nav: Nav, ctx: 
         }
     }
 }
+
+
+/** Les logos de titre TMDB sont parfois noirs : illisibles sur fond sombre. On mesure leur luminosité (une seule fois par logo)
+ *  et on les passe en blanc quand ils sont sombres. */
+private val logoToneCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+suspend fun logoIsDark(ctx: android.content.Context, url: String): Boolean {
+    logoToneCache[url]?.let { return it }
+    val dark = runCatching {
+        val res = coil.Coil.imageLoader(ctx).execute(coil.request.ImageRequest.Builder(ctx).data(url).allowHardware(false).size(96).build())
+        val bmp = (res.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap ?: return@runCatching false
+        val w = bmp.width; val h = bmp.height
+        val px = IntArray(w * h); bmp.getPixels(px, 0, w, 0, 0, w, h)
+        var sum = 0.0; var n = 0
+        for (c in px) {
+            val a = (c ushr 24) and 0xFF
+            if (a > 128) { sum += (0.299 * ((c shr 16) and 0xFF) + 0.587 * ((c shr 8) and 0xFF) + 0.114 * (c and 0xFF)) / 255.0; n++ }
+        }
+        n > 20 && sum / n < 0.45
+    }.getOrDefault(false)
+    logoToneCache[url] = dark
+    return dark
+}
+val WhiteLogoFilter: androidx.compose.ui.graphics.ColorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White)

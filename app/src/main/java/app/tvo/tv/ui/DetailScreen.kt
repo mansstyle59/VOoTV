@@ -128,6 +128,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         value = if (p.type == "movie" && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagaOf(p.type, p.id) else null
     }
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    val logoDark by produceState(false, p.logo) { value = p.logo?.let { logoIsDark(ctx, it) } ?: false }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val mainState = androidx.compose.foundation.lazy.rememberLazyListState()
     // Tant que le focus est sur les boutons du haut, la page reste calée tout en haut (titre jamais coupé)
@@ -181,7 +182,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             item(key = "hero") {
         Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 40.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 48.dp).width(640.dp)) {
-                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(72.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(72.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, colorFilter = if (logoDark) WhiteLogoFilter else null)
                         else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
                         Spacer(Modifier.height(6.dp))
                         // Boutons d'abord (pilule « Regarder » + boutons ronds), comme sur la maquette
