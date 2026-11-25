@@ -5510,7 +5510,11 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
       </div>
       <div class="nf-sheet" id="pSheet" hidden></div>
       <div class="pflash" id="pFlash" hidden></div>`;
-    const useMpv = MPV() && m.type !== "tv";
+    // iPhone : si le format est lisible par Safari (MP4, HLS…), on utilise le lecteur Safari → image dans l'image possible.
+    // Sinon (MKV, DTS, en-têtes…) : moteur MPV. Si Safari échoue, on bascule tout seul sur MPV.
+    const safariOk = (x) => !!x && !x.needsHeaders && !(x.headers && Object.keys(x.headers).length) && /\.(mp4|m4v|mov|m3u8)(\?|$)/i.test(x.url || "")
+      && !/\bmkv\b|\bremux\b|\bdts\b|dts-hd|truehd|\bavi\b/i.test(`${x.name || ""} ${x.title || ""}`);
+    const useMpv = MPV() && m.type !== "tv" && (ctx.forceMpv || !LS.get("pip_auto", true) || !safariOk(s));
     if (useMpv) { $("#vid").remove(); const pp = $("#pPip"); if (pp) pp.remove(); mpvVid = new MpvVideo(); document.documentElement.classList.add("mpv-on"); }
     const video = useMpv ? mpvVid : $("#vid");
     const fmt = (t) => { if (!isFinite(t)) return "En direct"; t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return (h ? h + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0"); };
@@ -5684,7 +5688,9 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     video.addEventListener("ended", () => { save(true); if (m.type === "series" && !ctx.nextCancelled) playNext(ctx); else closePlayer(); });
     let failed = false;
     const fail = (why) => {
-      if (failed || (useMpv ? !video.alive : !document.body.contains(video))) return; failed = true;
+      if (failed || (useMpv ? !video.alive : !document.body.contains(video))) return;
+      if (!useMpv && MPV() && m.type !== "tv" && !ctx.forceMpv) { failed = true; const t = video.currentTime || 0; closePlayer(); openPlayer({ ...ctx, forceMpv: true, start: t > 5 ? t : ctx.start }); return; }
+      failed = true;
       if (useMpv) { video.alive = false; clearInterval(video._poll); }
       const nx = nextSource(s);
       el.insertAdjacentHTML("beforeend", `<div class="err"><div class="card"><b style="font-size:20px">${esc(why)}</b>
