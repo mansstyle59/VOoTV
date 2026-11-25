@@ -1,5 +1,11 @@
 /* Démarrage : utilise la dernière version téléchargée de TVO si elle est plus récente que celle installée. */
 (function () {
+  // Mode clair / sombre appliqué tout de suite, avant l'affichage (pas de flash)
+  try {
+    var m = JSON.parse(localStorage.getItem("tvo.mode") || '"auto"');
+    var light = m === "light" || (m !== "dark" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches);
+    document.documentElement.setAttribute("data-mode", light ? "light" : "dark");
+  } catch (e) { /* sombre par défaut */ }
   var V = window.TVO_VERSION || { code: 0 };
   var b = null;
   try { b = JSON.parse(localStorage.getItem("tvo.bundle") || "null"); } catch (e) { b = null; }

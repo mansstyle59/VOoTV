@@ -1873,3 +1873,265 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
 
 /* Zone de sécurité iPhone : une fois la page défilée, la barre de l'heure et de la batterie est pleine (rien ne passe dessous), avec un fondu léger sous elle */
 body.scrolled-bg::after { background: linear-gradient(180deg, var(--bg) 0, var(--bg) var(--safe-top), rgba(0,0,0,0) 100%) !important; }
+
+/* >>> THEME-CLAIR (généré par mobile/tools/gen-light.py — ne pas modifier à la main) */
+
+html[data-mode="light"] { color-scheme: light; }
+html[data-mode="light"]:root {
+  --bg: #f2f3f6; --panel: #ffffff; --surface: #ffffff; --surface-2: #eceef2; --line: #d8dce3;
+  --text: #12151a; --text-2: #3b434d; --muted: #5d6773;
+  --blue-2: #2563eb; --cyan: #2563c9;
+  --success: #15803d; --danger: #dc2626;
+  --g-fill: linear-gradient(160deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.92) 100%);
+  --g-fill-strong: linear-gradient(160deg, #fff 0%, rgba(255,255,255,.96) 100%);
+  --g-edge: rgba(15,23,42,.10); --g-edge-top: rgba(15,23,42,.14);
+  --g-shine: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(15,23,42,.04);
+  --g-shadow: 0 6px 20px rgba(15,23,42,.08);
+}
+html[data-mode="light"] body, html[data-mode="light"].glass body::before { background: var(--bg); color: var(--text); }
+
+html[data-mode="light"]:root .meta-line .star{color:#997a00}
+html[data-mode="light"]:root .icon-btn{background:rgba(255,255,255,0.85)}
+html[data-mode="light"]:root .desc{color:var(--text-2)}
+html[data-mode="light"]:root .profiles-screen{background:radial-gradient(120% 70% at 50% 0%, var(--panel) 0%, var(--bg) 60%)}
+html[data-mode="light"]:root .toast{background:var(--text);color:#fff}
+html[data-mode="light"]:root .btn.outline{color:var(--text)}
+html[data-mode="light"]:root .tab.active svg{color:var(--text)}
+html[data-mode="light"]:root body{background:radial-gradient(120% 60% at 50% -10%, var(--panel) 0%, var(--bg) 55%) fixed}
+html[data-mode="light"]:root .header.topbar .icon-btn{background:rgba(255,255,255,0.9) !important}
+html[data-mode="light"]:root .nchip{background:rgba(255,255,255,0.9)}
+html[data-mode="light"]:root .section-title a{color:var(--text-2)}
+html[data-mode="light"]:root .lcard .limg{border:1px solid rgba(15,23,42,0.06)}
+html[data-mode="light"]:root .tabs{background:rgba(255,255,255,0.97)}
+html[data-mode="light"]:root body{background:radial-gradient(120% 55% at 50% -10%, var(--panel) 0%, var(--bg) 55%) fixed}
+html[data-mode="light"]:root .icon-btn.round{background:rgba(255,255,255,0.9) !important}
+html[data-mode="light"]:root .dt-body h1{text-shadow:0 2px 18px rgba(15,23,42,0.19)}
+html[data-mode="light"]:root .dt-meta{color:var(--text-2)}
+html[data-mode="light"]:root .dt-meta .sep{background:#c4c9d2}
+html[data-mode="light"]:root .stars{color:#966003}
+html[data-mode="light"]:root .dt-actions button{color:var(--text-2)}
+html[data-mode="light"]:root .dt-tabs button{color:var(--text-2)}
+html[data-mode="light"]:root .dt-tabs button.on{background:var(--text);color:#fff}
+html[data-mode="light"]:root .snum button{color:var(--text-2)}
+html[data-mode="light"]:root .card.info p{color:var(--text-2)}
+html[data-mode="light"]:root .tab.active{color:var(--text)}
+html[data-mode="light"]:root details.sect{border:1px solid rgba(15,23,42,0.06)}
+html[data-mode="light"]:root .tag{color:var(--text-2)}
+html[data-mode="light"]:root .car-bg::after{background:linear-gradient(180deg, rgba(15,23,42,0.14), var(--bg) 92%)}
+html[data-mode="light"]:root .car-info > span{color:var(--text-2)}
+html[data-mode="light"]:root .car-dots i{background:rgba(15,23,42,0.168)}
+html[data-mode="light"]:root .prole.kid{color:#14853d}
+html[data-mode="light"]:root .iconpick{color:var(--text)}
+html[data-mode="light"]:root .pin-pad button{color:var(--text)}
+html[data-mode="light"]:root .sp.fast{color:#14853d}
+html[data-mode="light"]:root .sp.mid{color:#997a00}
+html[data-mode="light"]:root .sp.slow{color:#994500}
+html[data-mode="light"]:root .sp.bad{color:#960303}
+html[data-mode="light"]:root .sp.ext{color:#2457c5}
+html[data-mode="light"]:root .lnow{color:var(--text-2)}
+html[data-mode="light"]:root .hoff .hrow{border-top:1px solid rgba(15,23,42,0.06)}
+html[data-mode="light"]:root .tabs{border:1px solid rgba(15,23,42,0.14);border-top:1px solid rgba(15,23,42,0.22);background:linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.78));box-shadow:0 12px 32px rgba(15,23,42,0.171), inset 0 1px 0 rgba(255,255,255,.12), inset 0 -1px 0 rgba(15,23,42,0.095)}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+html[data-mode="light"]:root .tabs{background:rgba(255,255,255,0.97)}
+}
+html[data-mode="light"]:root .tab{color:var(--muted)}
+html[data-mode="light"]:root .tab.active{color:var(--text);background:linear-gradient(180deg, rgba(15,23,42,0.064), rgba(15,23,42,0.024))}
+html[data-mode="light"]:root .tab:active{background:rgba(15,23,42,0.032)}
+html[data-mode="light"]:root body{background:radial-gradient(120% 55% at 50% -12%, var(--panel) 0%, var(--bg) 58%) fixed}
+html[data-mode="light"]:root .seg.wide button.on{color:var(--text)}
+html[data-mode="light"]:root .card{background-image:linear-gradient(180deg, rgba(15,23,42,0.018), rgba(15,23,42,0));border:1px solid rgba(70,90,140,0.15)}
+html[data-mode="light"]:root details.sect{background-image:linear-gradient(180deg, rgba(15,23,42,0.018), rgba(15,23,42,0));border:1px solid rgba(70,90,140,0.15)}
+html[data-mode="light"]:root details.qgroup{background-image:linear-gradient(180deg, rgba(15,23,42,0.018), rgba(15,23,42,0));border:1px solid rgba(70,90,140,0.15)}
+html[data-mode="light"]:root .tabs{background:linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.8));border-color:rgba(70,90,140,0.24);border-top-color:rgba(15,23,42,0.26)}
+html[data-mode="light"]:root .wn-card{border:1px solid rgba(70,90,140,0.21);box-shadow:0 -10px 40px rgba(15,23,42,0.19)}
+html[data-mode="light"]:root .wn-item p{color:var(--text-2)}
+html[data-mode="light"]:root .as-card{border:1px solid rgba(70,90,140,0.21);box-shadow:0 -10px 40px rgba(15,23,42,0.19)}
+html[data-mode="light"]:root .as-btn:active{background:rgba(15,23,42,0.024)}
+html[data-mode="light"]:root .as-btn.danger{color:#960303}
+html[data-mode="light"]:root .as-btn.danger svg{color:#960303}
+html[data-mode="light"]:root .pstat{background:rgba(15,23,42,0.04);color:var(--text-2)}
+html[data-mode="light"]:root .pstat.admin{color:#2457c5}
+html[data-mode="light"]:root .prole.admin{color:#2457c5}
+html[data-mode="light"]:root .pstat.trial{color:#997a00}
+html[data-mode="light"]:root .prole.trial{color:#997a00}
+html[data-mode="light"]:root .pstat.off{color:#960303}
+html[data-mode="light"]:root .prole.off{color:#960303}
+html[data-mode="light"]:root .pstat.kid{color:#14853d}
+html[data-mode="light"]:root .card.pm .chip:not(.on){background:rgba(15,23,42,0.028);border:1px solid rgba(70,90,140,0.18)}
+html[data-mode="light"]:root .card.pm .btn.sm{background:rgba(15,23,42,0.028);border:1px solid rgba(70,90,140,0.21)}
+html[data-mode="light"]:root .sect-group{border:1px solid rgba(70,90,140,0.15)}
+html[data-mode="light"]:root .sect-group details.sect + details.sect{border-top:1px solid rgba(70,90,140,0.135)}
+html[data-mode="light"]:root .sect-group details.sect[open]{background:rgba(15,23,42,0.01)}
+html[data-mode="light"]:root .sect-body .list > .card + .card{border-top:1px solid rgba(70,90,140,0.12) !important}
+html[data-mode="light"]:root .sect-body .list > .card + .hrow{border-top:1px solid rgba(70,90,140,0.12) !important}
+html[data-mode="light"]:root .sect-body .hrow + .hrow{border-top:1px solid rgba(70,90,140,0.12) !important}
+html[data-mode="light"]:root .sect-body .card.pm{border-top:1px solid rgba(70,90,140,0.12) !important}
+html[data-mode="light"]:root .pin-card{border:1px solid rgba(70,90,140,0.18)}
+html[data-mode="light"]:root .pin-msg.err{color:#960303}
+html[data-mode="light"]:root .pin-dots i{border-color:rgba(70,90,140,0.75)}
+html[data-mode="light"]:root .pin-pad button{background:rgba(15,23,42,0.032);border:1px solid rgba(70,90,140,0.18)}
+html[data-mode="light"]:root .auth-tag{color:var(--text-2)}
+html[data-mode="light"]:root .auth-card{border:1px solid rgba(70,90,140,0.18)}
+html[data-mode="light"]:root .legal p{color:var(--text-2)}
+html[data-mode="light"]:root .card.acc .chip{background:rgba(15,23,42,0.028);border:1px solid rgba(70,90,140,0.18)}
+@media (min-width: 1024px) {
+html[data-mode="light"]:root .tabs{background:linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.55) 70%, rgba(15,23,42,0) 100%)}
+html[data-mode="light"]:root .tab{color:var(--text-2)}
+html[data-mode="light"]:root .tab.desk-only{color:var(--text-2)}
+html[data-mode="light"]:root .tab.active{color:var(--text)}
+html[data-mode="light"]:root .tab:hover{color:var(--text)}
+}
+html[data-mode="light"]:root .aiprev{box-shadow:0 6px 16px rgba(15,23,42,0.133)}
+html[data-mode="light"]:root .acc-seg{background:rgba(15,23,42,0.024);border:1px solid rgba(15,23,42,0.08)}
+html[data-mode="light"]:root .acc-seg button.on{background:rgba(15,23,42,0.056);color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 2px 8px rgba(15,23,42,0.095)}
+html[data-mode="light"]:root .acc-seg i{background:rgba(15,23,42,0.064);color:var(--text)}
+html[data-mode="light"]:root .acc-search{background:rgba(15,23,42,0.024)}
+html[data-mode="light"]:root .acc-group{border:1px solid rgba(15,23,42,0.08)}
+html[data-mode="light"]:root .acc-row + .acc-row{border-top:1px solid rgba(15,23,42,0.07)}
+html[data-mode="light"]:root .acc-st.ok{color:#14853d}
+html[data-mode="light"]:root .acc-st.trial{color:#966c03}
+html[data-mode="light"]:root .acc-st.off{color:#960303}
+html[data-mode="light"]:root .acc-st.admin{color:#2457c5}
+html[data-mode="light"]:root .acc-row[open]{background:rgba(15,23,42,0.012)}
+html[data-mode="light"]:root .acc-dur button{background:rgba(15,23,42,0.032)}
+html[data-mode="light"]:root .acc-link{color:#2457c5}
+html[data-mode="light"]:root .acc-link.danger{color:#960303}
+html[data-mode="light"]:root .acc-empty{background:rgba(15,23,42,0.012)}
+@media (min-width: 1024px) {
+html[data-mode="light"]:root .acc-row summary:hover{background:rgba(15,23,42,0.016)}
+html[data-mode="light"]:root .acc-dur button:hover{background:rgba(15,23,42,0.048)}
+html[data-mode="light"]:root .acc-seg button:not(.on):hover{background:rgba(15,23,42,0.048)}
+}
+html[data-mode="light"]:root .sect-group details.sect + details.sect{border-top:1px solid rgba(15,23,42,0.08)}
+html[data-mode="light"]:root .field{background:rgba(15,23,42,0.024);box-shadow:inset 0 1px 2px rgba(15,23,42,0.095)}
+html[data-mode="light"]:root .field:focus{box-shadow:0 0 0 3px rgba(61,124,255,.28), inset 0 1px 2px rgba(15,23,42,0.095)}
+html[data-mode="light"]:root .tabs{background:linear-gradient(180deg, rgba(255,255,255,0.62), rgba(255,255,255,0.74));border:1px solid rgba(15,23,42,0.16);border-top-color:rgba(15,23,42,0.32);box-shadow:0 14px 36px rgba(15,23,42,0.19), inset 0 1px 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(15,23,42,0.114)}
+html[data-mode="light"]:root .tab{color:#2457c5}
+html[data-mode="light"]:root .tab.active{background:linear-gradient(180deg, rgba(15,23,42,0.132), rgba(15,23,42,0.028))}
+html[data-mode="light"]:root .as-card{background:linear-gradient(170deg, rgba(255,255,255,0.86), rgba(255,255,255,0.92));border:1px solid rgba(15,23,42,0.16);border-top-color:rgba(15,23,42,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 -10px 40px rgba(15,23,42,0.171)}
+html[data-mode="light"]:root .pin-card{background:linear-gradient(170deg, rgba(255,255,255,0.86), rgba(255,255,255,0.92));border:1px solid rgba(15,23,42,0.16);border-top-color:rgba(15,23,42,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 -10px 40px rgba(15,23,42,0.171)}
+html[data-mode="light"]:root .wn-card{background:linear-gradient(170deg, rgba(255,255,255,0.86), rgba(255,255,255,0.92));border:1px solid rgba(15,23,42,0.16);border-top-color:rgba(15,23,42,0.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.2), 0 -10px 40px rgba(15,23,42,0.171)}
+@media (min-width: 1024px) {
+html[data-mode="light"]:root .header.topbar.scrolled{background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.96));border-bottom:1px solid rgba(15,23,42,0.08)}
+html[data-mode="light"]:root .header.homebar.scrolled{background:linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.96));border-bottom:1px solid rgba(15,23,42,0.08)}
+}
+html[data-mode="light"]:root .theme-pick button{background:rgba(15,23,42,0.02)}
+html[data-mode="light"]:root .set-hero{border:1px solid rgba(15,23,42,0.08)}
+html[data-mode="light"]:root .sect-group > * + *{border-top:1px solid rgba(15,23,42,0.08) !important}
+html[data-mode="light"]:root .tvi-code{border:1px solid rgba(70,90,140,0.45)}
+html[data-mode="light"]:root .tv-hint{border-color:rgba(70,90,140,0.675) !important}
+html[data-mode="light"]:root .tv-hint b.big{color:#2457c5}
+html[data-mode="light"]:root .tvl-main{background:linear-gradient(160deg, rgba(15,23,42,0.04), rgba(15,23,42,0.012));border:1px solid rgba(15,23,42,0.14)}
+html[data-mode="light"]:root .tvl-txt ol{color:var(--text-2)}
+html[data-mode="light"]:root .tvl-link{color:#2457c5}
+@media (max-width: 1023px) {
+html[data-mode="light"]:root #app.is-home .car-bg::after{background:linear-gradient(180deg, rgba(15,23,42,0.175) 0%, rgba(15,23,42,0.07) 30%, var(--bg) 94%)}
+html[data-mode="light"]:root body.scrolled-bg #app.is-home .header.homebar{background:linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.72) 70%, rgba(15,23,42,0) 100%) !important}
+html[data-mode="light"]:root body.scrolled-bg:has(#app.is-home)::after{background:rgba(255,255,255,0.92)}
+html[data-mode="light"]:root #app.is-home .homebar h1{text-shadow:0 1px 12px rgba(15,23,42,0.171)}
+html[data-mode="light"]:root #app.is-home .homebar .icon-btn{background:rgba(15,23,42,0.048) !important;border:1px solid rgba(15,23,42,0.22)}
+}
+html[data-mode="light"]:root .tabs{background:linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.66))}
+html[data-mode="light"]:root .card{background:linear-gradient(160deg, rgba(15,23,42,0.04) 0%, rgba(15,23,42,0.014) 55%, rgba(15,23,42,0.01) 100%)}
+html[data-mode="light"]:root .sect-group{background:linear-gradient(160deg, rgba(15,23,42,0.04) 0%, rgba(15,23,42,0.014) 55%, rgba(15,23,42,0.01) 100%)}
+html[data-mode="light"]:root .acc-group{background:linear-gradient(160deg, rgba(15,23,42,0.04) 0%, rgba(15,23,42,0.014) 55%, rgba(15,23,42,0.01) 100%)}
+html[data-mode="light"]:root body.scrolled-bg::after{background:linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 70%, rgba(15,23,42,0) 100%) !important}
+html[data-mode="light"]:root .header.scrolled{background:linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.8) 65%, rgba(15,23,42,0) 100%) !important}
+html[data-mode="light"]:root body.scrolled-bg .header.topbar{background:linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.8) 65%, rgba(15,23,42,0) 100%) !important}
+html[data-mode="light"]:root .header.topbar.scrolled{background:linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.8) 65%, rgba(15,23,42,0) 100%) !important}
+html[data-mode="light"]:root .pv-seg button.on{background:var(--text);color:#fff}
+html[data-mode="light"]:root .dt-actions button{color:rgba(15,23,42,0.836)}
+html[data-mode="light"]:root .dt-actions button svg{background:rgba(15,23,42,0.04);border:1px solid rgba(15,23,42,0.16)}
+html[data-mode="light"]:root .dt-actions button:active svg{background:rgba(15,23,42,0.132)}
+html[data-mode="light"]:root .car-act .btn:not(.primary){background:rgba(15,23,42,0.056);color:var(--text);border:1px solid rgba(15,23,42,0.2)}
+html[data-mode="light"]:root .aw-row img{background:var(--panel)}
+html[data-mode="light"]:root .auth-shade{background:radial-gradient(90% 55% at 50% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0.92) 70%), linear-gradient(180deg, rgba(255,255,255,0.7) 0%, rgba(15,23,42,0.245) 35%, rgba(255,255,255,0.96) 75%)}
+html[data-mode="light"]:root .auth-title{color:var(--text);text-shadow:0 2px 18px rgba(15,23,42,0.228)}
+html[data-mode="light"]:root .auth2 .auth-tag{color:var(--text-2)}
+html[data-mode="light"]:root .auth-pills span{color:var(--text-2);background:rgba(255,255,255,0.85);border:1px solid rgba(70,90,140,0.27)}
+html[data-mode="light"]:root .auth2 .auth-card{background:rgba(255,255,255,0.94) !important;border:1px solid rgba(70,90,140,0.24);box-shadow:0 24px 60px rgba(15,23,42,0.209)}
+html[data-mode="light"]:root .auth-h{color:var(--text)}
+html[data-mode="light"]:root .au-field{background:var(--panel);border:1px solid rgba(70,90,140,0.24)}
+html[data-mode="light"]:root .au-ic{color:#2457c5}
+html[data-mode="light"]:root .au-field input{color:var(--text)}
+html[data-mode="light"]:root .au-field input::placeholder{color:var(--muted)}
+html[data-mode="light"]:root .au-eye{color:#2457c5}
+html[data-mode="light"]:root .au-eye.on{color:var(--text)}
+html[data-mode="light"]:root .auth2 .auth-note{color:#2457c5}
+@media (min-width: 900px) {
+html[data-mode="light"]:root .auth-shade{background:linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 45%, rgba(255,255,255,0.88) 100%)}
+}
+html[data-mode="light"]:root #app .car-bg::before{background:radial-gradient(120% 80% at 50% 35%, transparent 45%, rgba(255,255,255,0.65) 100%)}
+html[data-mode="light"]:root .car-info b{text-shadow:0 2px 16px rgba(15,23,42,0.228)}
+html[data-mode="light"]:root .car-dots i.on{background:rgba(15,23,42,0.168)}
+html[data-mode="light"]:root .btn:not(.primary):not(.danger):not(.blue):not(.accent){background:rgba(15,23,42,0.114) !important;color:var(--text)}
+@media (max-width: 1023px) {
+html[data-mode="light"]:root .tabs{background:linear-gradient(180deg, rgba(255,255,255,0.9) 0%, var(--panel) 38%) !important}
+html[data-mode="light"]:root .tab{color:var(--muted)}
+html[data-mode="light"]:root .tab.active{color:var(--text)}
+html[data-mode="light"]:root .tab.active svg{color:var(--text)}
+}
+html[data-mode="light"]:root .t10 img{box-shadow:0 10px 24px rgba(15,23,42,0.19)}
+html[data-mode="light"]:root .qchip{background:rgba(15,23,42,0.066);color:var(--text-2)}
+html[data-mode="light"]:root .srep{color:#991500}
+html[data-mode="light"]:root .tabs{background:var(--panel) !important}
+html[data-mode="light"]:root .dt-actions button svg{background:rgba(15,23,42,0.064)}
+html[data-mode="light"]:root .car-act .btn:not(.primary){background:rgba(15,23,42,0.064)}
+html[data-mode="light"]:root #rows .section-title a{color:var(--muted)}
+html[data-mode="light"]:root .in-pip{background:var(--panel)}
+html[data-mode="light"]:root .in-pip body{background:var(--panel)}
+html[data-mode="light"]:root .mv-sheet{background:rgba(255,255,255,0.6)}
+html[data-mode="light"]:root .mv-list button{background:rgba(15,23,42,0.02)}
+html[data-mode="light"]:root .card.source .tag{color:var(--text-2)}
+html[data-mode="light"]:root .dt-cta .dt-play{background:var(--text);color:#fff}
+html[data-mode="light"]:root .dt-rb{background:rgba(15,23,42,0.056);border:1px solid rgba(15,23,42,0.22);color:var(--text)}
+html[data-mode="light"]:root .dt-rates .tmdb{color:#2457c5}
+html[data-mode="light"]:root .dt-rates .tmdb i{background:var(--panel);color:#2457c5}
+html[data-mode="light"]:root .dt-rates .imdb{color:#997a00}
+
+/* <<< THEME-CLAIR */
+/* Logo : les lettres « TV » passent en encre sur fond clair */
+html[data-mode="light"] .tvo-logo path[fill="#F3F6FF"] { fill: #12151a; }
+html[data-mode="light"] .splash .tvo-logo path[fill="#F3F6FF"] { fill: #F3F6FF; }
+
+/* ---------- Réglages : choix du mode (Auto / Sombre / Clair) ---------- */
+.mode-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.mode-pick button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border-radius: 12px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 64px; }
+.mode-pick button svg { width: 24px; height: 24px; }
+.mode-pick button.on { background: var(--blue, #3d7cff); color: #fff; box-shadow: 0 4px 14px rgba(61,124,255,.35); }
+.mode-pick button:focus-visible { outline: 2px solid var(--blue-2, #6aa8ff); outline-offset: 2px; }
+.mode-note { margin: 8px 4px 14px; }
+
+/* Cartes en clair : fond blanc franc (le verre translucide n'a de sens que sur fond sombre) */
+html[data-mode="light"]:root :is(.card, .sect-group, .acc-group, .pm, .auth-card, .wn-card, .as-card, .pin-card, .field) { background: #fff; background-image: none; }
+html[data-mode="light"]:root .sect-group details.sect, html[data-mode="light"]:root .sect-group > * { background: transparent; background-image: none; }
+
+/* Voiles derrière les fenêtres : toujours sombres, même en clair */
+html[data-mode="light"]:root .pin-sheet, html[data-mode="light"]:root .wn-sheet, html[data-mode="light"]:root .as-sheet { background: rgba(15,23,42,.5); }
+
+/* Textes posés sur des photos ou des fonds de couleur : toujours blancs, même en clair */
+html[data-mode="light"]:root :is(.hero, .hero2, .hero3, .dhero, .ccard, .colcard, .lscard, .cslide .cmeta, .ktile, .gtile, .cat, .prov, .genre, .splash, #player, .player, .pv-hero, .pv-brand, .ptile) { color: #fff; }
+
+/* Bandeaux photo : le bas se fond dans le fond clair, le haut reste assombri pour les boutons */
+html[data-mode="light"]:root .dt-hero .shade { background: linear-gradient(180deg, rgba(15,23,42,.34) 0%, transparent 26%, rgba(242,243,246,.35) 52%, var(--bg) 90%); }
+html[data-mode="light"]:root .detail-top .shade { background: linear-gradient(180deg, rgba(15,23,42,.38) 0%, transparent 30%, transparent 50%, var(--bg) 92%); }
+html[data-mode="light"]:root .pv-hero .shade, html[data-mode="light"]:root #app:has(.pv2) .pv-hero.pv2 .shade { background: linear-gradient(180deg, rgba(15,23,42,.4) 0%, transparent 30%, rgba(242,243,246,.3) 60%, var(--bg) 92%); }
+html[data-mode="light"]:root .car-bg::after { background: linear-gradient(180deg, rgba(15,23,42,.18), var(--bg) 92%); }
+@media (max-width: 1023px) { html[data-mode="light"]:root #app.is-home .car-bg::after { background: linear-gradient(180deg, rgba(15,23,42,.2) 0%, rgba(15,23,42,.06) 30%, var(--bg) 94%); } }
+@media (min-width: 1024px) { html[data-mode="light"]:root .hero3 .shade { background: linear-gradient(90deg, rgba(6,10,24,.92) 0%, rgba(6,10,24,.55) 35%, rgba(6,10,24,0) 65%), linear-gradient(0deg, #f2f3f6 0%, #f2f3f6 10%, rgba(242,243,246,.85) 24%, rgba(242,243,246,0) 58%); } }
+/* Boutons secondaires posés sur une photo : verre clair, texte blanc */
+html[data-mode="light"]:root :is(.hero, .hero2, .hero3, .dhero, .colcard, .lscard) .btn:not(.primary):not(.blue):not(.accent):not(.danger) { color: #fff; background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.32); }
+
+/* Lecteur vidéo, écran de démarrage et bandeaux photo : ils gardent les couleurs sombres même en mode clair */
+html[data-mode="light"]:root :is(#player, .player, .splash, .tr-sheet, .nf-sheet, .hero, .hero2, .hero3, .dhero, .ccard, .colcard, .lscard, .cslide, .ktile, .gtile, .cat, .prov, .genre) {
+  --bg: #141414; --panel: #181818; --surface: #2b2b2b; --surface-2: #2e3337; --line: #33393e;
+  --text: #f5f6f7; --text-2: #d0d5db; --muted: #a3aab0; --cyan: #8fc2ff; --blue-2: #6aa8ff; color-scheme: dark;
+}
+
+/* Bande de l'heure et de la batterie : si le mode de TVO est l'inverse de celui du téléphone, elle prend la couleur attendue par l'heure */
+html[data-sb="dark"] { --sb-bg: #141414; }
+html[data-sb="light"] { --sb-bg: #f2f3f6; }
+html[data-sb] body::after, html[data-sb] body.scrolled-bg::after, html[data-sb] body.scrolled-bg:has(#app.is-home)::after { background: var(--sb-bg) !important; height: var(--safe-top); }
+
+/* Messages d'erreur écrits en rouge pâle dans le code : rouge plus foncé sur fond clair */
+html[data-mode="light"]:root [style*="#ff8a8a"] { color: #dc2626 !important; }

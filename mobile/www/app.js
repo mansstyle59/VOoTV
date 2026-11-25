@@ -2316,6 +2316,9 @@ var qrcode = function() {
   const VERSION = window.TVO_VERSION || { code: 0, name: "dev", repo: "mansstyle59/VOoTV" };
 
   const ICON = {
+    sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M2 12h2M20 12h2M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400"/></svg>',
+    moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.800A9 9 0 1 1 11.200 3a7 7 0 0 0 9.800 9.800z"/></svg>',
+    sun2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>',
     star: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3 6.5 7 .8-5.2 4.8 1.4 7L12 17.600 5.800 21.100l1.400-7L2 9.300l7-.8z"/></svg>',
     gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-2.500 0-4-1-4-2.500S9.500 3 12 8zm0 0c2.500 0 4-1 4-2.500S14.500 3 12 8z"/></svg>',
     layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>',
@@ -2369,6 +2372,26 @@ var qrcode = function() {
   const theme = () => (LS.get("theme", "glass") === "classic" ? "classic" : "glass");
   function setTheme(t) { LS.set("theme", t); document.documentElement.classList.toggle("glass", t === "glass"); }
   setTheme(theme());
+  /** Mode d'affichage : « auto » (suit l'iPhone / l'ordinateur), « dark » (sombre) ou « light » (clair). */
+  const MODES = ["auto", "dark", "light"];
+  const viewMode = () => { const m = LS.get("mode", "auto"); return MODES.includes(m) ? m : "auto"; };
+  const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+  function applyMode() {
+    const m = viewMode(), light = m === "light" || (m === "auto" && !!(mq && mq.matches));
+    const root = document.documentElement;
+    root.dataset.mode = light ? "light" : "dark";
+    const tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute("content", light ? "#f2f3f6" : "#141414");
+    const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (sb) sb.setAttribute("content", light ? "default" : "black");
+    // L'heure et la batterie de l'iPhone suivent le réglage du téléphone (clair/sombre). Si le mode choisi dans TVO est
+    // l'inverse, on teinte la bande du haut dans la couleur attendue par l'heure pour qu'elle reste lisible.
+    const sysLight = !!(mq && mq.matches);
+    if (light !== sysLight) root.dataset.sb = sysLight ? "light" : "dark"; else delete root.dataset.sb;
+  }
+  function setMode(m) { LS.set("mode", MODES.includes(m) ? m : "auto"); applyMode(); }
+  if (mq) (mq.addEventListener ? mq.addEventListener("change", applyMode) : mq.addListener && mq.addListener(applyMode));
+  applyMode();
 
 
   const GENRES = ["Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Family", "Fantasy",
@@ -5148,7 +5171,10 @@ var qrcode = function() {
       <p class="pad small muted" style="margin-top:-4px">Choisis les rangées affichées et leur ordre. Chaque catalogue d'add-on peut devenir une rangée.</p>
       <div class="list" id="homeEd"></div>
       <h2 class="section-title section"><span>Apparence</span></h2>
-      <div class="list"><div class="theme-pick" id="themePick">
+      <div class="list"><div class="mode-pick" id="modePick" role="radiogroup" aria-label="Mode d'affichage">
+        ${[["auto", "Auto", ICON.sun2], ["dark", "Sombre", ICON.moon], ["light", "Clair", ICON.sun]].map(([k, l, ic]) => `<button role="radio" aria-checked="${viewMode() === k}" class="${viewMode() === k ? "on" : ""}" data-mode="${k}">${ic}<span>${l}</span></button>`).join("")}</div>
+      <p class="small muted mode-note">Auto suit le réglage de ton téléphone ou de ton ordinateur.</p>
+      <div class="theme-pick" id="themePick">
         <button class="t-glass ${theme() === "glass" ? "on" : ""}" data-theme="glass"><i></i>Liquid Glass</button>
         <button class="t-classic ${theme() === "classic" ? "on" : ""}" data-theme="classic"><i></i>Classique</button></div></div>
       ${APPICON() ? `<h2 class="section-title section"><span>Icône de l'appli</span></h2>
@@ -5159,6 +5185,8 @@ var qrcode = function() {
       <div class="legal-links pad"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions d'utilisation</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div>`;
       makeCollapsible(app, acct() ? [] : ["Compte"]);
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
+      $("#modePick").addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (!b) return; setMode(b.dataset.mode);
+        $("#modePick").querySelectorAll("[data-mode]").forEach((x) => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); }); });
       $("#themePick").addEventListener("click", (e) => { const b = e.target.closest("[data-theme]"); if (!b) return; setTheme(b.dataset.theme);
         $("#themePick").querySelectorAll("[data-theme]").forEach((x) => x.classList.toggle("on", x === b)); });
       const drawHome = () => {
