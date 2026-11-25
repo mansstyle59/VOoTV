@@ -166,13 +166,13 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
+        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 40.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 48.dp).width(640.dp)) {
-                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(72.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
                         else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(6.dp))
                         // Boutons d'abord (pilule « Regarder » + boutons ronds), comme sur la maquette
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             PillButton(if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) "Reprendre" else "Regarder", {
                                 if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
@@ -194,26 +194,26 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                 }
                             }
                         }
-                        if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 12.dp), fontSize = 14.sp, color = TvoColors.Text, maxLines = 1)
+                        if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val tm = meta.extra["tmdb"]
-                        if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (tm != null) Text("TMDB  " + tm.substringBefore(",") + "%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                             if (!p.imdbRating.isNullOrBlank()) Text("★ " + p.imdbRating, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                         }
-                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 10.dp), fontSize = 14.sp,
-                            color = Color.White.copy(alpha = 0.92f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
+                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 6.dp), fontSize = 13.sp,
+                            color = Color.White.copy(alpha = 0.92f), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
                         if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
                         val gl = p.genres.take(3).joinToString(" • ") { genreLabel(it) }
                         val dl = meta.extra["date"] ?: p.releaseInfo
-                        if (gl.isNotBlank() || dl != null) Text(listOfNotNull(gl.ifBlank { null }, dl).joinToString(" • "), Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1)
-                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (gl.isNotBlank() || dl != null) Text(listOfNotNull(gl.ifBlank { null }, dl).joinToString(" • "), Modifier.padding(top = 4.dp), fontSize = 12.sp, color = TvoColors.Muted, maxLines = 1)
+                        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                             meta.extra["cert"]?.let { Badge(it) }
                             val info = listOfNotNull(meta.extra["status"], meta.runtime, meta.extra["country"], meta.extra["lang"]).joinToString(" • ")
                             if (info.isNotBlank()) Text(info, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, maxLines = 1)
                         }
                         if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                             val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
-                            Text("Il reste $left min", Modifier.padding(top = 8.dp), fontSize = 13.sp, color = TvoColors.Muted)
+                            Text("Il reste $left min", Modifier.padding(top = 4.dp), fontSize = 12.sp, color = TvoColors.Muted)
                         }
                     }
         }
