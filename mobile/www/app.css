@@ -1848,3 +1848,19 @@ details.qgroup summary b { font-size: var(--title-size); font-weight: 700; }
 /* Page Kids : filtres par thème */
 .kchips { margin: 4px 0 var(--sp-title, 12px); }
 .kchips .chip { flex: none; white-space: nowrap; }
+
+/* Page Kids : tuiles thématiques avec icônes */
+.ktiles { display: flex; gap: 10px; overflow-x: auto; padding: 4px var(--pad) 14px; scrollbar-width: none; }
+.ktiles::-webkit-scrollbar { display: none; }
+.ktile { flex: none; width: 128px; height: 84px; border-radius: var(--r-card, 14px); padding: 8px 10px; text-align: left; color: #fff; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between; border: 2px solid transparent;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--kc) 70%, #000) 0%, color-mix(in srgb, var(--kc) 22%, #101218) 100%); }
+.ktile .ke { font-size: 28px; line-height: 1; } .ktile b { font-size: 13px; font-weight: 800; line-height: 1.15; }
+.ktile.on { border-color: #fff; box-shadow: 0 0 0 2px var(--kc); }
+.kemo { margin-right: 6px; font-size: 1.05em; }
+@media (min-width: 1024px) {
+  .ktiles { flex-wrap: wrap; overflow: visible; gap: 14px; padding: 8px var(--pad) 22px; }
+  .ktile { width: 190px; height: 112px; padding: 12px 14px; transition: transform .15s; cursor: pointer; }
+  .ktile .ke { font-size: 40px; } .ktile b { font-size: 16px; }
+  .ktile:hover { transform: translateY(-3px); }
+}

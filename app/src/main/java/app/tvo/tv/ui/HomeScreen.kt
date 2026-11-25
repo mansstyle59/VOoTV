@@ -415,8 +415,11 @@ fun BrowseSection(type: String?, nav: Nav) {
     val library by store.library.collectAsState()
     val home by store.home.collectAsState()
     val kidsPage = type == "kids"
-    val rows = remember(addons, type, home) {
-        if (kidsPage) buildRows(addons, null, true).filter { it.cat.id.startsWith("kids") }
+    var kidsFilter by remember { mutableStateOf("all") }
+    val rows = remember(addons, type, home, kidsFilter) {
+        if (kidsPage) buildRows(addons, null, true).filter { r ->
+            r.cat.id.startsWith("kids") && (kidsFilter == "all" || KIDS_TILES.firstOrNull { it.key == kidsFilter }?.ids?.contains(r.cat.id) == true)
+        }
         else buildRows(addons, type).let { if (type == null) applyHome(it, home) else it }
     }
     val seen = remember(rows) { SeenRows() }
@@ -453,11 +456,13 @@ fun BrowseSection(type: String?, nav: Nav) {
             }
         }
         if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { PortraitPanel("Ma liste", lib.map { it.toPreview() }, nav) }
+        if (kidsPage) item(key = "kidstiles") { KidsTiles(kidsFilter) { kidsFilter = it } }
+        if (kidsPage && (kidsFilter == "all" || kidsFilter == "sagas")) item(key = "sagas") { SagaTiles(nav) }
         if (!kidsPage && "top10" !in hidden) item(key = "top10") { Top10Row(type, nav) }
         if (type == null && "genres" !in hidden) item(key = "genres") { GenreTiles(nav) { } }
         if (type == null && "collections" !in hidden) item(key = "sagas") { SagaTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav, seen) }
-        if (rows.isEmpty()) item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
+        if (rows.isEmpty() && kidsFilter != "sagas") item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
     }
 }
 
@@ -600,6 +605,48 @@ private fun GenreTiles(nav: Nav, onFocus: () -> Unit) {
                             Spacer(Modifier.height(6.dp))
                             Text(genreLabel(g), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                    }
+                }
+            } }
+        }
+    }
+}
+
+private class KidsTile(val key: String, val label: String, val emoji: String, val color: Long, val ids: List<String>)
+private val KIDS_TILES = listOf(
+    KidsTile("all", "Tout", "🌈", 0xFF3D7CFF, emptyList()),
+    KidsTile("new", "Nouveautés", "🎬", 0xFFEF4444, listOf("kids_new")),
+    KidsTile("tiny", "Tout-petits", "🧸", 0xFFF59E0B, listOf("kids_tiny")),
+    KidsTile("anim", "Animation", "🎨", 0xFFA855F7, listOf("kids_anim", "kids_tv")),
+    KidsTile("fam", "En famille", "🏠", 0xFF22C55E, listOf("kids", "kids_fun", "kids_adv")),
+    KidsTile("plat", "Disney · Netflix · Prime", "🏰", 0xFF0EA5E9, listOf("kids_disney", "kids_netflix", "kids_prime")),
+    KidsTile("sagas", "Sagas", "⭐", 0xFFEC4899, listOf("none")),
+)
+
+/** Tuiles thématiques de la page Kids : un appui filtre les rangées par thème. */
+@Composable
+private fun KidsTiles(selected: String, onPick: (String) -> Unit) {
+    PanelSection("Choisis un thème") {
+        val rf = rememberRowFocus()
+        LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            itemsIndexed(KIDS_TILES) { i, t -> RowItem(rf, i) {
+                val shape = RoundedCornerShape(16.dp)
+                val c = Color(t.color)
+                val on = t.key == selected
+                Surface(
+                    onClick = { onPick(t.key) },
+                    modifier = Modifier.width(170.dp).height(110.dp),
+                    shape = ClickableSurfaceDefaults.shape(shape),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    border = ClickableSurfaceDefaults.border(
+                        border = if (on) Border(BorderStroke(3.dp, c), shape = shape) else Border.None,
+                        focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, focusedContainerColor = TvoColors.Surface),
+                ) {
+                    Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to c.copy(alpha = if (on) 0.85f else 0.55f), 1f to c.copy(alpha = 0.18f)))) {
+                        Text(t.emoji, Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 8.dp), fontSize = 38.sp)
+                        Text(t.label, Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 8.dp), fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
             } }

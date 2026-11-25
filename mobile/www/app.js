@@ -3752,7 +3752,8 @@ var qrcode = function() {
       <span class="nimg">${m.background || m.poster ? `<img src="${esc(m.background || m.poster)}" alt="" loading="lazy" onerror="this.remove()">` : ""}</span>
       <span class="nshade"></span><span class="ninfo"><b>${esc(m.name)}</b><span>${[m.releaseInfo, m.imdbRating ? "★ " + m.imdbRating : "", (m.genres || []).slice(0, 2).map(genreLabel).join(" · ")].filter(Boolean).map(esc).join("  ·  ")}</span></span></button>`;
   const isLandRow = (title) => /^(Nouv|Dernier|Actuellement|Bientôt)/.test(title);
-  const rowIcon = (title) => /top 10/i.test(title) ? ICON.trophy : /halloween/i.test(title) ? ICON.ghost : /no[eë]l|nouvel an|p[aâ]ques|valentin|vacances/i.test(title) ? ICON.gift
+  const KIDS_EMO = [[/tout-petits/i, "🧸"], [/disney/i, "🏰"], [/netflix|prime/i, "🍿"], [/animation|dessins/i, "🎨"], [/aventure/i, "🧭"], [/com[eé]die/i, "😄"], [/nouveaux/i, "🎬"], [/s[eé]ries/i, "📺"], [/enfants|famille/i, "🌈"]];
+  const rowIcon = (title) => (document.querySelector(".kidspage") && (KIDS_EMO.find(([r]) => r.test(title)) || [])[1]) ? `<span class="kemo">${KIDS_EMO.find(([r]) => r.test(title))[1]}</span>` : /top 10/i.test(title) ? ICON.trophy : /halloween/i.test(title) ? ICON.ghost : /no[eë]l|nouvel an|p[aâ]ques|valentin|vacances/i.test(title) ? ICON.gift
     : /saga|collection/i.test(title) ? ICON.layers : /cat[eé]gor/i.test(title) ? ICON.grid : /mini/i.test(title) ? ICON.list
     : /s[eé]ries?/i.test(title) ? ICON.series : /tendance|populaire|nouveaut/i.test(title) ? ICON.trend : /^(Nouv|Dernier|Actuellement|Bient)/.test(title) ? ICON.star
     : /chaîne|sport|jeunesse/i.test(title) ? ICON.live : ICON.movie;
@@ -4075,12 +4076,13 @@ var qrcode = function() {
   /** Page Kids : films et dessins animés récents pour les enfants (peu de séries, beaucoup de films). */
   function screenKids() {
     setTabs("kids");
-    const GROUPS = [["all", "Tout", null], ["new", "Nouveautés", ["kids_new"]], ["tiny", "Tout-petits", ["kids_tiny"]], ["anim", "Animation", ["kids_anim", "kids_tv"]],
-      ["fam", "En famille", ["kids", "kids_fun", "kids_adv"]], ["plat", "Disney · Netflix · Prime", ["kids_disney", "kids_netflix", "kids_prime"]], ["sagas", "Sagas", []]];
+    const GROUPS = [["all", "Tout", null, "🌈", "#3d7cff"], ["new", "Nouveautés", ["kids_new"], "🎬", "#ef4444"], ["tiny", "Tout-petits", ["kids_tiny"], "🧸", "#f59e0b"],
+      ["anim", "Animation", ["kids_anim", "kids_tv"], "🎨", "#a855f7"], ["fam", "En famille", ["kids", "kids_fun", "kids_adv"], "🏠", "#22c55e"],
+      ["plat", "Disney · Netflix · Prime", ["kids_disney", "kids_netflix", "kids_prime"], "🏰", "#0ea5e9"], ["sagas", "Sagas", [], "⭐", "#ec4899"]];
     const st = { f: "all" };
     const allRows = buildRows(null, true).filter((r) => String(r.c.id).startsWith("kids"));
     app.innerHTML = topBar("Kids") + `<div class="kidspage"><div id="hero"></div>
-      <div class="chips kchips">${GROUPS.map(([k, t]) => `<button class="chip ${k === "all" ? "on" : ""}" data-k="${k}">${t}</button>`).join("")}</div>
+      <div class="ktiles">${GROUPS.map(([k, t, , e, c]) => `<button class="ktile ${k === "all" ? "on" : ""}" data-k="${k}" style="--kc:${c}"><span class="ke">${e}</span><b>${t}</b></button>`).join("")}</div>
       <div id="rows"></div></div>`;
     const rowsEl = $("#rows");
     let heroDone = false;
