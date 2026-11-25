@@ -317,8 +317,8 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                         else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
                     if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("TMDB", Modifier.clip(RoundedCornerShape(4.dp)).background(Color(0xFF01B4E4)).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0D253F))
-                        Text("  ★ ${m.imdbRating}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFACC15))
+                        Text("TMDB", Modifier.clip(RoundedCornerShape(4.dp)).background(TvoColors.Blue).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("  ★ ${m.imdbRating}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                     }
                     if (!m.description.isNullOrBlank()) Text(m.description, Modifier.padding(top = 8.dp), fontSize = 13.sp,
                         color = TvoColors.Text.copy(alpha = 0.85f), maxLines = if (inRows) 4 else 2, overflow = TextOverflow.Ellipsis, lineHeight = 18.sp)
@@ -484,7 +484,7 @@ internal fun titleIcon(t: String): ImageVector? = when {
 fun PanelSection(title: String, action: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().height(36.dp).padding(start = 48.dp, end = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            titleIcon(title)?.let { Icon(it, null, Modifier.size(20.dp), tint = TvoColors.Blue); Spacer(Modifier.width(10.dp)) }
+            titleIcon(title)?.let { Icon(it, null, Modifier.size(20.dp), tint = TvoColors.Cyan); Spacer(Modifier.width(10.dp)) }
             Text(title, fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, letterSpacing = (-0.2).sp)
             Spacer(Modifier.weight(1f))
             action?.invoke()
@@ -615,7 +615,7 @@ private fun GenreTiles(nav: Nav, type: String = "movie", onFocus: () -> Unit) {
 
 private class KidsTile(val key: String, val label: String, val emoji: String, val color: Long, val ids: List<String>)
 private val KIDS_TILES = listOf(
-    KidsTile("all", "Tout", "🌈", 0xFF3D7CFF, emptyList()),
+    KidsTile("all", "Tout", "🌈", 0L, emptyList()),
     KidsTile("new", "Nouveautés", "🎬", 0xFFEF4444, listOf("kids_new")),
     KidsTile("tiny", "Tout-petits", "🧸", 0xFFF59E0B, listOf("kids_tiny")),
     KidsTile("anim", "Animation", "🎨", 0xFFA855F7, listOf("kids_anim", "kids_tv")),
@@ -632,7 +632,7 @@ private fun KidsTiles(selected: String, onPick: (String) -> Unit) {
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             itemsIndexed(KIDS_TILES) { i, t -> RowItem(rf, i) {
                 val shape = RoundedCornerShape(16.dp)
-                val c = Color(t.color)
+                val c = if (t.color == 0L) TvoColors.Blue else Color(t.color)
                 val on = t.key == selected
                 Surface(
                     onClick = { onPick(t.key) },
@@ -749,7 +749,7 @@ fun MetaLine(type: String, year: String?, rating: String?, genres: List<String>,
             .padding(horizontal = 8.dp, vertical = 2.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
         if (!year.isNullOrBlank()) Text(year, fontSize = 15.sp, color = TvoColors.Text)
         if (!rating.isNullOrBlank()) Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Star, null, Modifier.size(16.dp), tint = Color(0xFFFACC15))
+            Icon(Icons.Default.Star, null, Modifier.size(16.dp), tint = TvoColors.Cyan)
             Text(" $rating", fontSize = 15.sp, color = TvoColors.Text)
         }
         if (!runtime.isNullOrBlank()) Text(runtime, fontSize = 15.sp, color = TvoColors.Text)

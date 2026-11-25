@@ -194,7 +194,7 @@ fun LoadingRow(title: String) {
 }
 
 /** Fond coloré commun aux pages (plus de navy plat) : teinte d'accent en haut à gauche, lueur opposée en bas à droite. */
-fun tvoBrush(accent: Color, accent2: Color = Color(0xFF0EA5E9)): androidx.compose.ui.graphics.Brush =
+fun tvoBrush(accent: Color, accent2: Color = TvoColors.Blue): androidx.compose.ui.graphics.Brush =
     androidx.compose.ui.graphics.Brush.linearGradient(
         colors = listOf(accent.copy(alpha = 0.5f), Color(0xFF141414), accent2.copy(alpha = 0.32f)),
         start = androidx.compose.ui.geometry.Offset(0f, 0f), end = androidx.compose.ui.geometry.Offset(1600f, 1000f))

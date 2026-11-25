@@ -193,8 +193,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 12.dp), fontSize = 14.sp, color = TvoColors.Text, maxLines = 1)
                         val tm = meta.extra["tmdb"]
                         if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (tm != null) Text("TMDB  " + tm.substringBefore(",") + "%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF01B4E4))
-                            if (!p.imdbRating.isNullOrBlank()) Text("★ " + p.imdbRating, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFACC15))
+                            if (tm != null) Text("TMDB  " + tm.substringBefore(",") + "%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
+                            if (!p.imdbRating.isNullOrBlank()) Text("★ " + p.imdbRating, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                         }
                         if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 10.dp), fontSize = 14.sp,
                             color = Color.White.copy(alpha = 0.92f), maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 21.sp)
