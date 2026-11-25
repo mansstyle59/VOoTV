@@ -102,7 +102,12 @@ class MpvPlayerActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         req = Json.decodeFromString(intent.getStringExtra(EXTRA) ?: run { finish(); return })
 
-        MPVLib.create(applicationContext)
+        try { MPVLib.create(applicationContext) } catch (e: Throwable) {
+            // Bibliothèque MPV incompatible avec ce boîtier : lecteur VLC à la place, et on ne réessaie plus MPV
+            MpvGuard.markBroken(applicationContext)
+            VlcPlayerActivity.start(this, req)
+            finish(); return
+        }
         // Réglages repris de Nuvio : sans « opengl-es », l'image ne s'affiche pas sur beaucoup de boîtiers
         MPVLib.setOptionString("profile", "fast")
         MPVLib.setOptionString("vo", "gpu")

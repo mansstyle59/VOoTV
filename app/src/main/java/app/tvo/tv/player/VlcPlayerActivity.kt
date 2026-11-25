@@ -238,7 +238,7 @@ class VlcPlayerActivity : ComponentActivity() {
                         Text("Lecture impossible", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text(msg, fontSize = 16.sp, color = TvoColors.Muted)
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            if (android.os.Build.VERSION.SDK_INT >= 26) TvoButton("Essayer avec MPV", { MpvPlayerActivity.start(this@VlcPlayerActivity, req.copy(startPosition = maxOf(position, req.startPosition))); finish() }, Modifier.focusRequester(fr), primary = true)
+                            if (android.os.Build.VERSION.SDK_INT >= 26 && !MpvGuard.broken(this@VlcPlayerActivity)) TvoButton("Essayer avec MPV", { MpvPlayerActivity.start(this@VlcPlayerActivity, req.copy(startPosition = maxOf(position, req.startPosition))); finish() }, Modifier.focusRequester(fr), primary = true)
                             TvoButton("Retour", { finish() }, if (android.os.Build.VERSION.SDK_INT >= 26) Modifier else Modifier.focusRequester(fr))
                         }
                     }

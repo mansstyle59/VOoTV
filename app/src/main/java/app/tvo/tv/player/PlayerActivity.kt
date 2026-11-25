@@ -101,7 +101,7 @@ class PlayerActivity : ComponentActivity() {
         fun start(ctx: Context, req: PlayRequest) {
             // RTSP (Freebox), AVI, WMV, TS… : directement le lecteur VLC intégré
             val engine = app.tvo.tv.Tvo.store.engine.value
-            if (engine == "mpv" && android.os.Build.VERSION.SDK_INT >= 26) { MpvPlayerActivity.start(ctx, req); return }
+            if (engine == "mpv" && android.os.Build.VERSION.SDK_INT >= 26 && !MpvGuard.broken(ctx)) { MpvPlayerActivity.start(ctx, req); return }
             if (engine == "vlc" || Regex("^rtsp:|\\.(avi|wmv|flv|ts)(\\?|$)", RegexOption.IGNORE_CASE).containsMatchIn(req.url)) {
                 VlcPlayerActivity.start(ctx, req); return
             }
@@ -111,7 +111,7 @@ class PlayerActivity : ComponentActivity() {
 
     /** Lecteur de secours : MPV (Android 8+), sinon VLC. */
     private fun fallbackPlayer(r: PlayRequest) {
-        if (android.os.Build.VERSION.SDK_INT >= 26) MpvPlayerActivity.start(this, r) else VlcPlayerActivity.start(this, r)
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !MpvGuard.broken(this)) MpvPlayerActivity.start(this, r) else VlcPlayerActivity.start(this, r)
     }
 
     private lateinit var player: ExoPlayer
