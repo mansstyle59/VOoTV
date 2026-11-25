@@ -316,6 +316,18 @@ object Tmdb {
             .awaitAll().filterNotNull()
     }
 
+    private val KIDS_SAGAS = listOf("Toy Story", "Shrek", "L'Âge de glace", "Moi, moche et méchant", "Madagascar", "Kung Fu Panda", "Cars", "Le Monde de Nemo",
+        "Les Indestructibles", "Dragons", "Hôtel Transylvanie", "Paddington", "Le Livre de la jungle", "Les Minions", "Les Schtroumpfs", "Garfield", "La Nuit au musée", "Le Monde de Narnia", "Jumanji")
+
+    /** Sagas adaptées aux enfants (page Kids). */
+    suspend fun kidsSagas(): List<Saga> = coroutineScope {
+        KIDS_SAGAS.map { q -> async { runCatching {
+            val o = get("/search/collection", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject }
+                ?.firstOrNull { !it.s("poster_path").isNullOrBlank() && !it.s("backdrop_path").isNullOrBlank() }
+            o?.let { r -> r.i("id")?.let { saga(r, it.toString()) } } }.getOrNull() } }
+            .awaitAll().filterNotNull().distinctBy { it.id }
+    }
+
     suspend fun searchSagas(q: String): List<Saga> = runCatching {
         get("/search/collection", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject }
             ?.filter { !it.s("poster_path").isNullOrBlank() }?.take(10)

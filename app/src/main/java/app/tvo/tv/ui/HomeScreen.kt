@@ -457,7 +457,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         }
         if (lib.isNotEmpty() && "library" !in hidden) item(key = "library") { PortraitPanel("Ma liste", lib.map { it.toPreview() }, nav) }
         if (kidsPage) item(key = "kidstiles") { KidsTiles(kidsFilter) { kidsFilter = it } }
-        if (kidsPage && (kidsFilter == "all" || kidsFilter == "sagas")) item(key = "sagas") { SagaTiles(nav) }
+        if (kidsPage && (kidsFilter == "all" || kidsFilter == "sagas")) item(key = "sagas") { SagaTiles(nav, kids = true) }
         if (!kidsPage && "top10" !in hidden) item(key = "top10") { Top10Row(type, nav) }
         if (!kidsPage && (type != null || "genres" !in hidden)) item(key = "genres") { GenreTiles(nav, type ?: "movie") { } }
         if ((type == null && "collections" !in hidden) || type == "movie") item(key = "sagas") { SagaTiles(nav) }
@@ -655,11 +655,11 @@ private fun KidsTiles(selected: String, onPick: (String) -> Unit) {
 }
 
 @Composable
-private fun SagaTiles(nav: Nav) {
+private fun SagaTiles(nav: Nav, kids: Boolean = false) {
     val select = LocalSelect.current
-    val sagas by produceState<List<app.tvo.tv.data.Tmdb.Saga>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagas() else emptyList() }
+    val sagas by produceState<List<app.tvo.tv.data.Tmdb.Saga>>(emptyList()) { value = if (app.tvo.tv.data.Tmdb.enabled) (if (kids) app.tvo.tv.data.Tmdb.kidsSagas() else app.tvo.tv.data.Tmdb.sagas()) else emptyList() }
     if (sagas.isEmpty()) return
-    PanelSection("Sagas et collections") {
+    PanelSection(if (kids) "Sagas pour enfants" else "Sagas et collections") {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             itemsIndexed(sagas, key = { _, sg -> sg.id }) { i, sg -> RowItem(rf, i) {

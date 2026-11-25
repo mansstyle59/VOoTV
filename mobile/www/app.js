@@ -4089,7 +4089,7 @@ var qrcode = function() {
     const sagas = () => {
       if (!tmdbOn()) return;
       const cs = document.createElement("section"); cs.className = "section";
-      cs.innerHTML = `<h2 class="section-title"><span class="st plain">Sagas pour enfants</span><a href="#/collections">Tout voir →</a></h2><div class="row colrow" id="colrow"></div>`;
+      cs.innerHTML = `<h2 class="section-title"><span class="st plain">Sagas pour enfants</span><a href="#/collections/kids">Tout voir →</a></h2><div class="row colrow" id="colrow"></div>`;
       rowsEl.insertBefore(cs, st.f === "all" ? rowsEl.children[2] || null : rowsEl.firstChild);
       loadCollections((list) => { const r = $("#colrow"); if (r) r.innerHTML = list.slice(0, 24).map(colCard).join(""); }, true);
     };
@@ -4228,7 +4228,9 @@ var qrcode = function() {
     await Promise.all([worker(), worker(), worker(), worker()]);
     if (changed || todo.length) { LS.set("collections", COLS); onUpdate(pick()); }
   }
-  function screenCollections() {
+  function screenCollections(a) {
+    const kidsOnly = a === "kids" || !!(S.profile && S.profile.kids);
+    if (kidsOnly) setTimeout(() => { const h = app.querySelector("h1"); if (h) h.textContent = "Sagas pour enfants"; }, 0);
     setTabs("discover");
     app.innerHTML = header("Sagas et collections", `<button class="icon-btn" onclick="history.back()" aria-label="Retour">${ICON.back}</button>`)
       + `<div class="pad"><input class="field" id="cq" type="search" placeholder="Chercher une saga (Toy Story, Fast & Furious…)" autocomplete="off"></div><div class="colgrid pad" id="cg"><div class="empty small">Chargement…</div></div>`;
@@ -4244,7 +4246,7 @@ var qrcode = function() {
           draw(); } catch {}
       }, 400);
     });
-    loadCollections((l) => { all = [...l].sort((a, b) => a.n.localeCompare(b.n, "fr")); draw(); }, S.profile && S.profile.kids);
+    loadCollections((l) => { all = [...l].sort((a, b) => a.n.localeCompare(b.n, "fr")); draw(); }, kidsOnly);
   }
   async function screenCollection(id) {
     setTabs("discover");
@@ -5935,7 +5937,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
       case "discover": return screenDiscover();
       case "person": return screenPerson(a);
       case "provider": return screenProvider(a);
-      case "collections": return screenCollections();
+      case "collections": return screenCollections(a);
       case "collection": return screenCollection(a);
       case "catalog": return screenCatalog(a);
       case "series": return screenBrowse("series");
