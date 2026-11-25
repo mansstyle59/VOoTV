@@ -6014,7 +6014,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   // ------------------------------------------------------------------ démarrage
   const cur = LS.get("current", null);
   const curP = S.profiles.find((p) => p.id === cur);
-  if (curP && S.profiles.length === 1) selectProfile(curP);
+  if (curP) selectProfile(curP); // téléphone : reprend le dernier profil utilisé (la télé, elle, redemande toujours)
   window.addEventListener("hashchange", route);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { const el = $("#player"); if (el._save && !el.hidden) el._save(); syncNow(); }
