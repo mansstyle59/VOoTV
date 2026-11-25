@@ -5830,6 +5830,8 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
 
     const [page, a, b, c] = parts;
     window.scrollTo(0, 0);
+    // Transition douce entre les pages : simple fondu court (pas de flash, pas de glissement)
+    app.classList.remove("pg-in"); void app.offsetWidth; app.classList.add("pg-in");
     if (page === "legal") return screenLegal(a);
     if (!acct() || !(acct().token || acct().device)) return screenAuth();
     if (!acctOk()) return screenBlocked();

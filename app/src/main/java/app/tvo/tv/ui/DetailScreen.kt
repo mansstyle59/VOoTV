@@ -167,7 +167,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             item(key = "hero") {
         Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 48.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
-                    Column(Modifier.padding(start = 56.dp).width(640.dp)) {
+                    Column(Modifier.padding(start = 48.dp).width(640.dp)) {
                         if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(84.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
                         else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
                         Spacer(Modifier.height(10.dp))
@@ -221,15 +221,15 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 var tab by remember(p.id) { mutableStateOf(0) }
                 val labels = buildList { if (meta.people.isNotEmpty()) add("Créateur et distribution"); if (similar.isNotEmpty()) add(if (p.type == "series") "Séries similaires" else "Similaires"); if (trailer != null) add("Bande-annonce") }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(Modifier.padding(start = 56.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                    Row(Modifier.padding(start = 48.dp), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
                         labels.forEachIndexed { i, l -> TabLabel(l, i == tab) { tab = i } }
                     }
                     when (labels.getOrNull(tab)) {
-                        "Créateur et distribution" -> LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        "Créateur et distribution" -> LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                             items(meta.people, key = { it.id }) { person -> PersonBubble(person) { nav.openPerson(person.id) } }
                         }
-                        "Bande-annonce" -> Row(Modifier.padding(start = 56.dp, top = 6.dp)) { TvoButton("Lancer la bande-annonce", { trailerMode = 1 }, icon = Icons.Default.PlayArrow) }
-                        else -> LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        "Bande-annonce" -> Row(Modifier.padding(start = 48.dp, top = 6.dp)) { TvoButton("Lancer la bande-annonce", { trailerMode = 1 }, icon = Icons.Default.PlayArrow) }
+                        else -> LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                             items(similar, key = { it.id }) { m -> PosterCard(m, { nav.openMeta(m) }, width = 136.dp) }
                         }
                     }
@@ -237,7 +237,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             }
             if (seasons.isNotEmpty()) {
                 item {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         items(seasons) { s -> Chip(if (s == 0) "Bonus" else "Saison $s", s == season, { season = s }) }
                     }
                 }
@@ -245,19 +245,19 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     val eps = meta.episodes.filter { it.season == season }
                     val startIndex = eps.indexOfFirst { it.id == target }.coerceAtLeast(0)
                     val listState = rememberLazyListState(startIndex)
-                    LazyRow(state = listState, contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    LazyRow(state = listState, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         items(eps, key = { it.id }) { v -> EpisodeCard(v, p.background ?: p.poster, progress.firstOrNull { it.videoId == v.id }) { nav.openStreams(p.type, p.id, v.id) } }
                     }
                     val current = eps.getOrNull(startIndex)
-                    if (current?.overview != null) Text(current.overview, Modifier.padding(start = 56.dp, top = 4.dp).width(700.dp),
+                    if (current?.overview != null) Text(current.overview, Modifier.padding(start = 48.dp, top = 4.dp).width(700.dp),
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
             saga?.let { sg -> item(key = "saga") {
                 val nm = sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim()
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("$nm - Saga", Modifier.padding(start = 56.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 56.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("$nm - Saga", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    LazyRow(contentPadding = PaddingValues(horizontal = 48.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         itemsIndexed(sg.second, key = { _, m -> m.id }) { i, m ->
                             Column(Modifier.width(280.dp)) {
                                 WideCard(image = m.background ?: m.poster, title = m.name,

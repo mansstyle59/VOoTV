@@ -113,7 +113,12 @@ private fun AppNav() {
     val nav = remember(nc) { navFor(nc) }
     QuickMenu.nav = nav
     LaunchedEffect(Unit) { refreshAddons() }
-    NavHost(nc, startDestination = "splash") {
+    // Transitions entre pages : fondu court et calme (par défaut, Android fait un fondu lent de 0,7 s)
+    NavHost(nc, startDestination = "splash",
+        enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(170)) },
+        exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(110)) },
+        popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(170)) },
+        popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(110)) }) {
         composable("splash") { SplashScreen { nc.navigate("gate") { popUpTo("splash") { inclusive = true } } } }
         composable("gate") { AccountGate {
             // Rouvre directement le dernier profil utilisé (sauf s'il est protégé par un code ou bloqué)
