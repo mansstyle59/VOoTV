@@ -250,10 +250,18 @@ object Tmdb {
         return runCatching { get("/${kind(type)}/$tid/external_ids").s("imdb_id") }.getOrNull()
     }
 
+    private const val FANART = "https://vfxblubjsxwseacmslnu.supabase.co/functions/v1/tvo-fanart"
+    /** Logo HD de Fanart.tv (via le relais Supabase, clé côté serveur). Null si absent ou indisponible. */
+    private suspend fun fanartLogo(type: String, id: String): String? = runCatching {
+        val rid = if (id.startsWith("tmdb:")) id.split(":").getOrNull(2) else id.substringBefore(":")
+        if (rid.isNullOrBlank()) null else Tvo.client.getJson("$FANART?type=$type&id=$rid").s("logo")?.takeIf { it.isNotBlank() }
+    }.getOrNull()
+
     private val logos = ConcurrentHashMap<String, String>()
     /** Logo officiel du titre (français de préférence, sinon anglais), mis en cache. "" = aucun logo. */
     suspend fun logo(type: String, id: String): String? {
         logos[id]?.let { return it.ifEmpty { null } }
+        fanartLogo(type, id)?.let { logos[id] = it; return it }
         val r = runCatching {
             val k = kind(type)
             val tid = when {

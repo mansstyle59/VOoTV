@@ -2724,6 +2724,15 @@ var qrcode = function() {
     const [, type, tid] = id.split(":");
     try { return (await tget(`/${tkind(type)}/${tid}/external_ids`)).imdb_id || null; } catch { return null; }
   }
+  // Fanart.tv via le relais Supabase (clé côté serveur) : logos, affiches et fonds HD. Jamais bloquant.
+  const FANART_CACHE = new Map();
+  function fanartGet(type, id) {
+    const key = type + ":" + id; if (FANART_CACHE.has(key)) return FANART_CACHE.get(key);
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 2500);
+    const p = fetch(`${TMDB_PROXY.replace("tvo-tmdb", "tvo-fanart")}?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}`, { signal: ctl.signal })
+      .then((r) => (r.ok ? r.json() : null)).then((j) => (j && !j.error ? j : null)).catch(() => null).finally(() => clearTimeout(to));
+    FANART_CACHE.set(key, p); return p;
+  }
   async function tmdbEnrich(type, imdb, tmdbId, base) {
     try {
       const k = tkind(type);
@@ -2734,6 +2743,7 @@ var qrcode = function() {
         tid = r[0] && r[0].id;
       }
       if (!tid) return base;
+      const faP = fanartGet(type, imdb || String(tid));
       const d = await tget(`/${k}/${tid}`, { append_to_response: "credits,images," + (k === "tv" ? "content_ratings" : "release_dates"), include_image_language: "fr,en,null" });
       const logos = (d.images && d.images.logos) || [];
       const logo = (logos.find((l) => l.iso_639_1 === "fr") || logos.find((l) => l.iso_639_1 === "en") || {}).file_path;
@@ -2751,6 +2761,8 @@ var qrcode = function() {
         director: b.director || [], defaultVideoId: b.defaultVideoId || null, videos: b.videos || [],
       };
       if (!m.cast.length) m.cast = b.cast || [];
+      // Fanart.tv : logo HD en priorité, affiche et fond en secours s'il en manque
+      const fa = await faP; if (fa) { if (fa.logo) m.logo = fa.logo; m.poster = m.poster || fa.poster || null; m.background = m.background || fa.background || null; }
       // Fiche complète : réalisateur, âge, statut, pays, langue, date, note TMDB, saga
       const dir = ((d.credits && d.credits.crew) || []).find((c) => c.job === "Director");
       if (dir) { m.people = [{ id: String(dir.id), name: dir.name, photo: timg(dir.profile_path, "w185"), role: "Réalisateur", dir: true }, ...m.people]; if (!m.director.length) m.director = [dir.name]; }
