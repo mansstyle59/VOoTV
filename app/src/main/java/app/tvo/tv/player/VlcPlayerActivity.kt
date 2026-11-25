@@ -135,7 +135,7 @@ class VlcPlayerActivity : ComponentActivity() {
                 MediaPlayer.Event.Paused -> playing = false
                 MediaPlayer.Event.LengthChanged -> length = mp.length
                 MediaPlayer.Event.TimeChanged -> position = mp.time
-                MediaPlayer.Event.EndReached -> { save(finished = true); finish() }
+                MediaPlayer.Event.EndReached -> { save(finished = true); NextEpisode.playOrFinish(this@VlcPlayerActivity, req) }
                 MediaPlayer.Event.EncounteredError -> { Tvo.store.clearLastStream(req.videoId); error = "Cette source ne peut pas être lue, même avec VLC. Essaie une autre source." }
             }
         }
