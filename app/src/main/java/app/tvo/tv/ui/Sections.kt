@@ -344,7 +344,7 @@ fun SearchSection(nav: Nav) {
 
 // ---------------------------------------------------------------- Réglages
 
-private data class SetPage(val key: String, val icon: String, val color: Long, val title: String, val sub: String)
+private data class SetPage(val key: String, val title: String)
 
 /** Réglages façon télé : menu à gauche (comme les blocs du téléphone), contenu à droite. */
 @Composable
@@ -358,51 +358,36 @@ fun SettingsSection(nav: Nav) {
     var updateMsg by remember { mutableStateOf<String?>(null) }
     var release by remember { mutableStateOf<Updater.Release?>(null) }
     val pages = listOf(
-        SetPage("profil", "👤", 0xFF8B5CF6, "Profil", "Nom, avatar, changer de profil"),
-        SetPage("tele", "📺", 0xFF0EA5E9, "Compte et synchro", "QR code, code à 6 chiffres"),
-        SetPage("lecteur", "▶", 0xFF22C55E, "Lecteur", "Automatique, VLC, MPV"),
-        SetPage("addons", "🧩", 0xFFA855F7, "Add-ons", "Catalogues, sources, sous-titres"),
-        SetPage("accueil", "🏠", 0xFFF59E0B, "Page d'accueil", "Rangées affichées et ordre"),
-        SetPage("tmdb", "🎬", 0xFF14B8A6, "Titres et résumés", "TMDB en français"),
-        SetPage("app", "⚙", 0xFF64748B, "Application", "Version et mises à jour"),
+        SetPage("profil", "Profil et compte"),
+        SetPage("lecteur", "Lecteur"),
+        SetPage("addons", "Add-ons"),
+        SetPage("accueil", "Page d'accueil"),
+        SetPage("app", "Application"),
     )
     var page by rememberSaveable { mutableStateOf("profil") }
 
-    val pageColor = Color(pages.first { it.key == page }.color)
-    Row(Modifier.fillMaxSize().imageBackdrop(pageColor).padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
-        // Menu
-        Column(Modifier.width(330.dp).fillMaxHeight()) {
+    Row(Modifier.fillMaxSize().background(Color(0xFF0A0F1E)).padding(start = 48.dp, end = 48.dp, top = 20.dp)) {
+        // Menu : liste simple
+        Column(Modifier.width(280.dp).fillMaxHeight()) {
             Text("Réglages", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, modifier = Modifier.padding(bottom = 14.dp))
-            Column(Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(20.dp)).padding(vertical = 6.dp)) {
-                pages.forEach { pg ->
-                    val on = pg.key == page
-                    Surface(
-                        onClick = { page = pg.key },
-                        modifier = Modifier.fillMaxWidth().onFocused { page = pg.key },
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(0.dp)),
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (on) Color(0x1FFFFFFF) else Color.Transparent, contentColor = TvoColors.Text,
-                            focusedContainerColor = Color.White, focusedContentColor = Color.Black),
-                    ) {
-                        Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(34.dp).clip(RoundedCornerShape(9.dp)).background(Color(pg.color)), contentAlignment = Alignment.Center) {
-                                Text(pg.icon, fontSize = 17.sp, color = Color.White)
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(pg.title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                Text(pg.sub, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.65f))
-                            }
-                        }
-                    }
+            pages.forEach { pg ->
+                val on = pg.key == page
+                Surface(
+                    onClick = { page = pg.key },
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).onFocused { page = pg.key },
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (on) Color(0xFF1E2A4F) else Color.Transparent, contentColor = TvoColors.Text,
+                        focusedContainerColor = Color.White, focusedContentColor = Color.Black),
+                ) {
+                    Text(pg.title, Modifier.padding(horizontal = 18.dp, vertical = 14.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
             }
         }
         Spacer(Modifier.width(32.dp))
         // Contenu : panneau translucide pour que le fond coloré transparaisse
-        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(Color(0x4D0A0F1E)).border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(24.dp)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 56.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(Color(0xFF101731)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 24.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when (page) {
                 "profil" -> {
                     item { Heading("Profil") }
@@ -417,25 +402,21 @@ fun SettingsSection(nav: Nav) {
                             profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
                         }
                     }
+                    item { Heading("Compte et synchronisation") }
+                    item { SyncBlock() }
                 }
-                "tele" -> { item { Heading("Compte et synchronisation") }; item { SyncBlock() } }
                 "lecteur" -> {
                     item { Heading("Lecteur vidéo") }
                     item {
+                        val engine by store.engine.collectAsState()
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            val engine by store.engine.collectAsState()
-                            Chip("Automatique (recommandé)", !external && engine == "auto", { store.setExternalPlayer(false); store.setEngine("auto") })
-                            Chip("VLC intégré", !external && engine == "vlc", { store.setExternalPlayer(false); store.setEngine("vlc") })
-                        }
-                    }
-                    item {
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            val engine by store.engine.collectAsState()
-                            if (android.os.Build.VERSION.SDK_INT >= 26) Chip("MPV intégré", !external && engine == "mpv", { store.setExternalPlayer(false); store.setEngine("mpv") })
+                            Chip("Automatique", !external && engine == "auto", { store.setExternalPlayer(false); store.setEngine("auto") })
+                            Chip("VLC", !external && engine == "vlc", { store.setExternalPlayer(false); store.setEngine("vlc") })
+                            if (android.os.Build.VERSION.SDK_INT >= 26) Chip("MPV", !external && engine == "mpv", { store.setExternalPlayer(false); store.setEngine("mpv") })
                             Chip("Appli externe", external, { store.setExternalPlayer(true) })
                         }
                     }
-                    item { Text("Automatique : lecteur rapide avec décodeur FFmpeg (DTS, TrueHD, AC3), qui bascule tout seul sur VLC si le format l'exige. VLC et MPV lisent presque tout (MKV, HEVC 10 bits, sous-titres stylés).", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { Text("Automatique convient à presque tout. VLC ou MPV si un film pose problème.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { Heading("Qualité des films") }
                     item {
                         val qp by store.qpref.collectAsState()
@@ -443,20 +424,19 @@ fun SettingsSection(nav: Nav) {
                             listOf("all" to "Toutes", "4k" to "4K", "1080" to "1080p", "720" to "720p et moins").forEach { (k, l) -> Chip(l, qp.v == k, { store.setQpref(k) }) }
                         }
                     }
-                    item { Text("Choisis la qualité proposée dans les sources : « 4K » ne montre que la 4K, « 1080p » bloque la 4K, « 720p et moins » pour une connexion lente. Si aucune source n'a cette qualité, toutes sont affichées. Synchronisé avec le téléphone.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { Heading("Fréquence d'image auto") }
                     item {
                         val afr by store.afr.collectAsState()
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Chip("Activée (recommandé)", afr, { store.setAfr(true) })
-                            Chip("Désactivée", !afr, { store.setAfr(false) })
+                            Chip("Oui", afr, { store.setAfr(true) })
+                            Chip("Non", !afr, { store.setAfr(false) })
                         }
                     }
-                    item { Text("La télé se règle sur la cadence du film (24, 25 ou 50 images par seconde) : fini les saccades. L'écran peut devenir noir une seconde au lancement.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { Text("Adapte la télé à la cadence du film (l'écran peut noircir une seconde).", fontSize = 14.sp, color = TvoColors.Muted) }
                 }
                 "addons" -> {
                     item { Heading("Add-ons") }
-                    item { Text("Compatible avec les add-ons Stremio / Nuvio : catalogues, fiches, vidéos et sous-titres. Le premier de la liste est prioritaire.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(700.dp)) }
+                    item { Text("Compatible Stremio / Nuvio. Le premier de la liste est prioritaire.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { TvoButton("Ajouter un add-on", nav.addAddon, icon = Icons.Default.Add, primary = true) }
                     app.tvo.tv.data.ADDON_CATEGORIES.forEach { cat ->
                         val group = addons.filter { it.category() == cat }
@@ -467,7 +447,6 @@ fun SettingsSection(nav: Nav) {
                     }
                 }
                 "accueil" -> { item { Heading("Page d'accueil") }; item { HomeEditor() } }
-                "tmdb" -> { item { Heading("Titres et résumés en français (TMDB)") }; item { TmdbBlock(nav) } }
                 else -> {
                     item { Heading("Application") }
                     item {
@@ -492,6 +471,8 @@ fun SettingsSection(nav: Nav) {
                         }
                     }
                     updateMsg?.let { m -> item { Text(m, fontSize = 15.sp, color = TvoColors.Cyan) } }
+                    item { Heading("Titres et résumés en français (TMDB)") }
+                    item { TmdbBlock(nav) }
                     item { Text("TVO réunit tes catalogues et tes add-ons dans une seule appli. Elle n'héberge aucun contenu.", fontSize = 13.sp, color = TvoColors.Muted) }
                 }
             }
