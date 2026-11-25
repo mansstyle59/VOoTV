@@ -138,11 +138,15 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     }
     // Défilement de la page : quand le focus est sur les boutons du haut, la page ne bouge JAMAIS (cause du clignotement).
     val parentSpec = androidx.compose.foundation.gestures.LocalBringIntoViewSpec.current
-    val heroFocusNow = androidx.compose.runtime.rememberUpdatedState(heroHasFocus)
-    val pageSpec = remember(parentSpec) {
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val heroPx = ((androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp - 175).coerceIn(320, 390) + 40) * density
+    // Basé sur la POSITION de l'élément (et non sur un état mis à jour trop tard) : les boutons du haut ne font jamais défiler la page,
+    // mais dès qu'on descend vers une rangée, la page défile tout de suite pour la montrer (sinon le focus part hors écran et on est « bloqué »).
+    val pageSpec = remember(parentSpec, heroPx) {
         object : androidx.compose.foundation.gestures.BringIntoViewSpec {
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-                if (heroFocusNow.value) 0f else parentSpec.calculateScrollDistance(offset, size, containerSize)
+                if (mainState.firstVisibleItemIndex == 0 && mainState.firstVisibleItemScrollOffset == 0 && offset >= 0f && offset + size <= heroPx) 0f
+                else parentSpec.calculateScrollDistance(offset, size, containerSize)
         }
     }
     // Basé sur le focus (et non sur le défilement) : plus de clignotement du voile quand on passe d'un bouton à l'autre
