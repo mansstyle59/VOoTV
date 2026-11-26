@@ -2813,6 +2813,16 @@ var qrcode = function() {
         tmdb: d.vote_average > 0 ? Math.round(d.vote_average * 10) : null,
       };
       if (d.belongs_to_collection) m.collectionId = String(d.belongs_to_collection.id);
+      // Fiche complète façon Nuvio : scénaristes, sociétés de production (logos), pays et langue en toutes lettres
+      const crewAll = (d.credits && d.credits.crew) || [];
+      m.writers = [...new Set(crewAll.filter((c) => /^(Screenplay|Writer|Story|Novel|Author|Teleplay|Characters)$/.test(c.job)).map((c) => c.name))].slice(0, 3);
+      m.companies = (d.production_companies || []).filter((c) => c.logo_path).slice(0, 5).map((c) => ({ name: c.name, logo: timg(c.logo_path, "w185") }));
+      const dn = (t, c) => { try { const v = new Intl.DisplayNames(["fr"], { type: t }).of(c); return v ? v.charAt(0).toUpperCase() + v.slice(1) : c; } catch (e) { return c; } };
+      const iso = ((d.production_countries || [])[0] || {}).iso_3166_1 || (d.origin_country || [])[0];
+      m.extra.countryName = iso ? dn("region", iso) : m.extra.country;
+      m.extra.langName = d.original_language ? dn("language", d.original_language) : null;
+      m.extra.statusFr = { Released: "Sorti", "Returning Series": "En cours", Ended: "Terminée", Canceled: "Annulée", Planned: "À venir", "In Production": "En production", "Post Production": "En post-production", Rumored: "Annoncé" }[d.status] || d.status || null;
+      if (k === "tv") { m.extra.seasons = d.number_of_seasons || null; m.extra.episodes = d.number_of_episodes || null; }
       if (k === "tv") {
         const seasons = (d.seasons || []).map((x) => x.season_number).filter((n) => n > 0);
         const eps = (await Promise.all(seasons.map((n) => tget(`/tv/${tid}/season/${n}`).catch(() => null)))).filter(Boolean).flatMap((x) => x.episodes || []);
@@ -4871,144 +4881,183 @@ var qrcode = function() {
   }
 
   const stars = (r) => { const n = Math.round((parseFloat(r) || 0) / 2); return n ? "★".repeat(n) + "☆".repeat(5 - n) : ""; };
+  // ------------------------------------------------------------------ Fiche film / série (structure inspirée de Nuvio)
+  const fmtRuntime = (r) => { const n = parseInt(r, 10); if (!n) return r || ""; return n >= 60 ? `${Math.floor(n / 60)} h ${String(n % 60).padStart(2, "0")} min`.replace(" 00 min", "") : `${n} min`; };
+  const ytThumb = (k) => `https://i.ytimg.com/vi/${encodeURIComponent(k)}/hqdefault.jpg`;
+  const VTYPE = { Trailer: "Bandes-annonces", Teaser: "Teasers", Clip: "Extraits", Featurette: "Making-of", "Behind the Scenes": "Coulisses", Bloopers: "Bêtisier", "Opening Credits": "Génériques" };
+  function playTrailerKey(key, name) {
+    const box = document.createElement("div"); box.className = "tr-sheet";
+    box.innerHTML = `<button class="tr-close" data-x aria-label="Fermer la vidéo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <div class="tr-card"><div class="tr-top"><b>${esc(name || "Bande-annonce")}</b></div>
+      <div class="tr-frame"><iframe src="${esc(ytSrc(key))}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <a class="tr-yt" href="https://www.youtube.com/watch?v=${encodeURIComponent(key)}" target="_blank" rel="noopener">Ça ne se lance pas ? Ouvrir dans YouTube</a></div>`;
+    document.body.appendChild(box);
+    const close = () => { box.remove(); window.removeEventListener("popstate", close); };
+    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) close(); });
+    window.addEventListener("popstate", close);
+  }
   async function screenTitle(type, id) {
     setTabs(null);
-    app.innerHTML = `<div class="dt-hero skeleton"></div><div class="empty">Chargement…</div>`;
+    app.innerHTML = `<div class="dt-hero nv-hero skeleton"></div><div class="empty">Chargement…</div>`;
     const m = await meta(type, id);
     if (!m) { app.innerHTML = header("", `<button class="icon-btn" onclick="history.back()">${ICON.back}</button>`) + `<div class="empty"><h2>Fiche introuvable</h2>Aucun add-on n'a pu fournir ce titre.</div>`; return; }
     const { vid, prog } = resumeTarget(m);
     const tv = m.videos.find((v) => v.id === vid);
     const started = prog && !finished(prog) && fraction(prog) > 0.02;
     const label = started ? (tv && tv.season != null ? `Reprendre · É${tv.episode}` : "Reprendre")
-      : (tv && tv.season != null ? `Lecture · S${tv.season} É${tv.episode}` : "Lecture");
+      : (tv && tv.season != null ? `Lire · S${tv.season} É${tv.episode}` : "Lire");
     const seasons = [...new Set(m.episodes.map((e) => e.season))];
-    let season = tv && tv.season != null ? tv.season : seasons[0];
-    const tabsDef = [...(seasons.length ? [["eps", "Épisodes"]] : []), ...(m.people && m.people.length ? [["cast", m.type === "series" ? "Création et distribution" : "Créateur et distribution"]] : []),
-      ...(m.tmdbId ? [["trl", "Bande-annonce"]] : []), ...(!m.people || !m.people.length ? [["info", "Infos"]] : [])];
-    let tab = tabsDef[0][0];
-    const metaRow = [m.releaseInfo, m.imdbRating ? `<span class="stars">${stars(m.imdbRating)}</span>` : "", m.genres && m.genres[0] ? esc(genreLabel(m.genres[0])) : "", m.runtime ? esc(m.runtime) : ""]
-      .filter(Boolean).join('<i class="sep"></i>');
+    let season = tv && tv.season != null ? tv.season : seasons.find((x) => x > 0) ?? seasons[0];
+    const x = m.extra || {};
+    const series = m.type === "series";
+    const desk = isDesk();
+    const heroImg = desk ? (m.background || m.poster) : (m.poster || m.background);
+    const year = (m.releaseInfo || "").slice(0, 4);
+    const dirLabel = series ? "Création" : "Réalisateur";
+    const dirs = (m.people || []).filter((p) => p.dir).map((p) => p.name);
+    const directors = dirs.length ? dirs : (m.director || []);
+    const logoImg = (cls) => m.logo ? `<img class="${cls}" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h1 class="${cls}-t">${esc(m.name)}</h1>`;
+    const row = (k, v) => v ? `<div class="nv-kv"><span>${k}</span><b>${esc(String(v))}</b></div>` : "";
 
     app.innerHTML = `
-      <div class="dt-hero">
-        <img src="${esc(m.background || m.poster || "")}" alt="">
+      <div class="nv-top" id="nvTop"><button class="nv-tb" onclick="history.back()" aria-label="Retour">${ICON.back}</button>
+        <span class="nv-tlogo">${m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<b>${esc(m.name)}</b>`}</span>
+        <button class="nv-tb" id="libTop" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button></div>
+      <div class="dt-hero nv-hero">
+        <img src="${esc(heroImg || "")}" alt="">
         <div class="shade"></div>
         <button class="icon-btn round floating-back" onclick="history.back()" aria-label="Retour">${ICON.back}</button>
+        <div class="nv-hinfo">${logoImg("nv-logo")}
+          ${(m.genres || []).length ? `<p class="nv-genres">${(m.genres || []).slice(0, 3).map(genreLabel).map(esc).join(" • ")}</p>` : ""}</div>
       </div>
-      <div class="dt-body">
-        ${m.logo ? `<img class="dt-logo" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h1>${esc(m.name)}</h1>`}
-        <div class="dt-cta">
-          <button class="btn pill dt-play" id="play">${ICON.play} ${esc(label)}</button>
-          <button class="dt-rb" id="lib" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button>
-          <button class="dt-rb ${prog && finished(prog) ? "on" : ""}" id="seen" aria-label="Vu">${ICON.check}</button>
-
-          <button class="dt-rb" id="share" aria-label="Partager"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg></button>
+      <div class="nv-body">
+        <div class="nv-cta">
+          <button class="nv-play" id="play">${ICON.play}<span>${esc(label)}</span></button>
+          <button class="nv-more" id="more" aria-label="Plus d'options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg></button>
         </div>
-        ${started ? `<div class="dt-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
-        ${m.director && m.director.length ? `<p class="dt-dir">${m.type === "series" ? "Création" : "Réalisateur"} : <b>${esc(m.director.join(", "))}</b></p>` : ""}
-        ${(m.extra && m.extra.tmdb) || m.imdbRating ? `<div class="dt-rates">${m.extra && m.extra.tmdb ? `<span class="rt tmdb"><i>TMDB</i>${m.extra.tmdb}%</span>` : ""}${m.imdbRating ? `<span class="rt imdb"><i>★</i>${esc(m.imdbRating)}</span>` : ""}</div>` : ""}
-        ${m.description ? `<p class="dt-desc clamp" id="desc">${esc(m.description)}</p>` : !tmdbOn() ? `<p class="dt-desc small" style="color:var(--cyan)">Résumé en français indisponible pour l'instant.</p>` : ""}
-        <p class="dt-gd">${[(m.genres || []).slice(0, 3).map(genreLabel).join(" • "), (m.extra && m.extra.date) || m.releaseInfo].filter(Boolean).map(esc).join(" • ")}</p>
-        <div class="dt-badges">${m.extra && m.extra.cert ? `<span class="age">${esc(m.extra.cert)}</span>` : ""}<span>${[m.extra && m.extra.status, m.runtime, m.extra && m.extra.country, m.extra && m.extra.lang].filter(Boolean).map(esc).join(" • ")}</span></div>
+        ${started ? `<div class="nv-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
+        <div class="nv-facts">${year ? `<b>${esc(year)}</b>` : ""}${series && x.seasons ? `<b>${x.seasons} saison${x.seasons > 1 ? "s" : ""}</b>` : m.runtime ? `<b>${esc(fmtRuntime(m.runtime))}</b>` : ""}${x.cert ? `<span class="nv-cert">${esc(x.cert)}</span>` : ""}</div>
+        ${x.tmdb || m.imdbRating ? `<div class="nv-rates">${m.imdbRating ? `<span class="nv-r imdb"><i>IMDb</i>${esc(m.imdbRating)}</span>` : ""}${x.tmdb ? `<span class="nv-r tmdb"><i>TMDB</i>${x.tmdb}</span>` : ""}</div>` : ""}
+        ${directors.length ? `<p class="nv-line"><span>${dirLabel} :</span> ${esc(directors.slice(0, 2).join(", "))}</p>` : ""}
+        ${m.writers && m.writers.length ? `<p class="nv-line"><span>Scénariste${m.writers.length > 1 ? "s" : ""} :</span> ${esc(m.writers.join(", "))}</p>` : ""}
+        ${m.description ? `<p class="nv-desc clamp" id="desc">${esc(m.description)}</p><button class="nv-moretxt" id="descMore">Afficher plus ▾</button>` : ""}
       </div>
-      <div class="dt-tabs" id="dtTabs"></div>
-      <div id="dtPane"></div>
-      <div id="dtSim"></div>
+      ${seasons.length ? `<section class="nv-sec" id="nvEps"></section>` : ""}
+      ${m.companies && m.companies.length ? `<section class="nv-sec"><h2 class="nv-h">Production</h2><div class="nv-row">${m.companies.map((c) => `<span class="nv-prod" title="${esc(c.name)}"><img src="${esc(c.logo)}" alt="${esc(c.name)}" loading="lazy"></span>`).join("")}</div></section>` : ""}
+      ${m.people && m.people.length ? `<section class="nv-sec"><h2 class="nv-h">Casting</h2><div class="nv-row">${m.people.map((pp) => `<a class="nv-cast" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
+          <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div></section>` : ""}
+      <section class="nv-sec" id="nvVids" hidden></section>
+      <section class="nv-sec"><h2 class="nv-h">Détails ${series ? "de la série" : "du film"}</h2><div class="nv-kvs">
+        ${row("Statut", x.statusFr)}${row(series ? "Première diffusion" : "Date de sortie", x.date || m.releaseInfo)}
+        ${series ? row("Saisons", x.seasons) + row("Épisodes", x.episodes) : row("Durée", m.runtime ? fmtRuntime(m.runtime) : null)}
+        ${row("Classification", x.cert)}${row("Pays d'origine", x.countryName || x.country)}${row("Langue originale", x.langName || x.lang)}
+      </div></section>
       <div id="dtSaga"></div>
+      <div id="dtSim"></div>
       <p class="dt-tmdb">Données fournies par TMDB</p>`;
 
-    const tr = $("#trailer"); if (tr) tr.addEventListener("click", () => playTrailer(m));
-    // Façon Nuvio (téléphone et ordinateur) : la bande-annonce VF démarre seule, sans le son, dans le grand visuel,
-    // avec un fondu depuis l'image. Elle s'arrête dès que le visuel sort de l'écran. Le bouton son la relance en grand avec le son.
+    // Barre du haut qui apparaît en défilant (retour, logo, Ma liste)
+    const top = $("#nvTop"); const heroEl = app.querySelector(".nv-hero");
+    const onScroll = () => { if (!document.body.contains(top)) return window.removeEventListener("scroll", onScroll); top.classList.toggle("on", window.scrollY > heroEl.offsetHeight - 120); };
+    window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
+    // Bande-annonce VF muette en fond du visuel (fondu, arrêt hors écran, bouton son = plein écran avec le son)
     if (m.tmdbId && LS.get("autoTrailer", true)) trailerVF(m).then((v) => {
-      const h = app.querySelector(".dt-hero"); if (!v || !h || !document.body.contains(h)) return;
+      const h = heroEl; if (!v || !h || !document.body.contains(h)) return;
       setTimeout(() => {
         if (!document.body.contains(h) || h.querySelector(".dt-trailer")) return;
         h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="${esc(ytSrc(v.key, true))}"
           allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1" title="Bande-annonce"></iframe></div>
           <button class="dt-sound" aria-label="Regarder la bande-annonce avec le son"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg></button>`);
-        const stop = () => { h.classList.remove("playing"); const t = h.querySelector(".dt-trailer"); if (t) setTimeout(() => t.remove(), 900); const s = h.querySelector(".dt-sound"); if (s) s.remove(); };
-        h.querySelector(".dt-sound").addEventListener("click", (e) => { e.stopPropagation(); stop(); playTrailer(m); });
-        setTimeout(() => { if (document.body.contains(h)) h.classList.add("playing"); }, 2200); // le temps que YouTube démarre : pas d'écran noir
+        const stop = () => { h.classList.remove("playing"); const t = h.querySelector(".dt-trailer"); if (t) setTimeout(() => t.remove(), 900); const sb = h.querySelector(".dt-sound"); if (sb) sb.remove(); };
+        h.querySelector(".dt-sound").addEventListener("click", (e) => { e.stopPropagation(); stop(); playTrailerKey(v.key, v.name); });
+        setTimeout(() => { if (document.body.contains(h)) h.classList.add("playing"); }, 2200);
         if ("IntersectionObserver" in window) {
           const io = new IntersectionObserver((en) => { if (en[0] && en[0].intersectionRatio < 0.25) { stop(); io.disconnect(); } }, { threshold: [0, 0.25] });
           io.observe(h);
         }
       }, 1200);
     });
-    const drawTabs = () => {
-      $("#dtTabs").innerHTML = tabsDef.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-t="${k}">${l}</button>`).join("");
-      $("#dtTabs").querySelectorAll("[data-t]").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.t; drawTabs(); drawPane(); }));
+
+    // Épisodes (séries) : saisons en pastilles, épisodes en liste
+    const drawEps = () => {
+      const box = $("#nvEps"); if (!box) return;
+      const eps = m.episodes.filter((e) => e.season === season);
+      box.innerHTML = `<h2 class="nv-h">Épisodes</h2><div class="snum">${seasons.map((s2) => `<button class="${s2 === season ? "on" : ""}" data-s="${s2}">${s2 === 0 ? "Bonus" : "Saison " + s2}</button>`).join("")}</div>
+        <div class="eplist">${eps.map((e) => {
+          const p = S.prog.find((q) => q.videoId === e.id);
+          return `<button class="ep" data-v="${esc(e.id)}"><span class="th">${e.thumbnail || m.background ? `<img src="${esc(e.thumbnail || m.background)}" alt="" loading="lazy">` : ""}
+              <span class="pl">${ICON.play}</span>${p ? `<span class="bar"><i style="width:${Math.round(fraction(p) * 100)}%"></i></span>` : ""}</span>
+            <span class="tx"><b>${e.episode ?? "?"}. ${esc(e.title || "Épisode " + (e.episode ?? ""))}</b>
+              <small>${p && finished(p) ? "Vu · " : ""}${e.released ? new Date(e.released).toLocaleDateString("fr-FR") : ""}</small>
+              ${e.overview ? `<span class="ov">${esc(e.overview)}</span>` : ""}</span></button>`;
+        }).join("")}</div>`;
+      box.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => { season = Number(b.dataset.s); drawEps(); }));
+      box.querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(b.dataset.v)}`)));
+      const on = box.querySelector(".snum .on"); if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
     };
-    const drawPane = async () => {
-      const pane = $("#dtPane");
-      if (tab === "eps") {
-        pane.innerHTML = `<div class="snum">${seasons.map((x) => `<button class="${x === season ? "on" : ""}" data-s="${x}">${x === 0 ? "Bonus" : String(x).padStart(2, "0")}</button>`).join("")}</div>
-          <h3 class="pane-t">${season === 0 ? "Bonus" : "Saison " + season} · ${m.episodes.filter((e) => e.season === season).length} épisodes</h3>
-          <div class="eplist">${m.episodes.filter((e) => e.season === season).map((e) => {
-            const p = S.prog.find((x) => x.videoId === e.id);
-            return `<button class="ep" data-v="${esc(e.id)}"><span class="th">${e.thumbnail || m.background ? `<img src="${esc(e.thumbnail || m.background)}" alt="" loading="lazy">` : ""}
-                <span class="pl">${ICON.play}</span>${p ? `<span class="bar"><i style="width:${Math.round(fraction(p) * 100)}%"></i></span>` : ""}</span>
-              <span class="tx"><b>${e.episode ?? "?"}. ${esc(e.title || "Épisode " + (e.episode ?? ""))}</b>
-                <small>${p && finished(p) ? "Vu · " : ""}${e.released ? new Date(e.released).toLocaleDateString("fr-FR") : ""}</small>
-                ${e.overview ? `<span class="ov">${esc(e.overview)}</span>` : ""}</span></button>`;
-          }).join("")}</div>`;
-        pane.querySelectorAll("[data-s]").forEach((b) => b.addEventListener("click", () => { season = Number(b.dataset.s); drawPane(); }));
-        pane.querySelectorAll("[data-v]").forEach((b) => b.addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(b.dataset.v)}`)));
-        const on = pane.querySelector(".snum .on"); if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
-      } else if (tab === "cast") {
-        pane.innerHTML = `<div class="castgrid">${m.people.map((pp, i) => `${i > 0 && m.people[i - 1].dir && !pp.dir ? '<span class="castsep"></span>' : ""}<a class="bubble${pp.dir ? " dir" : ""}" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
-          <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div>`;
-      } else if (tab === "trl") {
-        pane.innerHTML = `<div class="pad"><button class="btn block" id="trlGo">${ICON.play} Lancer la bande-annonce</button></div>`;
-        $("#trlGo").addEventListener("click", () => playTrailer(m));
-      } else if (tab === "sim") {
-        pane.innerHTML = `<div class="empty small">Chargement…</div>`;
-        try {
-          const r = await tget(`/${m.tmdbKind}/${m.tmdbId}/recommendations`);
-          const list = (r.results || []).map((o) => tpreview(o, m.tmdbKind === "tv" ? "series" : "movie")).filter((x) => x && x.poster);
-          pane.innerHTML = list.length ? `<div class="grid">${list.map(portraitHTML).join("")}</div>` : `<div class="empty small">Aucune suggestion.</div>`;
-        } catch { pane.innerHTML = `<div class="empty small">Suggestions indisponibles.</div>`; }
-      } else {
-        pane.innerHTML = `<div class="list"><div class="card info">
-          ${m.genres && m.genres.length ? `<p><b>Genres</b>${m.genres.map(genreLabel).map(esc).join(", ")}</p>` : ""}
-          ${m.director && m.director.length ? `<p><b>Réalisation</b>${m.director.map(esc).join(", ")}</p>` : ""}
-          ${m.cast && m.cast.length ? `<p><b>Avec</b>${m.cast.map(esc).join(", ")}</p>` : ""}
-          ${m.releaseInfo ? `<p><b>Année</b>${esc(m.releaseInfo)}</p>` : ""}${m.runtime ? `<p><b>Durée</b>${esc(m.runtime)}</p>` : ""}
-          ${m.imdbRating ? `<p><b>Note</b>${esc(m.imdbRating)} / 10</p>` : ""}</div></div>`;
-      }
-    };
-    drawTabs(); drawPane();
-    if (m.tmdbId && tmdbOn()) tget(`/${m.tmdbKind}/${m.tmdbId}/recommendations`).then((r) => {
-      const box = $("#dtSim"); if (!box) return;
-      const list = (r.results || []).map((o) => tpreview(o, m.tmdbKind === "tv" ? "series" : "movie")).filter((x) => x && x.poster);
-      if (list.length) box.innerHTML = `<section class="section"><h2 class="section-title"><span class="st">${m.type === "series" ? ICON.series : ICON.movie}${m.type === "series" ? "Séries similaires" : "Films similaires"}</span></h2><div class="row">${list.slice(0, 20).map(portraitHTML).join("")}</div></section>`;
-    }).catch(() => { /* */ });
-    if (m.collectionId && tmdbOn()) tget(`/collection/${m.collectionId}`).then((c) => {
-      const parts = (c.parts || []).filter((x) => x.backdrop_path || x.poster_path).sort((a, b) => String(a.release_date || "9999").localeCompare(String(b.release_date || "9999")));
-      const box = $("#dtSaga"); if (!box || parts.length < 2) return;
-      const nm = String(c.name || "").replace(/\s*-\s*Saga$/i, "").replace(/\s*Collection$/i, "").trim();
-      box.innerHTML = `<section class="section"><h2 class="section-title"><span class="st">${ICON.layers}${esc(nm)} - Saga</span></h2><div class="row">${parts.map((x, i) => {
-        const mv = tpreview(x, "movie"); if (!mv) return "";
-        return `<button class="sgcard${mv.id === m.id || String(x.id) === m.tmdbId ? " cur" : ""}" data-open="movie|${esc(mv.id)}"><span class="sgimg">${mv.background || mv.poster ? `<img src="${esc(mv.background || mv.poster)}" alt="" loading="lazy">` : ""}
-          <span class="sgb">SAGA ${i + 1}/${parts.length}</span></span><b>${esc(mv.name)}</b><small>${[mv.releaseInfo, mv.imdbRating ? "★ " + mv.imdbRating : ""].filter(Boolean).map(esc).join(" • ")}</small></button>`;
-      }).join("")}</div></section>`;
+    drawEps();
+
+    // Vidéos (bandes-annonces, teasers, extraits…) en français, avec un sélecteur de type
+    if (m.tmdbId && tmdbOn()) tget(`/${m.tmdbKind}/${m.tmdbId}/videos`, { language: "fr-FR", include_video_language: "fr" }).then((r) => {
+      const box = $("#nvVids"); if (!box) return;
+      const vids = (r.results || []).filter((v) => v.site === "YouTube" && v.key && v.iso_639_1 === "fr" && !/vost|sous-titr|subtitled|\bvo\b/i.test(v.name || ""));
+      if (!vids.length) return;
+      const types = Object.keys(VTYPE).filter((t) => vids.some((v) => v.type === t));
+      let cur = types[0];
+      const draw = () => {
+        const list = vids.filter((v) => v.type === cur);
+        box.innerHTML = `<div class="nv-hrow"><h2 class="nv-h">${VTYPE[cur]}</h2>${types.length > 1 ? `<label class="nv-sel"><select id="vtype">${types.map((t) => `<option value="${t}" ${t === cur ? "selected" : ""}>${VTYPE[t]}</option>`).join("")}</select></label>` : ""}</div>
+          <div class="nv-row">${list.map((v) => `<button class="nv-vid" data-k="${esc(v.key)}" data-n="${esc(v.name || "")}"><span class="th"><img src="${esc(ytThumb(v.key))}" alt="" loading="lazy"><span class="pl">${ICON.play}</span></span>
+            <b>${esc(v.name || "Vidéo")}</b><small>${esc((v.published_at || "").slice(0, 4))}</small></button>`).join("")}</div>`;
+        const sel = $("#vtype"); if (sel) sel.addEventListener("change", () => { cur = sel.value; draw(); });
+        box.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => playTrailerKey(b.dataset.k, b.dataset.n)));
+      };
+      box.hidden = false; draw();
     }).catch(() => {});
 
+    // Saga puis « À voir aussi »
+    if (m.collectionId && tmdbOn()) tget(`/collection/${m.collectionId}`).then((c) => {
+      const parts = (c.parts || []).filter((p) => p.backdrop_path || p.poster_path).sort((a, b) => String(a.release_date || "9999").localeCompare(String(b.release_date || "9999")));
+      const box = $("#dtSaga"); if (!box || parts.length < 2) return;
+      const nm = String(c.name || "").replace(/\s*-\s*Saga$/i, "").replace(/\s*Collection$/i, "").trim();
+      box.innerHTML = `<section class="nv-sec"><h2 class="nv-h">${esc(nm)} - Saga</h2><div class="nv-row">${parts.map((p, i) => {
+        const mv = tpreview(p, "movie"); if (!mv) return "";
+        const cur = mv.id === m.id || String(p.id) === m.tmdbId;
+        return `<button class="nv-saga${cur ? " cur" : ""}" data-open="movie|${esc(mv.id)}"><span class="img">${mv.background || mv.poster ? `<img src="${esc(mv.background || mv.poster)}" alt="" loading="lazy">` : ""}
+          <span class="sg">SAGA · ${i + 1}/${parts.length}</span>${cur ? `<span class="now">Ce film</span>` : ""}<span class="ov"><b>${esc(mv.name)}</b><small>${[mv.releaseInfo, mv.imdbRating ? "★ " + mv.imdbRating : ""].filter(Boolean).map(esc).join(" · ")}</small></span></span></button>`;
+      }).join("")}</div></section>`;
+    }).catch(() => {});
+    if (m.tmdbId && tmdbOn()) tget(`/${m.tmdbKind}/${m.tmdbId}/recommendations`).then((r) => {
+      const box = $("#dtSim"); if (!box) return;
+      const list = (r.results || []).map((o) => tpreview(o, series ? "series" : "movie")).filter((p) => p && p.poster);
+      if (list.length) box.innerHTML = `<section class="nv-sec"><h2 class="nv-h">À voir aussi</h2><div class="nv-row nv-posters">${list.slice(0, 20).map(portraitHTML).join("")}</div></section>`;
+    }).catch(() => {});
+
+    // Actions
     $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
-    $("#seen").addEventListener("click", (e) => {
+    const toggleL = () => { toggleLib(m); $("#libTop").innerHTML = inLib(m.id) ? ICON.check : ICON.plus; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); };
+    $("#libTop").addEventListener("click", toggleL);
+    $("#more").addEventListener("click", () => {
       const was = !!(prog && finished(prog));
-      saveProgress({ videoId: vid, metaId: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background,
-        season: tv ? tv.season : null, episode: tv ? tv.episode : null, episodeTitle: tv ? tv.title : null,
-        position: was ? 0 : 1, duration: 1, updatedAt: Date.now() });
-      toast(was ? "Marqué non vu" : "Marqué comme vu ✓"); route();
+      actionSheet(m.name, [
+        { label: inLib(m.id) ? "Retirer de ma liste" : "Ajouter à ma liste", icon: inLib(m.id) ? ICON.check : ICON.plus, run: toggleL },
+        { label: was ? "Marquer comme non vu" : "Marquer comme vu", icon: ICON.check, run: () => {
+          saveProgress({ videoId: vid, metaId: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background,
+            season: tv ? tv.season : null, episode: tv ? tv.episode : null, episodeTitle: tv ? tv.title : null,
+            position: was ? 0 : 1, duration: 1, updatedAt: Date.now() });
+          toast(was ? "Marqué non vu" : "Marqué comme vu ✓"); route(); } },
+        ...(m.tmdbId ? [{ label: "Bande-annonce", icon: ICON.play, run: () => playTrailer(m) }] : []),
+        { label: "Partager", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>`, run: async () => {
+          const text = `${m.name}${m.releaseInfo ? " (" + m.releaseInfo + ")" : ""} — à regarder sur TVO`;
+          try { if (navigator.share) await navigator.share({ title: m.name, text }); else { await navigator.clipboard.writeText(text); toast("Copié"); } } catch { /* annulé */ } } },
+      ]);
     });
-    $("#lib").addEventListener("click", (e) => { toggleLib(m); e.currentTarget.innerHTML = inLib(m.id) ? ICON.check : ICON.plus; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); });
-    $("#share").addEventListener("click", async () => {
-      const text = `${m.name}${m.releaseInfo ? " (" + m.releaseInfo + ")" : ""} — à regarder sur TVO`;
-      try { if (navigator.share) await navigator.share({ title: m.name, text }); else { await navigator.clipboard.writeText(text); toast("Copié"); } } catch { /* annulé */ }
-    });
-    const d = $("#desc"); if (d) d.addEventListener("click", () => d.classList.toggle("clamp"));
+    const d = $("#desc"), dm = $("#descMore");
+    if (d && dm) {
+      requestAnimationFrame(() => { if (d.scrollHeight <= d.clientHeight + 2) dm.remove(); });
+      dm.addEventListener("click", () => { const open = d.classList.toggle("clamp"); dm.textContent = open ? "Afficher plus ▾" : "Afficher moins ▴"; });
+    }
   }
 
   let SRC_QUEUE = null;
