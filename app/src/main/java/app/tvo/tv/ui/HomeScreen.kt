@@ -367,10 +367,21 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                     val fm = androidx.compose.ui.platform.LocalFocusManager.current
                     LazyColumn(
                         // Haut : remonte d'une seule rangée à la fois ; l'en-tête n'est atteint qu'en étant sur la première rangée
+                        // Haut : la télécommande cherche d'abord normalement la rangée du dessus (fonctionne partout, même tout en bas).
+                        // Seulement si rien n'est trouvé alors que la liste n'est pas en haut : on remonte d'une rangée, on attend
+                        // que l'écran soit redessiné, puis on réessaie. Jamais de touche « avalée » sans effet.
                         Modifier.fillMaxSize().onFocusChanged { inRows = it.hasFocus }.onPreviewKeyEvent { e ->
-                            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionUp && listState.firstVisibleItemIndex > 0) {
-                                upScope.launch { listState.scrollToItem(listState.firstVisibleItemIndex - 1); delay(30); fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Up) }
-                                true
+                            if (e.type == androidx.compose.ui.input.key.KeyEventType.KeyDown && e.key == androidx.compose.ui.input.key.Key.DirectionUp) {
+                                if (fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) true
+                                else if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
+                                    upScope.launch {
+                                        listState.scrollToItem((listState.firstVisibleItemIndex - 1).coerceAtLeast(0))
+                                        androidx.compose.runtime.withFrameNanos { }
+                                        androidx.compose.runtime.withFrameNanos { }
+                                        fm.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
+                                    }
+                                    true
+                                } else false // tout en haut : on laisse remonter vers l'en-tête
                             } else false
                         },
                         state = listState,
