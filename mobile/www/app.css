@@ -2305,3 +2305,22 @@ html[data-mode="light"]:root .nv-tb, html[data-mode="light"]:root .nv-more { col
 html[data-mode="light"]:root .nvm-dim { background: rgba(242,243,246,.78); }
 html[data-mode="light"]:root .nvm-list { background: #fff; } html[data-mode="light"]:root .nvm-btn { color: #111; }
 @media (min-width: 1024px) { .nvm-in { max-width: 440px; } .nvm-card { width: 52%; } .nvm-card.wide { width: 100%; } }
+
+/* ===== Fiche en thème clair : le visuel reste sombre (logo et genres lisibles), le reste de la page est clair ===== */
+html[data-mode="light"]:root .nv-hero { border-radius: 0 0 26px 26px; overflow: hidden; }
+html[data-mode="light"]:root .nv-hero .shade { background: linear-gradient(180deg, rgba(0,0,0,.40) 0%, transparent 18%, transparent 48%, rgba(10,10,14,.72) 76%, #0b0b10 100%); }
+html[data-mode="light"]:root .nv-genres { color: rgba(255,255,255,.85); }
+html[data-mode="light"]:root .nv-logo-t { color: #fff; }
+html[data-mode="light"]:root .nv-hero .floating-back { background: rgba(0,0,0,.45); color: #fff; border-color: rgba(255,255,255,.35); }
+html[data-mode="light"]:root .nv-body { padding-top: 16px; }
+html[data-mode="light"]:root .nv-rb { background: rgba(15,23,42,.08); color: #111; }
+html[data-mode="light"]:root .nv-rb.on { color: #059669; }
+html[data-mode="light"]:root .nv-rb.nv-white { background: #111; color: #fff; }
+html[data-mode="light"]:root .nv-tb { background: rgba(15,23,42,.08); color: #111; }
+html[data-mode="light"]:root .nv-cert { border-color: rgba(15,23,42,.35); }
+html[data-mode="light"]:root .nv-sel select { background-color: rgba(15,23,42,.08); color: #111;
+  background-image: linear-gradient(45deg, transparent 50%, #111 50%), linear-gradient(135deg, #111 50%, transparent 50%); }
+html[data-mode="light"]:root .nv-cast .ph, html[data-mode="light"]:root .nv-vid .th, html[data-mode="light"]:root .nv-saga .img { background: rgba(15,23,42,.08); }
+html[data-mode="light"]:root .nv-r.tmdb { color: #0284c7; }
+html[data-mode="light"]:root .nv-r.imdb { color: #b45309; }
+html[data-mode="light"]:root .nvm-t small { color: #475569; }
