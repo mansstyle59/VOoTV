@@ -411,6 +411,8 @@ fun SettingsSection(nav: Nav) {
                             profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
                         }
                     }
+                    item { Heading("AllDebrid") }
+                    item { AllDebridBlock() }
                     item { Heading("Compte et synchronisation") }
                     item { SyncBlock() }
                 }
@@ -768,6 +770,100 @@ private fun HomeEditor() {
                         else -> Chip("Mettre ici (${idx - special.size + 1})", false, { placeAt(m, k); moving = null })
                     }
                 }
+            }
+        }
+    }
+}
+
+
+// ---------- AllDebrid : connexion par code PIN (saisi sur le téléphone), jours Premium restants.
+// La clé reste sur cette télé uniquement (pas envoyée au serveur de synchronisation).
+private object AllDebrid {
+    private const val API = "https://api.alldebrid.com"
+    private fun http(url: String, post: String? = null, key: String? = null): kotlinx.serialization.json.JsonObject {
+        val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+        c.connectTimeout = 10_000; c.readTimeout = 10_000
+        if (key != null) c.setRequestProperty("Authorization", "Bearer $key")
+        if (post != null) { c.requestMethod = "POST"; c.doOutput = true; c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded"); c.outputStream.use { it.write(post.toByteArray()) } }
+        val txt = (if (c.responseCode in 200..299) c.inputStream else c.errorStream ?: c.inputStream).bufferedReader().use { it.readText() }
+        return kotlinx.serialization.json.Json.parseToJsonElement(txt) as kotlinx.serialization.json.JsonObject
+    }
+    private fun kotlinx.serialization.json.JsonObject.o(k: String) = this[k] as? kotlinx.serialization.json.JsonObject
+    private fun kotlinx.serialization.json.JsonObject.t(k: String) = (this[k] as? kotlinx.serialization.json.JsonPrimitive)?.content
+    data class Pin(val pin: String, val check: String, val expiresIn: Int)
+    data class User(val name: String, val premium: Boolean, val until: Long)
+    class AuthError : Exception()
+    suspend fun pin(): Pin? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching { http("$API/v4.1/pin/get").o("data")?.let { Pin(it.t("pin")!!, it.t("check")!!, it.t("expires_in")?.toIntOrNull() ?: 600) } }.getOrNull()
+    }
+    /** null = pas encore validé ; "" = code expiré/invalide ; sinon la clé. */
+    suspend fun check(p: Pin): String? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val j = http("$API/v4/pin/check", "pin=${p.pin}&check=${p.check}")
+            if (j.t("status") == "error") "" else j.o("data")?.let { d -> if (d.t("activated") == "true") d.t("apikey") else null }
+        }.getOrNull()
+    }
+    suspend fun user(key: String): User = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val j = http("$API/v4/user", key = key)
+        if (j.t("status") != "success") { if (j.o("error")?.t("code")?.startsWith("AUTH") == true) throw AuthError() else throw Exception() }
+        val u = j.o("data")!!.o("user")!!
+        User(u.t("username") ?: "Compte connecté", u.t("isPremium") == "true", (u.t("premiumUntil")?.toLongOrNull() ?: 0L) * 1000)
+    }
+}
+
+@Composable
+private fun AllDebridBlock() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("tvo_alldebrid", android.content.Context.MODE_PRIVATE) }
+    var key by remember { mutableStateOf(prefs.getString("key", null)) }
+    var pin by remember { mutableStateOf<AllDebrid.Pin?>(null) }
+    var user by remember { mutableStateOf<AllDebrid.User?>(null) }
+    var err by remember { mutableStateOf<String?>(null) }
+    var retry by remember { mutableStateOf(0) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    fun save(k: String?) { prefs.edit().putString("key", k).apply(); key = k; user = null }
+    LaunchedEffect(key, retry) {
+        val k = key ?: return@LaunchedEffect
+        err = null
+        try { user = AllDebrid.user(k) } catch (e: AllDebrid.AuthError) { save(null); err = "Connexion expirée, reconnecte-toi." } catch (e: Exception) { err = "Impossible de joindre AllDebrid pour le moment." }
+    }
+    LaunchedEffect(pin) {
+        val p = pin ?: return@LaunchedEffect
+        val end = System.currentTimeMillis() + p.expiresIn * 1000L
+        while (System.currentTimeMillis() < end) {
+            kotlinx.coroutines.delay(5000)
+            when (val r = AllDebrid.check(p)) { null -> {}; "" -> break; else -> { pin = null; save(r); return@LaunchedEffect } }
+        }
+        pin = null; err = "Code expiré, recommence."
+    }
+    Column(Modifier.width(620.dp).clip(RoundedCornerShape(18.dp)).background(TvoColors.Surface).padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        val p = pin; val u = user
+        when {
+            p != null -> {
+                Text("Sur ton téléphone, va sur alldebrid.com/pin et saisis ce code :", fontSize = 16.sp, color = TvoColors.Text)
+                Text(p.pin, fontSize = 56.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 12.sp)
+                Text("En attente de ta validation…", fontSize = 14.sp, color = TvoColors.Muted)
+                TvoButton("Annuler", { pin = null })
+            }
+            key == null -> {
+                Text("Connecte ton compte AllDebrid pour voir tes jours Premium restants.", fontSize = 16.sp, color = TvoColors.Text)
+                err?.let { Text(it, fontSize = 14.sp, color = Color(0xFFF59E0B)) }
+                TvoButton("Connecter AllDebrid", { scope.launch { val r = AllDebrid.pin(); if (r == null) err = "AllDebrid ne répond pas, réessaie." else { err = null; pin = r } } }, primary = true)
+            }
+            u != null -> {
+                val days = if (u.until > 0) maxOf(0L, (u.until - System.currentTimeMillis() + 86_399_999L) / 86_400_000L) else 0L
+                val col = if (!u.premium || days <= 3) Color(0xFFEF4444) else if (days <= 15) Color(0xFFF59E0B) else Color(0xFF22C55E)
+                Text(u.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                if (u.premium) Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("$days", fontSize = 48.sp, fontWeight = FontWeight.Black, color = col)
+                    Text(if (days > 1) "jours Premium restants" else "jour Premium restant", Modifier.padding(bottom = 8.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
+                } else Text("Pas d'abonnement Premium actif", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = col)
+                if (u.premium && u.until > 0) Text("Jusqu'au " + java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.FRENCH).format(java.util.Date(u.until)), fontSize = 15.sp, color = TvoColors.Muted)
+                TvoButton("Déconnecter AllDebrid", { save(null) })
+            }
+            else -> {
+                Text(err ?: "Chargement…", fontSize = 16.sp, color = TvoColors.Muted)
+                if (err != null) TvoButton("Réessayer", { retry++ })
             }
         }
     }

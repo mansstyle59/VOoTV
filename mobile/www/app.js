@@ -5182,6 +5182,65 @@ var qrcode = function() {
   const iconTile = ([n, label, bg, c]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev" style="background:${bg}">
       <svg viewBox="0 0 512 512"><circle cx="256" cy="256" r="150" fill="none" stroke="${c}" stroke-width="28"/><path d="M220 186 Q220 170 234 178 L330 240 Q343 248 330 256 L234 318 Q220 326 220 310 Z" transform="translate(4 8)" fill="${c}"/></svg></span><span>${label}</span></button>`;
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
+  // ---------- AllDebrid : connexion par code PIN, jours Premium restants (clé gardée sur cet appareil uniquement)
+  const AD = "https://api.alldebrid.com";
+  async function adUser(k) {
+    const r = await fetch(`${AD}/v4/user`, { headers: { Authorization: "Bearer " + k } });
+    const j = await r.json();
+    if (j.status !== "success") { const e = new Error((j.error && j.error.message) || "Erreur AllDebrid"); e.code = j.error && j.error.code; throw e; }
+    return j.data.user;
+  }
+  function drawAD() {
+    const box = $("#adCard"); if (!box) return;
+    const k = LS.get("ad_key", null);
+    const head = (sub) => `<div class="ad-row"><span class="ad-ic">AD</span><div class="ad-tx"><b>AllDebrid</b><small>${sub}</small></div></div>`;
+    if (!k) {
+      box.innerHTML = head("Connecte ton compte pour voir tes jours Premium restants") + `<button class="btn primary block" id="adGo">Connecter AllDebrid</button>`;
+      $("#adGo").addEventListener("click", adConnect); return;
+    }
+    box.innerHTML = head("Chargement…");
+    adUser(k).then((u) => {
+      if (!document.body.contains(box)) return;
+      const until = (u.premiumUntil || 0) * 1000;
+      const days = until ? Math.max(0, Math.ceil((until - Date.now()) / 86400000)) : 0;
+      const lvl = !u.isPremium || days <= 3 ? "bad" : days <= 15 ? "warn" : "ok";
+      box.innerHTML = head(esc(u.username || "Compte connecté")) + `
+        <div class="ad-days ${lvl}">${u.isPremium ? `<b>${days}</b><span>jour${days > 1 ? "s" : ""} Premium restant${days > 1 ? "s" : ""}</span>` : `<b>—</b><span>Pas d'abonnement Premium actif</span>`}</div>
+        ${u.isPremium && until ? `<p class="small muted" style="margin:0">Jusqu'au ${new Date(until).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>` : ""}
+        <div class="two-btn"><a class="btn" href="https://alldebrid.com/offer/" target="_blank" rel="noopener">Prolonger</a><button class="btn danger" id="adOut">Déconnecter</button></div>`;
+      $("#adOut").addEventListener("click", () => { if (!confirm("Déconnecter AllDebrid de cet appareil ?")) return; LS.set("ad_key", null); drawAD(); });
+    }).catch((e) => {
+      if (!document.body.contains(box)) return;
+      if (/AUTH/.test(e.code || "")) { LS.set("ad_key", null); toast("Connexion AllDebrid expirée, reconnecte-toi", 4000); drawAD(); return; }
+      box.innerHTML = head("Impossible de joindre AllDebrid pour le moment") + `<button class="btn block" id="adRetry">Réessayer</button>`;
+      $("#adRetry").addEventListener("click", drawAD);
+    });
+  }
+  async function adConnect() {
+    const box = $("#adCard"); if (!box) return;
+    let d;
+    try { const j = await (await fetch(`${AD}/v4.1/pin/get`)).json(); d = j.data; if (!d || !d.pin) throw 0; }
+    catch { toast("AllDebrid ne répond pas, réessaie", 4000); return; }
+    box.innerHTML = `<div class="ad-row"><span class="ad-ic">AD</span><div class="ad-tx"><b>Connexion à AllDebrid</b><small>Saisis ce code sur alldebrid.com/pin</small></div></div>
+      <div class="ad-pin">${esc(d.pin)}</div>
+      <a class="btn primary block" href="${esc(d.user_url)}" target="_blank" rel="noopener">Ouvrir AllDebrid et valider</a>
+      <p class="small muted" style="margin:0;text-align:center" id="adWait">En attente de ta validation…</p>
+      <button class="btn block" id="adCancel">Annuler</button>`;
+    let stop = false;
+    $("#adCancel").addEventListener("click", () => { stop = true; drawAD(); });
+    const end = Date.now() + (d.expires_in || 600) * 1000;
+    while (!stop && Date.now() < end && document.body.contains(box)) {
+      await new Promise((r) => setTimeout(r, 5000));
+      if (stop || !document.body.contains(box)) return;
+      try {
+        const body = new URLSearchParams({ pin: d.pin, check: d.check });
+        const j = await (await fetch(`${AD}/v4/pin/check`, { method: "POST", body })).json();
+        if (j.status === "success" && j.data && j.data.activated && j.data.apikey) { LS.set("ad_key", j.data.apikey); toast("AllDebrid connecté ✓"); drawAD(); return; }
+        if (j.status === "error") break;
+      } catch { /* réseau : on réessaie */ }
+    }
+    if (!stop && document.body.contains(box)) { toast("Code expiré, recommence", 4000); drawAD(); }
+  }
   const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Installer sur la télé": "Code Downloader 7971420 et étapes", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
     "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Apparence": "Thème Liquid Glass ou classique", "Application": "Version et mises à jour" };
   const SECT_GROUPS = [
@@ -5254,6 +5313,7 @@ var qrcode = function() {
       </div>` : ""}
       <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
+        <div class="card ad-card" id="adCard"></div>
         ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>${esc(acct().user)}</b><div><span class="pstat ${acct().role === "admin" ? "admin" : "std"}">${acct().role === "admin" ? "Administrateur" : "Compte actif"}</span>${acct().expires_at && acct().role !== "admin" ? ` <span class="small muted">jusqu'au ${new Date(acct().expires_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>` : ""}</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
           <details class="card"><summary class="small">Mon adresse e-mail</summary><div class="list" style="padding:10px 0 0"><div class="small muted">Pour être prévenu quand ton accès est activé ou prolongé.</div>
             <input class="field" id="myMail" type="email" inputmode="email" autocapitalize="off" placeholder="ton@email.fr"><button class="btn primary block" id="myMailGo">Enregistrer</button></div></details>
@@ -5351,6 +5411,7 @@ var qrcode = function() {
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>
       <div class="legal-links pad"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions d'utilisation</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div>`;
       makeCollapsible(app, acct() ? [] : ["Compte"]);
+      drawAD();
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
       $("#modePick").addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (!b) return; setMode(b.dataset.mode);
         $("#modePick").querySelectorAll("[data-mode]").forEach((x) => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); }); });
