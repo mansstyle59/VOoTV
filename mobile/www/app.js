@@ -2314,6 +2314,9 @@ var qrcode = function() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const VERSION = window.TVO_VERSION || { code: 0, name: "dev", repo: "mansstyle59/VOoTV" };
+  // Version de l'appli réellement installée (la mise à jour à l'ouverture ne change que le code, pas les icônes)
+  const SHELL = VERSION.shell != null ? VERSION.shell : VERSION.code;
+  const ICONS_SINCE = 252; // première appli iPhone avec les nouvelles icônes
 
   const ICON = {
     sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M2 12h2M20 12h2M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400"/></svg>',
@@ -5436,9 +5439,9 @@ var qrcode = function() {
       <p class="small muted mode-note">Ambiance du mode sombre (suit la couleur du profil)</p>
       <div class="amb-pick" id="ambPick">${AMBS.map(([k, l, d]) => `<button class="amb-t amb-${k} ${amb() === k ? "on" : ""}" data-amb="${k}"><span class="amb-prev"><i></i>${BIMG("logo-mark.png")}</span><b>${l}</b><small>${d}</small></button>`).join("")}</div></div>
       ${APPICON() ? `<h2 class="section-title section"><span>Icône de l'appli</span></h2>
-      <div class="list"><div class="card small muted">Change l'icône de TVO sur l'écran d'accueil, sans réinstaller.</div><div class="aicons" id="aicons">${APP_ICONS.map(iconTile).join("")}</div></div>` : ""}
+      <div class="list">${SHELL < ICONS_SINCE ? `<div class="card ntc-old"><b>Ton appli installée est ancienne (1.0.${SHELL})</b><div class="small">Elle contient encore les anciennes icônes. Installe le dernier fichier TVO-iOS.ipa avec ESign, par-dessus l'appli, pour avoir les nouvelles.</div></div>` : ""}<div class="card small muted">Change l'icône de TVO sur l'écran d'accueil, sans réinstaller.</div><div class="aicons" id="aicons">${APP_ICONS.map(iconTile).join("")}</div></div>` : ""}
       <h2 class="section-title section"><span>Application</span></h2>
-      <div class="list"><div class="card">Version ${esc(VERSION.name)}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
+      <div class="list"><div class="card">Version ${esc(VERSION.name)}${SHELL !== VERSION.code ? ` <span class="small muted">· appli installée 1.0.${SHELL}</span>` : ""}<div class="small muted">TVO n'héberge aucun contenu : les vidéos viennent des add-ons que tu ajoutes.</div></div>
         <button class="btn block" id="upd">Rechercher une mise à jour</button></div>
       <div class="legal-links pad"><a href="#/legal/help">Aide</a><a href="#/legal/terms">Conditions d'utilisation</a><a href="#/legal/privacy">Confidentialité</a><a href="#/legal/about">À propos</a></div>`;
       makeCollapsible(app, acct() ? [] : ["Compte"]);

@@ -2473,3 +2473,4 @@ html[data-amb="profil"] #amb .g1 { opacity: .24; } html[data-amb="profil"] #amb 
 .amb-aurore .amb-prev i { opacity: .5; }
 .amb-profil .amb-prev { background: color-mix(in srgb, var(--acc,#3d7cff) 22%, #000); }
 @supports (corner-shape: squircle) { .amb-t, .amb-prev { corner-shape: squircle; } }
+.ntc-old { border: 1px solid #f59e0b; background: color-mix(in srgb, #f59e0b 12%, var(--surface)); display: grid; gap: 4px; }
