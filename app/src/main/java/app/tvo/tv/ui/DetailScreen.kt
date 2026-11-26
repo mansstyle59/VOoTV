@@ -124,6 +124,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
     var trailerMode by remember(p.id) { mutableStateOf(0) }
     var videoKey by remember(p.id) { mutableStateOf<String?>(null) }
+    var tab by remember(p.id) { mutableStateOf(0) }
     val videos by produceState(emptyList<app.tvo.tv.data.Tmdb.TVideo>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.videosFr(p.type, p.id) else emptyList() }
     val trailerWin = trailerMode == 2
     androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = 0; videoKey = null }
@@ -144,7 +145,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     // Défilement de la page : quand le focus est sur les boutons du haut, la page ne bouge JAMAIS (cause du clignotement).
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val cfg = androidx.compose.ui.platform.LocalConfiguration.current
-    val heroFullPx = (cfg.screenHeightDp - 175).coerceIn(320, 390) * density
+    val heroFullPx = (cfg.screenHeightDp - 96).coerceAtLeast(340) * density
     val widthPx = cfg.screenWidthDp * density
     // Une seule règle de défilement pour toute la fiche, basée sur la POSITION de l'élément choisi :
     //  - boutons du haut : la page ne bouge pas ;
@@ -167,7 +168,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val heroFocused = heroHasFocus
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
-    val heroFull = (screenH - 175).coerceIn(320, 390).dp
+    val heroFull = (screenH - 96).coerceAtLeast(340).dp
     Box(Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Visuel plein écran (image fixe), voilé à gauche et en bas pour garder le texte lisible
@@ -184,13 +185,13 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 40.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
-                    Column(Modifier.padding(start = 48.dp).width(640.dp)) {
+        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 28.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
+                    Column(Modifier.padding(start = 48.dp).width(680.dp)) {
                         // Logo manquant ou cassé : le titre du film en texte stylé à la place
                         var logoFail by remember(p.logo) { mutableStateOf(false) }
-                        if (p.logo != null && !logoFail) AsyncImage(p.logo, p.name, Modifier.height(72.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart,
+                        if (p.logo != null && !logoFail) AsyncImage(p.logo, p.name, Modifier.height(96.dp).fillMaxWidth(0.9f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart,
                             colorFilter = if (logoDark) WhiteLogoFilter else null, onError = { logoFail = true })
-                        else StyledTitle(p.name, 40)
+                        else StyledTitle(p.name, 48)
                         Spacer(Modifier.height(6.dp))
                         // Boutons d'abord (pilule « Regarder » + boutons ronds), comme sur la maquette
                         Spacer(Modifier.height(8.dp))
@@ -203,8 +204,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                 store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                                 android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                            // Bande-annonce : plein écran avec le son (Retour pour fermer)
-                            if (trailer != null) RoundButton(TvIcon) { videoKey = null; trailerMode = 2 }
                             if (p.type == "movie") {
                                 val seen = targetProgress?.finished == true
                                 RoundButton(Icons.Default.CheckCircle, active = seen) {
@@ -214,24 +213,28 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                     android.widget.Toast.makeText(ctx, if (seen) "Marqué non vu" else "Marqué comme vu", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
+                            // Bande-annonce : plein écran avec le son (Retour pour fermer)
+                            if (trailer != null) RoundButton(TvIcon) { videoKey = null; trailerMode = 2 }
                         }
-                        if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        meta.extra["writers"]?.let { w -> Text("Scénariste : $w", Modifier.padding(top = 2.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                        if (meta.director.isNotEmpty()) Text((if (p.type == "series") "Création : " else "Réalisateur : ") + meta.director.joinToString(", "), Modifier.padding(top = 14.dp), fontSize = 16.sp, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val tm = meta.extra["tmdb"]
-                        if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (tm != null) Text("TMDB  " + tm.substringBefore(",") + "%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
-                            if (!p.imdbRating.isNullOrBlank()) Text("★ " + p.imdbRating, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
+                        if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(22.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (tm != null) RatingTag("TMDB", Color(0xFF0D253F), Color(0xFF90CEA1), tm.substringBefore(","))
+                            if (!p.imdbRating.isNullOrBlank()) RatingTag("IMDb", Color(0xFFF5C518), Color.Black, p.imdbRating)
                         }
-                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 6.dp), fontSize = 13.sp,
-                            color = Color.White.copy(alpha = 0.92f), maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
+                        if (!p.description.isNullOrBlank()) Text(p.description, Modifier.padding(top = 12.dp), fontSize = 16.sp,
+                            color = Color.White.copy(alpha = 0.95f), maxLines = 4, overflow = TextOverflow.Ellipsis, lineHeight = 23.sp,
+                            style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color(0x99000000), androidx.compose.ui.geometry.Offset(0f, 2f), 6f)))
                         if (p.description.isNullOrBlank() && !app.tvo.tv.data.Tmdb.enabled) Text("Ajoute ta clé TMDB (Réglages) pour les résumés en français.", Modifier.padding(top = 10.dp), fontSize = 13.sp, color = TvoColors.Cyan)
                         val gl = p.genres.take(3).joinToString(" • ") { genreLabel(it) }
                         val dl = meta.extra["date"] ?: p.releaseInfo
-                        if (gl.isNotBlank() || dl != null) Text(listOfNotNull(gl.ifBlank { null }, dl).joinToString(" • "), Modifier.padding(top = 4.dp), fontSize = 12.sp, color = TvoColors.Muted, maxLines = 1)
-                        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            meta.extra["cert"]?.let { Badge(it) }
-                            val info = listOfNotNull(meta.extra["status"], meta.runtime, meta.extra["country"], meta.extra["lang"]).joinToString(" • ")
-                            if (info.isNotBlank()) Text(info, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, maxLines = 1)
+                        if (gl.isNotBlank() || dl != null) Text(listOfNotNull(gl.ifBlank { null }, dl).joinToString("  •  "), Modifier.padding(top = 12.dp), fontSize = 15.sp, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
+                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val tag = listOfNotNull(meta.extra["cert"], meta.extra["statusFr"]?.uppercase()).joinToString("  |  ")
+                            if (tag.isNotBlank()) Text(tag, Modifier.border(1.5.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 3.dp),
+                                fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            val info = listOfNotNull(meta.runtime, meta.extra["countryName"] ?: meta.extra["country"], meta.extra["lang"]?.uppercase()).joinToString("   •   ")
+                            if (info.isNotBlank()) Text(info, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
                         }
                         if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) {
                             val left = ((targetProgress.duration - targetProgress.position) / 60000).coerceAtLeast(1)
@@ -261,23 +264,44 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (meta.people.isNotEmpty()) item(key = "cast") {
+            // Onglets façon Nuvio : un seul titre cliquable par contenu ; choisir un onglet change la rangée du dessous
+            val tabsAvail = listOfNotNull(
+                if (meta.people.isNotEmpty()) 0 to (if (p.type == "series") "Création et distribution" else "Créateur et distribution") else null,
+                if (similar.isNotEmpty()) 1 to "Similaires" else null,
+                if (videos.isNotEmpty()) 2 to "Bande-annonce" else null,
+            )
+            if (tabsAvail.isNotEmpty()) item(key = "tabs") {
+                if (tabsAvail.none { it.first == tab }) tab = tabsAvail.first().first
+                Row(Modifier.padding(start = 42.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    tabsAvail.forEachIndexed { i, (k, label) ->
+                        if (i > 0) Box(Modifier.padding(horizontal = 8.dp).width(1.5.dp).height(22.dp).background(Color.White.copy(alpha = 0.4f)))
+                        TabLabel(label, tab == k, { tab = k }, Modifier.onFocusChanged { if (it.isFocused) tab = k })
+                    }
+                }
+            }
+            if (tab == 0 && meta.people.isNotEmpty()) item(key = "cast") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Casting", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                         itemsIndexed(meta.people.distinctBy { it.id }, key = { _, it -> it.id }) { i, person -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PersonBubble(person) { nav.openPerson(person.id) } } }
                     }
                 }
             }
+            if (tab == 1 && similar.isNotEmpty()) item(key = "similar") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        itemsIndexed(similar.distinctBy { it.id }, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
+                    }
+                }
+            }
             // Vidéos en français par type (bandes-annonces, teasers, extraits…) : OK = plein écran avec le son
-            if (videos.isNotEmpty()) item(key = "videos") {
+            if (tab == 2 && videos.isNotEmpty()) item(key = "videos") {
                 val types = VTYPES.keys.filter { t -> videos.any { it.type == t } }
                 var cur by remember(videos) { mutableStateOf(types.firstOrNull() ?: "Trailer") }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(Modifier.padding(start = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Vidéos", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                        if (types.size > 1) types.forEach { t -> Chip(VTYPES[t] ?: t, t == cur, { cur = t }) }
+                    if (types.size > 1) Row(Modifier.padding(start = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        types.forEach { t -> Chip(VTYPES[t] ?: t, t == cur, { cur = t }) }
                     }
                     val list = videos.filter { it.type == cur }
                     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowSideSpec) {
@@ -291,29 +315,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                 }
                             }
                         }
-                    }
-                }
-            }
-            // Détails : tableau clé / valeur
-            item(key = "details") {
-                val ser = p.type == "series"
-                val rows = listOfNotNull(
-                    meta.extra["statusFr"]?.let { "Statut" to it },
-                    (meta.extra["date"] ?: p.releaseInfo)?.let { (if (ser) "Première diffusion" else "Date de sortie") to it },
-                    if (ser) meta.extra["seasons"]?.let { "Saisons" to it } else meta.runtime?.let { "Durée" to it },
-                    if (ser) meta.extra["episodes"]?.let { "Épisodes" to it } else null,
-                    meta.extra["cert"]?.let { "Classification" to it },
-                    (meta.extra["countryName"] ?: meta.extra["country"])?.let { "Pays d'origine" to it },
-                    (meta.extra["langName"] ?: meta.extra["lang"])?.let { "Langue originale" to it },
-                )
-                if (rows.isNotEmpty()) Column(Modifier.padding(horizontal = 48.dp).width(640.dp).focusable()) {
-                    Text(if (ser) "Détails de la série" else "Détails du film", Modifier.padding(bottom = 6.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    rows.forEachIndexed { i, (k, v) ->
-                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(k, fontSize = 15.sp, color = TvoColors.Muted, fontWeight = FontWeight.SemiBold)
-                            Text(v, fontSize = 15.sp, color = TvoColors.Text)
-                        }
-                        if (i < rows.size - 1) Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
                     }
                 }
             }
@@ -334,15 +335,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
                 }
             } }
-            if (similar.isNotEmpty()) item(key = "similar") {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("À voir aussi", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    val fr = remember { FocusRequester() }
-                    LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        itemsIndexed(similar.distinctBy { it.id }, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
-                    }
-                }
-            }
         }
         }
     }
@@ -503,15 +495,14 @@ private fun Badge(text: String) {
 }
 
 @Composable
-private fun TabLabel(text: String, selected: Boolean, onClick: () -> Unit) {
+private fun TabLabel(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     androidx.tv.material3.Surface(
-        onClick = onClick, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        onClick = onClick, modifier = modifier, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = 0.14f)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
         Column(Modifier.padding(horizontal = 6.dp, vertical = 4.dp)) {
-            Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (selected) Color.White else TvoColors.Muted)
-            Box(Modifier.padding(top = 4.dp).height(3.dp).fillMaxWidth().background(if (selected) TvoColors.Blue else Color.Transparent))
+            Text(text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else Color.White.copy(alpha = 0.6f))
         }
     }
 }
@@ -529,3 +520,12 @@ private val TvIcon: androidx.compose.ui.graphics.vector.ImageVector by lazy {
 /** Types de vidéos TMDB, dans l'ordre d'affichage, avec leur nom en français. */
 private val VTYPES = linkedMapOf("Trailer" to "Bandes-annonces", "Teaser" to "Teasers", "Clip" to "Extraits", "Featurette" to "Making-of",
     "Behind the Scenes" to "Coulisses", "Bloopers" to "Bêtisier", "Opening Credits" to "Génériques")
+
+/** Note avec pastille de la source (TMDB, IMDb…), lisible sur l'image de fond. */
+@Composable
+private fun RatingTag(src: String, bg: Color, fg: Color, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(src, Modifier.clip(RoundedCornerShape(4.dp)).background(bg).padding(horizontal = 6.dp, vertical = 1.dp), fontSize = 12.sp, fontWeight = FontWeight.Black, color = fg)
+        Text(value, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
