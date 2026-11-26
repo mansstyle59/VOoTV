@@ -411,8 +411,6 @@ fun SettingsSection(nav: Nav) {
                             profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
                         }
                     }
-                    item { Heading("AllDebrid") }
-                    item { AllDebridBlock() }
                     item { Heading("Compte et synchronisation") }
                     item { SyncBlock() }
                 }
@@ -448,6 +446,8 @@ fun SettingsSection(nav: Nav) {
                 "addons" -> {
                     item { Heading("Add-ons") }
                     item { Text("Compatible Stremio / Nuvio. Le premier de la liste est prioritaire.", fontSize = 14.sp, color = TvoColors.Muted) }
+                    item { Text("Service de débridage", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text) }
+                    item { AllDebridBlock() }
                     item { TvoButton("Ajouter un add-on", nav.addAddon, icon = Icons.Default.Add, primary = true) }
                     app.tvo.tv.data.ADDON_CATEGORIES.forEach { cat ->
                         val group = addons.filter { it.category() == cat }

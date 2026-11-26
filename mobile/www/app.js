@@ -5242,7 +5242,7 @@ var qrcode = function() {
     if (!stop && document.body.contains(box)) { toast("Code expiré, recommence", 4000); drawAD(); }
   }
   const SECT_INFO = { "Compte": "Ton compte TVO et la synchronisation", "Gestion des profils": "Statut, accès, essai et temps d'écran", "Clés API": "TMDB et clé de synchronisation (masquées)", "Icône de l'appli": "Classique, turquoise, nuit, clair, Noël, or", "Installer sur la télé": "Code Downloader 7971420 et étapes", "Connecter une TV": "QR code ou code à 6 chiffres", "Lecteur": "Lecteur intégré ou appli externe",
-    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "Catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Apparence": "Thème Liquid Glass ou classique", "Application": "Version et mises à jour" };
+    "Titres et résumés (TMDB)": "Catalogues et fiches en français", "Add-ons": "AllDebrid, catalogues, sources, chaînes, sous-titres, accès par profil", "Page d'accueil": "Rangées affichées et ordre", "Apparence": "Thème Liquid Glass ou classique", "Application": "Version et mises à jour" };
   const SECT_GROUPS = [
     ["Mon compte", ["Compte"]],
     ["Télévision", ["Installer sur la télé", "Connecter une TV"]],
@@ -5313,7 +5313,6 @@ var qrcode = function() {
       </div>` : ""}
       <h2 class="section-title section"><span>Compte</span></h2>
       <div class="list">
-        <div class="card ad-card" id="adCard"></div>
         ${acct() ? `<div class="card" style="display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0"><b>${esc(acct().user)}</b><div><span class="pstat ${acct().role === "admin" ? "admin" : "std"}">${acct().role === "admin" ? "Administrateur" : "Compte actif"}</span>${acct().expires_at && acct().role !== "admin" ? ` <span class="small muted">jusqu'au ${new Date(acct().expires_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}</span>` : ""}</div></div><button class="btn" id="acctOut">Se déconnecter</button></div>
           <details class="card"><summary class="small">Mon adresse e-mail</summary><div class="list" style="padding:10px 0 0"><div class="small muted">Pour être prévenu quand ton accès est activé ou prolongé.</div>
             <input class="field" id="myMail" type="email" inputmode="email" autocapitalize="off" placeholder="ton@email.fr"><button class="btn primary block" id="myMailGo">Enregistrer</button></div></details>
@@ -5382,6 +5381,7 @@ var qrcode = function() {
       </div>
 `}
       <h2 class="section-title section"><span>Add-ons</span></h2>
+      <div class="list" style="margin-bottom:12px"><div class="card ad-card" id="adCard"></div></div>
       <p class="pad small muted" style="margin-top:-4px">Compatible avec les add-ons Stremio / Nuvio existants : colle l'adresse de leur manifest.json. Le premier est prioritaire. Les sources torrent seules ne sont pas lisibles.</p>
       <div class="list">${CATEGORIES.map((cat) => [cat, S.addons.map((a, i) => [a, i]).filter(([a]) => addonCategory(a) === cat)]).filter(([, g]) => g.length).map(([cat, g]) => `<div class="small" style="color:var(--cyan);font-weight:700;margin-top:6px">${cat}</div>` + g.map(([a, i]) => {
         const kinds = a.manifest.resources.map((r) => ({ catalog: "catalogues", meta: "fiches", stream: "vidéos", subtitles: "sous-titres" }[r.name])).filter(Boolean);
