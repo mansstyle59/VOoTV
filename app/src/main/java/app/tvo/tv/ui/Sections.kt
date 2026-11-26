@@ -422,21 +422,6 @@ fun SettingsSection(nav: Nav) {
                         }
                     }
                     item { Text("Le fond suit la couleur du profil, comme sur le téléphone.", fontSize = 14.sp, color = TvoColors.Muted) }
-                    item { Heading("Icône de l'appli") }
-                    item {
-                        val ctx = androidx.compose.ui.platform.LocalContext.current
-                        val prefs = remember { ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE) }
-                        var cur by remember { mutableStateOf(prefs.getString("icon", "classique") ?: "classique") }
-                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            items(TV_ICONS.size) { i -> val (k, l) = TV_ICONS[i]
-                                IconChoice(k, l, cur == k) {
-                                    if (cur != k) { setTvIcon(ctx, k); cur = k; prefs.edit().putString("icon", k).apply()
-                                        android.widget.Toast.makeText(ctx, "Icône « $l » : elle apparaît sur l'écran d'accueil d'ici quelques secondes", android.widget.Toast.LENGTH_LONG).show() }
-                                }
-                            }
-                        }
-                    }
-                    item { Text("Change l'icône et la bannière de TVO sur l'écran d'accueil de la télé, sans réinstaller.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { Heading("Compte et synchronisation") }
                     item { SyncBlock() }
                 }
