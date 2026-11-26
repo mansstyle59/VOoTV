@@ -1,6 +1,7 @@
 package app.tvo.tv.ui
 
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.size
