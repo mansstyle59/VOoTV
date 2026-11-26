@@ -4205,7 +4205,9 @@ var qrcode = function() {
     let heroDone = false;
     lazyRows(rowsEl, rows, (list) => {
       if (heroDone) return; heroDone = true;
-      if (list.length) (type || isDesk() ? renderHero : renderCarousel)($("#hero"), list);
+      // Films et Séries : pas d'affiche qui défile, la page commence par les rangées
+      if (type) { const h = $("#hero"); if (h) h.remove(); return; }
+      if (list.length) (isDesk() ? renderHero : renderCarousel)($("#hero"), list);
     });
   }
 
