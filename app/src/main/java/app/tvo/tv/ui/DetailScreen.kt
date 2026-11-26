@@ -54,6 +54,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -140,19 +142,22 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     var heroHasFocus by remember { mutableStateOf(true) }
     // Retour sur les boutons depuis les rangées : un seul retour en haut, en douceur (plus de « combat » de défilement)
     LaunchedEffect(heroHasFocus) {
-        if (heroHasFocus && (mainState.firstVisibleItemIndex > 0 || mainState.firstVisibleItemScrollOffset > 0)) mainState.animateScrollToItem(0)
+        if (!heroHasFocus) return@LaunchedEffect
+        delay(400)
+        if (mainState.firstVisibleItemIndex > 0 || mainState.firstVisibleItemScrollOffset > 0) mainState.animateScrollToItem(0)
     }
     // Défilement de la page : quand le focus est sur les boutons du haut, la page ne bouge JAMAIS (cause du clignotement).
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val cfg = androidx.compose.ui.platform.LocalConfiguration.current
-    val heroFullPx = (cfg.screenHeightDp - 96).coerceAtLeast(340) * density
+    var heroMeasured by remember { mutableStateOf(0f) }
+    val heroFullPx = maxOf((cfg.screenHeightDp - 96).coerceAtLeast(340) * density, heroMeasured)
     val widthPx = cfg.screenWidthDp * density
     // Une seule règle de défilement pour toute la fiche, basée sur la POSITION de l'élément choisi :
     //  - boutons du haut : la page ne bouge pas ;
     //  - retour vers le haut : la page remonte d'un coup tout en haut (synopsis + boutons entiers) ;
     //  - rangée du bas : elle se cale en haut de l'écran, titre compris (comme sur l'accueil) ;
     //  - défilement horizontal dans une rangée : marge normale à gauche et à droite.
-    val pageSpec = remember(widthPx, heroFullPx, density) {
+    val pageSpec = remember(widthPx, heroFullPx, density, mainState) {
         object : androidx.compose.foundation.gestures.BringIntoViewSpec {
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
                 if (kotlin.math.abs(containerSize - widthPx) < 8f) return RowSideSpec.calculateScrollDistance(offset, size, containerSize)
@@ -193,7 +198,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 28.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
+        Box(Modifier.fillMaxWidth().heightIn(min = heroFull).onSizeChanged { heroMeasured = it.height.toFloat() }.padding(top = 28.dp, bottom = 8.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 48.dp).width(680.dp)) {
                         // Logo manquant ou cassé : le titre du film en texte stylé à la place
                         var logoFail by remember(p.logo) { mutableStateOf(false) }
@@ -280,14 +285,20 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             )
             if (tabsAvail.isNotEmpty()) item(key = "tabs") {
                 if (tabsAvail.none { it.first == tab }) tab = tabsAvail.first().first
-                Row(Modifier.padding(start = 42.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // En arrivant sur les onglets (par le haut ou le bas), on retombe toujours sur l'onglet choisi : jamais de changement surprise
+                val tabReqs = remember(tabsAvail.size) { List(tabsAvail.size) { FocusRequester() } }
+                val sel = tabsAvail.indexOfFirst { it.first == tab }.coerceAtLeast(0)
+                Row(Modifier.padding(start = 42.dp, top = 6.dp).focusProperties { enter = { tabReqs[sel] } }.focusGroup(), verticalAlignment = Alignment.CenterVertically) {
                     tabsAvail.forEachIndexed { i, (k, label) ->
                         if (i > 0) Box(Modifier.padding(horizontal = 8.dp).width(1.5.dp).height(22.dp).background(Color.White.copy(alpha = 0.4f)))
-                        TabLabel(label, tab == k, { tab = k }, Modifier.onFocusChanged { if (it.isFocused) tab = k })
+                        TabLabel(label, tab == k, { tab = k }, Modifier.focusRequester(tabReqs[i]).onFocusChanged { if (it.isFocused) tab = k })
                     }
                 }
             }
-            if (tab == 0 && meta.people.isNotEmpty()) item(key = "cast") {
+            if (tabsAvail.isNotEmpty()) item(key = "tabContent") {
+                // Hauteur réservée identique pour tous les onglets : la page ne bouge pas quand on change d'onglet
+                Box(Modifier.fillMaxWidth().heightIn(min = 236.dp)) {
+                if (tab == 0 && meta.people.isNotEmpty()) run {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -295,7 +306,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
                 }
             }
-            if (tab == 1 && similar.isNotEmpty()) item(key = "similar") {
+                if (tab == 1 && similar.isNotEmpty()) run {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -304,7 +315,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 }
             }
             // Vidéos en français par type (bandes-annonces, teasers, extraits…) : OK = plein écran avec le son
-            if (tab == 2 && videos.isNotEmpty()) item(key = "videos") {
+                if (tab == 2 && videos.isNotEmpty()) run {
                 val types = VTYPES.keys.filter { t -> videos.any { it.type == t } }
                 var cur by remember(videos) { mutableStateOf(types.firstOrNull() ?: "Trailer") }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -324,6 +335,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             }
                         }
                     }
+                }
+            }
                 }
             }
             saga?.let { sg -> item(key = "saga") {
