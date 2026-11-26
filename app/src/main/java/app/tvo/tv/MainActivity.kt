@@ -81,6 +81,12 @@ class MainActivity : ComponentActivity() {
         val crashFile = java.io.File(filesDir, "crash.txt")
         val lastCrash = runCatching { crashFile.takeIf { it.exists() }?.readText() }.getOrNull()
         if (lastCrash != null) runCatching { crashFile.delete() }
+        // Version de TEST uniquement (debug) : ouvre directement une fiche, sans connexion ni profil, pour les tests automatiques
+        val testTarget = if (BuildConfig.DEBUG) intent?.let { i ->
+            val t = i.getStringExtra("tvo_test_type"); val id = i.getStringExtra("tvo_test_id")
+            i.getStringExtra("tvo_test_tmdb")?.takeIf { it.isNotBlank() }?.let { k -> Tvo.store.tmdbKey.value = k }
+            if (t != null && id != null) t to id else null
+        } else null
         setContent {
             var crash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // plus d'écran d'erreur : l'appli repart simplement
             if (crash != null) {
@@ -100,9 +106,8 @@ class MainActivity : ComponentActivity() {
             }
             TvoTheme {
                 Surface(Modifier.fillMaxSize(), colors = SurfaceDefaults.colors(containerColor = TvoColors.Bg, contentColor = TvoColors.Text)) {
-                    AppNav()
-                    UpdatePrompt()
-                    WhatsNew()
+                    AppNav(testTarget)
+                    if (testTarget == null) { UpdatePrompt(); WhatsNew() }
                 }
             }
         }
@@ -112,17 +117,20 @@ class MainActivity : ComponentActivity() {
 private fun e(s: String) = Uri.encode(s)
 
 @Composable
-private fun AppNav() {
+private fun AppNav(testTarget: Pair<String, String>? = null) {
     val nc = rememberNavController()
     val nav = remember(nc) { navFor(nc) }
     QuickMenu.nav = nav
     LaunchedEffect(Unit) { refreshAddons() }
     // Transitions entre pages : fondu court et calme (par défaut, Android fait un fondu lent de 0,7 s)
-    NavHost(nc, startDestination = "splash",
+    NavHost(nc, startDestination = if (testTarget != null) "test" else "splash",
         enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(170)) },
         exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(110)) },
         popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(170)) },
         popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(110)) }) {
+        composable("test") {
+            LaunchedEffect(Unit) { testTarget?.let { (t, id) -> nc.navigate("detail/${e(t)}/${e(id)}") { popUpTo("test") { inclusive = true } } } }
+        }
         composable("splash") { SplashScreen { nc.navigate("gate") { popUpTo("splash") { inclusive = true } } } }
         composable("gate") { AccountGate {
             // À chaque ouverture, on demande qui regarde (enfants, adultes…)
