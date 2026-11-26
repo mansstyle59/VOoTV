@@ -160,7 +160,14 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 val so = mainState.firstVisibleItemScrollOffset
                 if (idx == 0 && so == 0 && offset >= 0f && offset + size <= heroFullPx + 40f * density) return 0f
                 if (offset < 0f && idx <= 1) return -(if (idx == 0) so.toFloat() else heroFullPx + 10f * density + so)
-                return offset - 50f * density
+                // Comme Nuvio : défilement minimal. La rangée choisie entre juste en bas de l'écran (on garde le synopsis
+                // et les rangées précédentes en vue) ; en remontant, on laisse de la place au titre / aux onglets au-dessus.
+                val top = 96f * density; val bottom = 56f * density
+                return when {
+                    offset < top -> offset - top
+                    offset + size > containerSize - bottom -> (offset + size) - (containerSize - bottom)
+                    else -> 0f
+                }
             }
         }
     }
@@ -180,8 +187,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
         // Quand on parcourt les rangées : fond sombre progressif pour que visages et affiches restent nets
-        val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, androidx.compose.animation.core.snap(), label = "scrim")
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0.2f to Color.Transparent, 0.38f to Color.Black.copy(alpha = 0.72f), 1f to Color.Black.copy(alpha = 0.94f))))
+        val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, androidx.compose.animation.core.tween(350), label = "scrim")
+        // Voile léger et uniforme (comme Nuvio) : l'image reste visible, le texte et les visages restent nets
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.30f), 0.5f to Color.Black.copy(alpha = 0.42f), 1f to Color.Black.copy(alpha = 0.62f))))
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
