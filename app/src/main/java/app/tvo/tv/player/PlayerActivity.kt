@@ -488,33 +488,31 @@ class PlayerActivity : ComponentActivity() {
     }
     private fun closeOptions() { options = false; showControls() }
 
+    /** Plus d'options : même panneau que Audio et Sous-titres (colonnes, titres gris, lignes avec ✓). */
     @Composable
     private fun OptionsPanel() {
         val fr = remember { FocusRequester() }
         @Suppress("UNUSED_VARIABLE") val v = tracksVersion
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.45f to Color.Transparent, 1f to Color(0xEE000000)))) {
-            androidx.compose.foundation.lazy.LazyColumn(
-                Modifier.align(Alignment.CenterEnd).width(520.dp).fillMaxHeight().padding(end = 40.dp, top = 40.dp, bottom = 40.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                item { Text("Plus d'options", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-                item { OptTitle("Format de l'image") }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        resizeModes.forEachIndexed { i, (label, mode) ->
-                            Chip(label, resizeIdx == i, { resizeIdx = i; playerView.resizeMode = mode }, if (i == 0) Modifier.focusRequester(fr) else Modifier)
+        PanelScrim("Plus d'options") {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Format de l'image", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, modifier = Modifier.padding(bottom = 8.dp))
+                    androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items(resizeModes.size) { i -> val (label, mode) = resizeModes[i]
+                            PanelRow(label, resizeIdx == i, modifier = if (i == 0) Modifier.focusRequester(fr) else Modifier) { resizeIdx = i; playerView.resizeMode = mode }
                         }
                     }
                 }
-                item { OptTitle("Vitesse") }
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(0.75f, 1f, 1.25f, 1.5f, 2f).forEach { sp ->
-                            Chip(if (sp == 1f) "Normale" else "x${sp.toString().removeSuffix(".0")}", speed == sp, { speed = sp; player.setPlaybackSpeed(sp) })
+                Column(Modifier.weight(1f)) {
+                    Text("Vitesse", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Muted, modifier = Modifier.padding(bottom = 8.dp))
+                    androidx.compose.foundation.lazy.LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val speeds = listOf(0.75f, 1f, 1.25f, 1.5f, 2f)
+                        items(speeds.size) { i -> val sp = speeds[i]
+                            PanelRow(if (sp == 1f) "Normale" else "x${sp.toString().removeSuffix(".0")}", speed == sp) { speed = sp; player.setPlaybackSpeed(sp) }
                         }
                     }
                 }
-                item { Spacer(Modifier.height(8.dp)); TvoButton("Fermer", { closeOptions() }, primary = true) }
+                Spacer(Modifier.weight(1f))
             }
         }
         LaunchedEffect(Unit) { delay(120); runCatching { fr.requestFocus() } }
