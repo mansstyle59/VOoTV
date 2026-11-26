@@ -3,6 +3,8 @@ package app.tvo.tv.ui
 import androidx.compose.material.icons.filled.PlayArrow
 
 import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.BorderStroke
+import androidx.tv.material3.Border
 
 import androidx.compose.runtime.mutableStateMapOf
 import android.content.ActivityNotFoundException
@@ -192,6 +194,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
                     Modifier.focusRequester(firstFr).padding(bottom = 12.dp), androidx.compose.material.icons.Icons.Default.PlayArrow, primary = true)
             }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 40.dp)) {
+                if (playable.isNotEmpty() && qFilter == null) item(key = "besthead") { BestHeader() }
                 itemsIndexed(playable, key = { i, s -> "${s.addonName}|${s.url ?: s.externalUrl}|$i" }) { i, s ->
                     val r = s.url?.let { tests[it] }
                     val badge = when { s.url == null -> "Lien externe"; r == null || r.ms < 0 -> "Test…"
@@ -289,38 +292,88 @@ fun openExternal(ctx: Context, uri: Uri, title: String?) {
     catch (e: ActivityNotFoundException) { Toast.makeText(ctx, "Aucune appli ne peut ouvrir cette vidéo.", Toast.LENGTH_LONG).show() }
 }
 
+/** Couronne bleue + « Meilleure source » (même en-tête que sur le téléphone) */
+@Composable
+private fun BestHeader() {
+    Row(Modifier.padding(top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.foundation.Canvas(Modifier.width(24.dp).height(24.dp)) {
+            val w = size.width; val h = size.height
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * .12f, h * .30f); lineTo(w * .31f, h * .47f); lineTo(w * .5f, h * .17f); lineTo(w * .69f, h * .47f)
+                lineTo(w * .88f, h * .30f); lineTo(w * .79f, h * .75f); lineTo(w * .21f, h * .75f); close()
+                addRect(androidx.compose.ui.geometry.Rect(w * .21f, h * .83f, w * .79f, h * .91f))
+            }
+            drawPath(path, TvoColors.Blue)
+        }
+        Spacer(Modifier.width(10.dp))
+        Text("Meilleure source", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = TvoColors.Text)
+    }
+}
+
+private fun sizeOf(s: StreamItem): String {
+    val m = Regex("""(\d+(?:[.,]\d+)?)\s?(GB|Go|MB|Mo)\b""", RegexOption.IGNORE_CASE).find(s.name + " " + s.title) ?: return ""
+    return m.groupValues[1].replace(",", ".") + " " + (if (m.groupValues[2].startsWith("G", true)) "Go" else "Mo")
+}
+
+private fun detailOf(s: StreamItem): String {
+    val t = s.name + " " + s.title; val tags = mutableListOf<String>()
+    if (Regex("hevc|x265|h\\.?265", RegexOption.IGNORE_CASE).containsMatchIn(t)) tags += "HEVC" else if (Regex("x264|h\\.?264|avc", RegexOption.IGNORE_CASE).containsMatchIn(t)) tags += "H.264"
+    if (Regex("dolby vision|\\bdv\\b", RegexOption.IGNORE_CASE).containsMatchIn(t)) tags += "Dolby Vision" else if (t.contains("hdr", true)) tags += "HDR"
+    if (t.contains("atmos", true)) tags += "Atmos" else if (t.contains("5.1")) tags += "5.1"
+    val line = s.title.lines().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.equals(s.name.trim(), true) }?.take(90) ?: ""
+    return listOf(line, tags.joinToString(" · ")).filter { it.isNotEmpty() }.joinToString("  |  ")
+}
+
+@Composable
+private fun Pill(text: String, bg: Color, fg: Color) {
+    Box(Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Text(text, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = fg, maxLines = 1)
+    }
+}
+
 @Composable
 private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean, modifier: Modifier, locked: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    val shape = SquircleShape(20.dp)
+    val idle = if (best) TvoColors.Blue else TvoColors.Blue.copy(alpha = 0.28f)
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier.fillMaxWidth().then(if (locked) Modifier.alpha(0.55f) else Modifier),
-        shape = ClickableSurfaceDefaults.shape(SquircleShape(12.dp)),
+        shape = ClickableSurfaceDefaults.shape(shape),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(if (best) 2.dp else 1.dp, idle), shape = shape),
+            focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = TvoColors.Surface, contentColor = TvoColors.Text,
-            focusedContainerColor = Color.White, focusedContentColor = Color.Black,
+            containerColor = androidx.compose.ui.graphics.lerp(TvoColors.Surface, TvoColors.Blue, if (best) 0.14f else 0.07f), contentColor = TvoColors.Text,
+            focusedContainerColor = androidx.compose.ui.graphics.lerp(TvoColors.Surface, TvoColors.Blue, 0.24f), focusedContentColor = Color.White,
         ),
     ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(72.dp).clip(RoundedCornerShape(50)).background(if (s.quality >= 3) TvoColors.Blue else TvoColors.Surface2)
-                .padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-                Text(AddonClient.qualityLabel(s.quality), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Row(Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(s.name.replace("\n", " "), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val d = detailOf(s).ifEmpty { AddonClient.qualityLabel(s.quality) }
+                Text(d, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.72f))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val chip = Color(0xFF16305E); val chipTx = Color(0xFFE6EEFF)
+                    val bc = when { badge.startsWith("🔒") -> Color(0xFFF87171); badge.startsWith("⚡") -> Color(0xFF4ADE80); else -> chipTx }
+                    Pill(badge, chip, bc)
+                    if (lang.isNotEmpty()) Pill(lang, chip, chipTx)
+                    sizeOf(s).takeIf { it.isNotEmpty() }?.let { Pill(it, chip, chipTx) }
+                }
+                Text(s.addonName, fontSize = 13.sp, maxLines = 1, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.6f))
             }
             Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (best) Text("MEILLEURE SOURCE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TvoColors.Blue)
-                    val bc = when { badge.startsWith("🔒") -> Color(0xFFF87171); badge.startsWith("⚡") -> Color(0xFF4ADE80); else -> TvoColors.Muted }
-                    Text(badge, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = bc)
-                    if (lang.isNotEmpty()) Text(lang, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
-                }
-                Text(s.name.replace("\n", " "), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (s.title.isNotBlank()) Text(s.title, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, lineHeight = 17.sp,
-                    color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.75f))
+            Box(Modifier.width(56.dp).height(56.dp).clip(RoundedCornerShape(50))
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color(0xFF3D9BFF), TvoColors.Blue))), contentAlignment = Alignment.Center) {
+                androidx.tv.material3.Icon(androidx.compose.material.icons.Icons.Default.PlayArrow, null, Modifier.width(30.dp).height(30.dp), tint = Color.White)
             }
-            Spacer(Modifier.width(12.dp))
-            Text(s.addonName, fontSize = 12.sp, maxLines = 1, color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.6f))
+            if (onLongClick != null) {
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.width(52.dp).height(52.dp).clip(SquircleShape(14.dp)).background(Color(0xFF3A2A30)), contentAlignment = Alignment.Center) {
+                    Text("⚑", fontSize = 22.sp, color = Color(0xFFFF9A8A))
+                }
+            }
         }
     }
 }

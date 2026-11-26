@@ -5149,7 +5149,7 @@ var qrcode = function() {
       if (!playable.length) { $("#list").innerHTML = done >= total ? `<div class="empty">${total === 0 ? "Ajoute un add-on qui fournit des vidéos dans Réglages › Add-ons." : "Aucune source lisible pour ce titre."}</div>` : ""; return; }
       const best = playable.find((s) => !s.url || (test.get(s.url) || {}).ok !== false) || playable[0];
       const groups = [4, 3, 2, 1, 0].map((q) => [q, playable.filter((s) => s.quality === q)]).filter(([, l]) => l.length);
-      $("#list").innerHTML = `<div class="best-src"><div class="small muted">Meilleure source</div>${row(best)}</div>` +
+      $("#list").innerHTML = `<div class="best-src"><div class="src-h"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 11H5L3 7zm2 13h14v2H5z"/></svg>Meilleure source</div>${row(best)}</div>` +
         groups.map(([q, l]) => { const ok = l.filter((s) => !s.url || (test.get(s.url) || {}).ok !== false).length;
           return `<details class="qgroup" data-q="${q}" ${openQ.has(q) ? "open" : ""}><summary><b>${qLabel(q) === "Auto" ? "Autres" : qLabel(q)}</b><span class="small muted">${l.length} lien${l.length > 1 ? "s" : ""}${ok < l.length ? ` · ${ok} en ligne` : ""}</span><i class="chev"></i></summary>
             <div class="list">${l.map(row).join("")}</div></details>`; }).join("");
@@ -5193,7 +5193,7 @@ var qrcode = function() {
   function drawAD() {
     const box = $("#adCard"); if (!box) return;
     const k = LS.get("ad_key", null);
-    const head = (sub) => `<div class="ad-row"><span class="ad-ic">AD</span><div class="ad-tx"><b>AllDebrid</b><small>${sub}</small></div></div>`;
+    const head = (sub) => `<div class="ad-row"><span class="ad-ic">AD<img src="https://www.google.com/s2/favicons?domain=alldebrid.com&amp;sz=128" alt="" onerror="this.remove()"></span><div class="ad-tx"><b>AllDebrid</b><small>${sub}</small></div></div>`;
     if (!k) {
       box.innerHTML = head("Connecte ton compte pour voir tes jours Premium restants") + `<button class="btn primary block" id="adGo">Connecter AllDebrid</button>`;
       $("#adGo").addEventListener("click", adConnect); return;
@@ -5237,7 +5237,7 @@ var qrcode = function() {
     let d;
     try { const j = await (await fetch(`${AD}/v4.1/pin/get`)).json(); d = j.data; if (!d || !d.pin) throw 0; }
     catch { toast("AllDebrid ne répond pas, réessaie", 4000); return; }
-    box.innerHTML = `<div class="ad-row"><span class="ad-ic">AD</span><div class="ad-tx"><b>Connexion à AllDebrid</b><small>Saisis ce code sur alldebrid.com/pin</small></div></div>
+    box.innerHTML = `<div class="ad-row"><span class="ad-ic">AD<img src="https://www.google.com/s2/favicons?domain=alldebrid.com&amp;sz=128" alt="" onerror="this.remove()"></span><div class="ad-tx"><b>Connexion à AllDebrid</b><small>Saisis ce code sur alldebrid.com/pin</small></div></div>
       <div class="ad-pin">${esc(d.pin)}</div>
       <a class="btn primary block" href="${esc(d.user_url)}" target="_blank" rel="noopener">Ouvrir AllDebrid et valider</a>
       <p class="small muted" style="margin:0;text-align:center" id="adWait">En attente de ta validation…</p>

@@ -837,6 +837,17 @@ private fun AllDebridBlock() {
         pin = null; err = "Code expiré, recommence."
     }
     Column(Modifier.width(620.dp).clip(SquircleShape(18.dp)).background(TvoColors.Surface).padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Logo officiel AllDebrid (icône du site), repli « AD » si l'image ne charge pas
+            Box(Modifier.size(46.dp).clip(SquircleShape(12.dp)).background(Color(0xFFF5A623)), contentAlignment = Alignment.Center) {
+                Text("AD", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Color(0xFF111111))
+                coil.compose.SubcomposeAsyncImage(model = "https://www.google.com/s2/favicons?domain=alldebrid.com&sz=128", contentDescription = "AllDebrid",
+                    modifier = Modifier.matchParentSize(), error = {}, loading = {},
+                    success = { Box(Modifier.matchParentSize().background(Color.White).padding(7.dp)) { coil.compose.SubcomposeAsyncImageContent() } })
+            }
+            Spacer(Modifier.width(14.dp))
+            Text("AllDebrid", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+        }
         val p = pin; val u = user
         when {
             p != null -> {
