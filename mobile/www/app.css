@@ -2264,3 +2264,9 @@ html[data-mode="light"]:root .nv-tb, html[data-mode="light"]:root .nv-more { col
   .nv-vid { width: 300px; } .nv-saga { width: 320px; } .nv-posters .pcard { width: 160px; }
   .nv-top { padding-left: 32px; padding-right: 32px; }
 }
+
+/* En-tête du téléphone : image du film en paysage (plus l'affiche), hauteur adaptée pour garder la scène lisible */
+@media (max-width: 1023px) {
+  .nv-hero { height: min(64vh, 600px); min-height: 380px; }
+  .nv-hero > img { object-position: center 30%; }
+}

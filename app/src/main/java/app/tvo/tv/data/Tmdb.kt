@@ -459,7 +459,7 @@ object Tmdb {
             id = id, type = type,
             name = d.s("title") ?: d.s("name") ?: p0?.name ?: "",
             poster = img(d.s("poster_path"), "w500") ?: p0?.poster,
-            background = img(d.s("backdrop_path"), "w1280") ?: p0?.background,
+            background = img((d.obj("images")?.arr("backdrops")?.mapNotNull { it as? JsonObject }?.firstOrNull { it.s("iso_639_1") == null })?.s("file_path") ?: d.s("backdrop_path"), "w1280") ?: p0?.background,
             logo = img(logo, "w500") ?: p0?.logo,
             description = d.s("overview"), // français uniquement
             releaseInfo = p0?.releaseInfo ?: date?.take(4),

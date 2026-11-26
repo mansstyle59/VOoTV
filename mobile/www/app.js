@@ -2785,7 +2785,7 @@ var qrcode = function() {
       const date = d.release_date || d.first_air_date || "";
       const m = {
         id: imdb || b.id || `tmdb:${type}:${tid}`, type, name: d.title || d.name || b.name || "",
-        poster: timg(d.poster_path, "w500") || b.poster || null, background: timg(d.backdrop_path, "w1280") || b.background || null,
+        poster: timg(d.poster_path, "w500") || b.poster || null, background: timg((((d.images && d.images.backdrops) || []).find((x) => !x.iso_639_1) || {}).file_path || d.backdrop_path, "w1280") || b.background || null,
         logo: timg(logo, "w500") || b.logo || null, description: d.overview || null,
         releaseInfo: b.releaseInfo || date.slice(0, 4) || null, imdbRating: b.imdbRating || rating(d.vote_average),
         genres: (d.genres || []).map((g) => g.name).filter(Boolean).length ? d.genres.map((g) => g.name) : (b.genres || []),
@@ -4911,7 +4911,7 @@ var qrcode = function() {
     const x = m.extra || {};
     const series = m.type === "series";
     const desk = isDesk();
-    const heroImg = desk ? (m.background || m.poster) : (m.poster || m.background);
+    const heroImg = m.background || m.poster; // image du film (sans texte de préférence), l'affiche seulement en secours
     const year = (m.releaseInfo || "").slice(0, 4);
     const dirLabel = series ? "Création" : "Réalisateur";
     const dirs = (m.people || []).filter((p) => p.dir).map((p) => p.name);
