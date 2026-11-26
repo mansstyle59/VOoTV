@@ -98,6 +98,7 @@ fun LibrarySection(nav: Nav) {
     })
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () -> Unit = {}, header: @Composable () -> Unit = {}) {
     val first = remember { FocusRequester() }
@@ -138,6 +139,7 @@ val PLATFORMS = listOf(
  * Page « univers » commune aux plateformes et aux catégories : en-tête fixe (image, logo, titre),
  * onglets Films / Séries qui changent dès qu'on bouge avec les flèches (pas besoin de cliquer), puis la grille.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun UniversePage(
     title: String, subtitle: String, logo: String?, bg: String?, brand: Color,
