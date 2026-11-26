@@ -237,7 +237,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         if (gl.isNotBlank() || dl != null) Text(listOfNotNull(gl.ifBlank { null }, dl).joinToString("  •  "), Modifier.padding(top = 12.dp), fontSize = 15.sp, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
                         Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             val tag = listOfNotNull(meta.extra["cert"], meta.extra["statusFr"]?.uppercase()).joinToString("  |  ")
-                            if (tag.isNotBlank()) Text(tag, Modifier.border(1.5.dp, Color.White.copy(alpha = 0.7f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 3.dp),
+                            if (tag.isNotBlank()) Text(tag, Modifier.border(1.5.dp, Color.White.copy(alpha = 0.7f), SquircleShape(8.dp)).padding(horizontal = 10.dp, vertical = 3.dp),
                                 fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                             val info = listOfNotNull(meta.runtime, meta.extra["countryName"] ?: meta.extra["country"], meta.extra["lang"]?.uppercase()).joinToString("   •   ")
                             if (info.isNotBlank()) Text(info, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.85f), maxLines = 1)
@@ -504,14 +504,14 @@ private fun RoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, a
 
 @Composable
 private fun Badge(text: String) {
-    Text(text, Modifier.border(1.dp, Color.White.copy(alpha = 0.6f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp),
+    Text(text, Modifier.border(1.dp, Color.White.copy(alpha = 0.6f), SquircleShape(4.dp)).padding(horizontal = 6.dp, vertical = 1.dp),
         fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
 }
 
 @Composable
 private fun TabLabel(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     androidx.tv.material3.Surface(
-        onClick = onClick, modifier = modifier, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        onClick = onClick, modifier = modifier, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(SquircleShape(6.dp)),
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = 0.14f)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
@@ -539,7 +539,7 @@ private val VTYPES = linkedMapOf("Trailer" to "Bandes-annonces", "Teaser" to "Te
 @Composable
 private fun RatingTag(src: String, bg: Color, fg: Color, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(src, Modifier.clip(RoundedCornerShape(4.dp)).background(bg).padding(horizontal = 6.dp, vertical = 1.dp), fontSize = 12.sp, fontWeight = FontWeight.Black, color = fg)
+        Text(src, Modifier.clip(SquircleShape(4.dp)).background(bg).padding(horizontal = 6.dp, vertical = 1.dp), fontSize = 12.sp, fontWeight = FontWeight.Black, color = fg)
         Text(value, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
     }
 }

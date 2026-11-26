@@ -92,7 +92,7 @@ fun PosterCard(
     width: Dp = 128.dp,
     onFocus: () -> Unit = {},
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = SquircleShape(12.dp)
     var menu by remember { mutableStateOf(false) }
     val prog by app.tvo.tv.Tvo.store.progress.collectAsState()
     val seen = remember(prog, item.id) { item.type == "movie" && prog.any { it.metaId == item.id && it.finished } }
@@ -132,7 +132,7 @@ fun WideCard(
     badge: String? = null,
     showPlay: Boolean = false,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = SquircleShape(12.dp)
     Card(
         onClick = onClick,
         onLongClick = onLongClick,
@@ -148,7 +148,7 @@ fun WideCard(
             if (showPlay) Box(Modifier.align(Alignment.Center).size(40.dp).clip(CircleShape).background(Color(0x99FFFFFF)),
                 contentAlignment = Alignment.Center) { Icon(androidx.compose.material.icons.Icons.Filled.PlayArrow, null, Modifier.size(24.dp), tint = Color.Black) }
             if (badge != null) {
-                Text(badge, Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(6.dp))
+                Text(badge, Modifier.align(Alignment.TopEnd).padding(8.dp).clip(SquircleShape(6.dp))
                     .background(TvoColors.Success).padding(horizontal = 6.dp, vertical = 2.dp),
                     fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             }
@@ -195,7 +195,7 @@ fun LoadingRow(title: String) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(title)
         Row(Modifier.padding(RowPadding), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            repeat(7) { Box(Modifier.width(128.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface)) }
+            repeat(7) { Box(Modifier.width(128.dp).aspectRatio(2f / 3f).clip(SquircleShape(12.dp)).background(TvoColors.Surface)) }
         }
     }
 }
@@ -334,7 +334,7 @@ private fun Key(label: String, onClick: () -> Unit, modifier: Modifier = Modifie
     Surface(
         onClick = onClick,
         modifier = modifier.height(40.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+        shape = ClickableSurfaceDefaults.shape(SquircleShape(8.dp)),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = TvoColors.Surface2, contentColor = TvoColors.Text,
             focusedContainerColor = Color.White, focusedContentColor = Color.Black,
@@ -357,7 +357,7 @@ fun LandscapeCard(
     width: Dp = 232.dp,
     onFocus: () -> Unit = {},
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = SquircleShape(12.dp)
     var menu by remember { mutableStateOf(false) }
     QuickMenuHost(item, onClick, menu) { menu = false }
     Card(
@@ -407,7 +407,7 @@ fun LandscapeRow(
 /** Portrait card (poster, play icon, title) with note and year underneath. */
 @Composable
 fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp = 150.dp, onFocus: () -> Unit = {}) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = SquircleShape(16.dp)
     var menu by remember { mutableStateOf(false) }
     QuickMenuHost(item, onClick, menu) { menu = false }
     Column(modifier.width(width)) {
@@ -456,7 +456,7 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
     val logo by produceState<String?>(item.logo, item.id, focused) {
         if (focused && value == null && !tv && app.tvo.tv.data.Tmdb.enabled) value = app.tvo.tv.data.Tmdb.logo(item.type, item.id)
     }
-    val shape = RoundedCornerShape(12.dp)
+    val shape = SquircleShape(12.dp)
     Card(
         onClick = onClick,
         modifier = Modifier.width(w).height(height).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() },
@@ -487,7 +487,7 @@ fun sagaName(n: String) = n.replace(" - Saga", "").replace(" Collection", "").re
 
 @Composable
 fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onFocus: () -> Unit = {}, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = SquircleShape(12.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier.width(240.dp).height(135.dp).onFocusChanged { if (it.isFocused) onFocus() },
@@ -500,7 +500,7 @@ fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onFocus: () -> Unit = {}, onClick: (
             (sg.backdrop ?: sg.poster)?.let { AsyncImage(it.replace("/w1280/", "/w500/"), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 1f to Color(0xF2000000))))
             Column(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 10.dp)) {
-                Box(Modifier.width(28.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFFF59E0B)))
+                Box(Modifier.width(28.dp).height(4.dp).clip(SquircleShape(2.dp)).background(Color(0xFFF59E0B)))
                 Spacer(Modifier.height(6.dp))
                 Text(sagaName(sg.name), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
             }
@@ -555,22 +555,22 @@ fun NvMenu(image: String?, wide: Boolean, title: String, sub: String?, items: Li
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0x660B0B10), Color(0xF20B0B10)), radius = 1400f)))
             Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (image != null) Box(Modifier.width(if (wide) 360.dp else 210.dp).aspectRatio(if (wide) 16f / 9f else 2f / 3f)
-                    .clip(RoundedCornerShape(22.dp)).background(TvoColors.Surface)) {
+                    .clip(SquircleShape(22.dp)).background(TvoColors.Surface)) {
                     AsyncImage(image, title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     if (progress != null && progress > 0f) Box(Modifier.align(Alignment.BottomStart).padding(14.dp).fillMaxWidth(progress.coerceIn(0.03f, 1f)).height(5.dp)
-                        .clip(RoundedCornerShape(3.dp)).background(TvoColors.Blue))
+                        .clip(SquircleShape(3.dp)).background(TvoColors.Blue))
                 }
                 Column(Modifier.width(420.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Column {
                         Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         if (!sub.isNullOrBlank()) Text(sub, fontSize = 16.sp, color = TvoColors.Muted, maxLines = 1)
                     }
-                    Column(Modifier.clip(RoundedCornerShape(18.dp)).background(Color(0xFF1C1C22)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Column(Modifier.clip(SquircleShape(18.dp)).background(Color(0xFF1C1C22)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         items.forEachIndexed { i, it ->
                             androidx.tv.material3.Surface(
                                 onClick = { onDismiss(); it.onClick() },
                                 modifier = Modifier.fillMaxWidth().height(52.dp).let { m -> if (i == 0) m.focusRequester(first) else m },
-                                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(SquircleShape(12.dp)),
                                 scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
                                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                                     containerColor = Color.Transparent, contentColor = if (it.danger) Color(0xFFF472B6) else Color.White,
@@ -696,4 +696,33 @@ fun StyledTitle(name: String, size: Int) {
     Text(name, fontSize = size.sp, fontWeight = FontWeight.Black, color = Color.White, maxLines = 2,
         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, lineHeight = (size * 1.05f).sp, letterSpacing = (-0.5).sp,
         style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color(0xCC000000), androidx.compose.ui.geometry.Offset(0f, 3f), 14f)))
+}
+
+/**
+ * Coins « squircle » (courbe continue façon Apple, comme `corner-shape: squircle` en CSS) :
+ * chaque coin est un quart de superellipse d'exposant 4 au lieu d'un quart de cercle.
+ */
+class SquircleShape(private val radius: androidx.compose.ui.unit.Dp) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(size: androidx.compose.ui.geometry.Size, layoutDirection: androidx.compose.ui.unit.LayoutDirection, density: androidx.compose.ui.unit.Density): androidx.compose.ui.graphics.Outline {
+        val r = with(density) { radius.toPx() }.coerceAtMost(minOf(size.width, size.height) / 2f)
+        val w = size.width; val h = size.height
+        if (r <= 0.5f) return androidx.compose.ui.graphics.Outline.Rectangle(androidx.compose.ui.geometry.Rect(0f, 0f, w, h))
+        val p = androidx.compose.ui.graphics.Path(); val steps = 14; var first = true
+        // Un coin : part du point « coin + r·B » et arrive au point « coin + r·A » (sens des aiguilles d'une montre)
+        fun quarter(cx: Float, cy: Float, ax: Float, ay: Float, bx: Float, by: Float) {
+            for (i in 0..steps) {
+                val t = (i.toFloat() / steps) * (Math.PI.toFloat() / 2f)
+                val u = kotlin.math.sqrt(kotlin.math.cos(t)); val v = kotlin.math.sqrt(kotlin.math.sin(t))
+                val x = cx + r * (1f - u) * ax + r * (1f - v) * bx
+                val y = cy + r * (1f - u) * ay + r * (1f - v) * by
+                if (first) { p.moveTo(x, y); first = false } else p.lineTo(x, y)
+            }
+        }
+        quarter(0f, 0f, 1f, 0f, 0f, 1f)    // haut gauche : du bord gauche vers le bord haut
+        quarter(w, 0f, 0f, 1f, -1f, 0f)    // haut droit : du bord haut vers le bord droit
+        quarter(w, h, -1f, 0f, 0f, -1f)    // bas droit : du bord droit vers le bord bas
+        quarter(0f, h, 0f, -1f, 1f, 0f)    // bas gauche : du bord bas vers le bord gauche
+        p.close()
+        return androidx.compose.ui.graphics.Outline.Generic(p)
+    }
 }

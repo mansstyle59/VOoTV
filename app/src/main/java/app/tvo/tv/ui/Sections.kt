@@ -159,7 +159,7 @@ private fun UniversePage(
             // En-tête fixe : jamais coupé, toujours visible
             Row(Modifier.padding(start = 56.dp, top = 30.dp, end = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (logo != null) {
-                    coil.compose.AsyncImage(logo, title, Modifier.size(60.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black))
+                    coil.compose.AsyncImage(logo, title, Modifier.size(60.dp).clip(SquircleShape(16.dp)).background(Color.Black))
                     Spacer(Modifier.width(16.dp))
                 }
                 Column {
@@ -296,8 +296,8 @@ fun SearchSection(nav: Nav) {
     Row(Modifier.fillMaxSize().imageBackdrop(TvoColors.Blue)) {
         Column(Modifier.width(500.dp).padding(start = 40.dp, top = 28.dp)) {
             Text("Recherche", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-            Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(RoundedCornerShape(16.dp)).background(Color(0x66101A36))
-                .border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(vertical = 14.dp).width(444.dp).clip(SquircleShape(16.dp)).background(Color(0x66101A36))
+                .border(1.dp, Color(0x40FFFFFF), SquircleShape(16.dp)).padding(horizontal = 16.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("🔍", fontSize = 18.sp)
                 Spacer(Modifier.width(10.dp))
                 Text(query.ifEmpty { "Film, série, saga ou acteur" }, fontSize = 19.sp,
@@ -384,7 +384,7 @@ fun SettingsSection(nav: Nav) {
                 Surface(
                     onClick = { page = pg.key },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).let { if (on) it.focusRequester(menuFr) else it }.onFocused { page = pg.key },
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                    shape = ClickableSurfaceDefaults.shape(SquircleShape(12.dp)),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = if (on) Color(0xFF1E2A4F) else Color.Transparent, contentColor = TvoColors.Text,
@@ -396,7 +396,7 @@ fun SettingsSection(nav: Nav) {
         }
         Spacer(Modifier.width(32.dp))
         // Contenu : panneau translucide pour que le fond coloré transparaisse
-        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(24.dp)).background(Color(0xFF101731)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 24.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(SquircleShape(24.dp)).background(Color(0xFF101731)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 24.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when (page) {
                 "profil" -> {
                     item { Heading("Profil") }
@@ -501,7 +501,7 @@ private fun AddonRow(a: Addon, index: Int) {
     val kinds = m.resources.map { it.name }.mapNotNull {
         when (it) { "catalog" -> "catalogues"; "meta" -> "fiches"; "stream" -> "vidéos"; "subtitles" -> "sous-titres"; else -> null }
     }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(16.dp)).padding(16.dp),
+    Column(Modifier.fillMaxWidth().clip(SquircleShape(16.dp)).background(Color(0x66101A36)).border(1.dp, Color(0x33FFFFFF), SquircleShape(16.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("${m.name}  ${m.version}", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
         Text(kinds.joinToString(" · ").ifEmpty { "—" }, fontSize = 13.sp, color = TvoColors.Cyan)
@@ -552,7 +552,7 @@ fun AddonAddScreen(onDone: () -> Unit) {
     Row(Modifier.fillMaxSize().imageBackdrop(TvoColors.Blue).padding(48.dp), horizontalArrangement = Arrangement.spacedBy(48.dp)) {
         Column(Modifier.weight(1f)) {
             Text("Ajouter un add-on", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-            Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
+            Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(SquircleShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
                 Text(text.ifEmpty { "https://…/manifest.json" }, fontSize = 17.sp, color = if (text.isEmpty()) TvoColors.Muted else TvoColors.Text, maxLines = 2)
             }
             TvKeyboard(onKey = { text += it }, onBackspace = { text = text.dropLast(1) }, onClear = { text = "" }, url = true, firstKey = firstKey)
@@ -566,7 +566,7 @@ fun AddonAddScreen(onDone: () -> Unit) {
         Column(Modifier.width(340.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Plus simple : depuis ton téléphone", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
             if (qr != null && phoneUrl != null) {
-                Image(qr, "QR code", Modifier.padding(vertical = 14.dp).size(220.dp).clip(RoundedCornerShape(12.dp)))
+                Image(qr, "QR code", Modifier.padding(vertical = 14.dp).size(220.dp).clip(SquircleShape(12.dp)))
                 Text("Scanne ce code (même Wi-Fi) ou ouvre :", fontSize = 14.sp, color = TvoColors.Muted)
                 Text(phoneUrl, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                 Text("Colle l'adresse, elle s'affiche ici.", fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.padding(top = 4.dp))
@@ -623,7 +623,7 @@ private fun SyncBlock() {
             val c = req.code
             val bmp = remember(req) { app.tvo.tv.data.RemoteInputServer.qr("https://mansstyle59.github.io/VOoTV/connect/?code=$c&k=${req.key}", 420).asImageBitmap() }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
-                androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(210.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp))
+                androidx.compose.foundation.Image(bmp, "QR code", Modifier.size(210.dp).clip(SquircleShape(12.dp)).background(Color.White).padding(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Scanne avec l'appareil photo du téléphone", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                     Text("L'appli TVO s'ouvre et te demande de confirmer.\nOu dans TVO › Profil › Compte › Connecter une TV, saisis :", fontSize = 14.sp, color = TvoColors.Muted)
@@ -705,7 +705,7 @@ fun TmdbKeyScreen(onDone: () -> Unit) {
             Text("Clé API TMDB", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Text("Sur themoviedb.org : Paramètres › API. La « clé d'API » ou le « jeton d'accès en lecture » fonctionnent.",
                 fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.padding(top = 6.dp))
-            Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
+            Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().clip(SquircleShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
                 Text(text.ifEmpty { "Colle ou tape ta clé" }, fontSize = 16.sp, color = if (text.isEmpty()) TvoColors.Muted else TvoColors.Text, maxLines = 3)
             }
             TvKeyboard(onKey = { text += it }, onBackspace = { text = text.dropLast(1) }, onClear = { text = "" }, url = true, firstKey = firstKey)
@@ -719,7 +719,7 @@ fun TmdbKeyScreen(onDone: () -> Unit) {
         Column(Modifier.width(340.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Plus simple : depuis ton téléphone", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
             if (qr != null && phoneUrl != null) {
-                Image(qr, "QR code", Modifier.padding(vertical = 14.dp).size(220.dp).clip(RoundedCornerShape(12.dp)))
+                Image(qr, "QR code", Modifier.padding(vertical = 14.dp).size(220.dp).clip(SquircleShape(12.dp)))
                 Text("Scanne ce code (même Wi-Fi) ou ouvre :", fontSize = 14.sp, color = TvoColors.Muted)
                 Text(phoneUrl, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
             }
@@ -756,7 +756,7 @@ private fun HomeEditor() {
             fontSize = 14.sp, color = TvoColors.Muted, modifier = Modifier.width(760.dp))
         rows.forEachIndexed { idx, (k, title) ->
             val visible = k !in home.hidden
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(TvoColors.Surface).padding(horizontal = 14.dp, vertical = 8.dp),
+            Row(Modifier.fillMaxWidth().clip(SquircleShape(10.dp)).background(TvoColors.Surface).padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(title, Modifier.weight(1f), fontSize = 15.sp, color = if (visible) TvoColors.Text else TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Chip(if (visible) "Affichée" else "Masquée", visible, {
@@ -836,7 +836,7 @@ private fun AllDebridBlock() {
         }
         pin = null; err = "Code expiré, recommence."
     }
-    Column(Modifier.width(620.dp).clip(RoundedCornerShape(18.dp)).background(TvoColors.Surface).padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.width(620.dp).clip(SquircleShape(18.dp)).background(TvoColors.Surface).padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         val p = pin; val u = user
         when {
             p != null -> {

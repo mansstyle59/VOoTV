@@ -2393,3 +2393,11 @@ html[data-mode="light"]:root .ntc-t small { color: #475569; } html[data-mode="li
 html[data-mode="light"]:root .ntc-x { background: rgba(15,23,42,.07); color: #111; }
 @media (min-width: 1024px) { .ntc { left: auto; right: 24px; top: 24px; width: 420px; } }
 html.mac .ntc { top: 40px; }
+
+/* Coins « squircle » (courbe continue façon Apple) : boutons, cartes, champs, pastilles, menus, bannières.
+   Les éléments ronds (avatars, boutons ronds) ne sont pas concernés. Sans prise en charge, coins arrondis classiques. */
+@supports (corner-shape: squircle) {
+  :where(.btn, .card, .field, .chip, .pcard, .lcard, .ncard, .lscard, .colcard, .ccard, .pcard img, .lcard img, .ncard img,
+    .nv-play, .nv-saga .img, .nv-vid .th, .nvm-card, .nvm-list, .ntc, .ntc-ic, .ntc-acts .btn, .ad-days, .ad-ic,
+    .tr-card, .tr-frame, .ep .th, .snum button, .nv-sel select, .upd-banner, .as-card, .wn-card, .pin-card, .auth-card) { corner-shape: squircle; }
+}

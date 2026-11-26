@@ -152,7 +152,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
     Row(Modifier.fillMaxSize().background(TvoColors.Bg)) {
         Column(Modifier.width(320.dp).padding(start = 48.dp, top = 48.dp, end = 24.dp)) {
             val p = meta?.preview
-            AsyncImage(p?.poster, p?.name, Modifier.width(220.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface), contentScale = ContentScale.Crop)
+            AsyncImage(p?.poster, p?.name, Modifier.width(220.dp).aspectRatio(2f / 3f).clip(SquircleShape(12.dp)).background(TvoColors.Surface), contentScale = ContentScale.Crop)
             Spacer(Modifier.height(16.dp))
             Text(p?.name ?: "", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 2)
             if (video?.season != null) Text("Saison ${video.season} · Épisode ${video.episode}", fontSize = 15.sp, color = TvoColors.Cyan)
@@ -211,7 +211,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
     }
     reportFor?.let { rs ->
         androidx.compose.ui.window.Dialog(onDismissRequest = { reportFor = null }) {
-            Column(Modifier.width(480.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.width(480.dp).clip(SquircleShape(16.dp)).background(TvoColors.Surface).padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Signaler cette source ?", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text(rs.name.replace("\n", " "), fontSize = 14.sp, color = Color(0xCCFFFFFF), maxLines = 2)
                 Text("Elle disparaît de la liste (sur la télé et le téléphone) jusqu'à sa mise à jour.", fontSize = 14.sp, color = Color(0xCCFFFFFF))
@@ -295,7 +295,7 @@ private fun StreamRow(s: StreamItem, badge: String, lang: String, best: Boolean,
         onClick = onClick,
         onLongClick = onLongClick,
         modifier = modifier.fillMaxWidth().then(if (locked) Modifier.alpha(0.55f) else Modifier),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+        shape = ClickableSurfaceDefaults.shape(SquircleShape(12.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = TvoColors.Surface, contentColor = TvoColors.Text,

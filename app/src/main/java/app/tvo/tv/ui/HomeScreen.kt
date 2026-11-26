@@ -224,7 +224,7 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
                 Surface(
                     onClick = { onSelect(s) },
                     modifier = if (on) Modifier.focusRequester(currentFr) else Modifier,
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
+                    shape = ClickableSurfaceDefaults.shape(SquircleShape(10.dp)),
                     scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = Color.Transparent,
@@ -234,7 +234,7 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
                 ) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(s.label, fontSize = 16.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium)
-                        Box(Modifier.padding(top = 3.dp).size(width = 18.dp, height = 3.dp).clip(RoundedCornerShape(2.dp))
+                        Box(Modifier.padding(top = 3.dp).size(width = 18.dp, height = 3.dp).clip(SquircleShape(2.dp))
                             .background(if (on) TvoColors.Blue else Color.Transparent))
                     }
                 }
@@ -247,10 +247,10 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
         Spacer(Modifier.width(12.dp))
         if (profile != null) Surface(
             onClick = onProfile, modifier = Modifier.size(40.dp),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
+            shape = ClickableSurfaceDefaults.shape(SquircleShape(10.dp)),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
-            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(10.dp))),
+            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = SquircleShape(10.dp))),
         ) { Avatar(profile.name, profile.color, 40.dp, icon = profile.icon) }
     }
 }
@@ -259,7 +259,7 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
 private fun RoundIconButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick, modifier = modifier.size(40.dp),
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(6.dp)),
+        shape = ClickableSurfaceDefaults.shape(SquircleShape(6.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = TvoColors.Text,
             focusedContainerColor = Color.White, focusedContentColor = Color.Black),
@@ -334,7 +334,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                 if (m != null) {
                     var bannerLogoFail by remember(logo) { mutableStateOf(false) }
                     if (logo != null && m.type == "platform") Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(logo, m.name, Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
+                        AsyncImage(logo, m.name, Modifier.size(72.dp).clip(SquircleShape(16.dp)), contentScale = ContentScale.Crop)
                         Spacer(Modifier.width(16.dp))
                         Text(m.name, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
                     }
@@ -346,7 +346,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
                         else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text.copy(alpha = 0.9f), maxLines = 1)
                     if (m.imdbRating != null) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("TMDB", Modifier.clip(RoundedCornerShape(4.dp)).background(TvoColors.Blue).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("TMDB", Modifier.clip(SquircleShape(4.dp)).background(TvoColors.Blue).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                         Text("  ★ ${m.imdbRating}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
                     }
                     if (!m.description.isNullOrBlank()) Text(m.description, Modifier.padding(top = 8.dp), fontSize = 13.sp,
@@ -401,7 +401,7 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
 
 @Composable
 fun BlueButton(text: String, onClick: () -> Unit, filled: Boolean, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(6.dp)
+    val shape = SquircleShape(6.dp)
     androidx.tv.material3.Button(
         onClick = onClick, modifier = modifier,
         shape = androidx.tv.material3.ButtonDefaults.shape(shape),
@@ -628,7 +628,7 @@ private fun GenreTiles(nav: Nav, type: String = "movie", onFocus: () -> Unit) {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             itemsIndexed(homeGenres) { gi, g -> RowItem(rf, gi) {
-                val shape = RoundedCornerShape(12.dp)
+                val shape = SquircleShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre(type, g) },
                     modifier = Modifier.width(240.dp).height(135.dp).onFocused { onFocus(); select(GenreTilesSelect(g, fresh[g] ?: GENRE_IMG[g])) },
@@ -643,7 +643,7 @@ private fun GenreTiles(nav: Nav, type: String = "movie", onFocus: () -> Unit) {
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.25f to Color.Transparent, 1f to Color(0xF2000000))))
                         Box(Modifier.fillMaxSize().background(Brush.linearGradient(0f to gc.copy(alpha = 0.55f), 0.6f to Color.Transparent)))
                         Column(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = 12.dp, end = 10.dp)) {
-                            Box(Modifier.width(28.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(gc))
+                            Box(Modifier.width(28.dp).height(4.dp).clip(SquircleShape(2.dp)).background(gc))
                             Spacer(Modifier.height(6.dp))
                             Text(genreLabel(g), fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
@@ -672,7 +672,7 @@ private fun KidsTiles(selected: String, onPick: (String) -> Unit) {
         val rf = rememberRowFocus()
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             itemsIndexed(KIDS_TILES) { i, t -> RowItem(rf, i) {
-                val shape = RoundedCornerShape(16.dp)
+                val shape = SquircleShape(16.dp)
                 val c = if (t.color == 0L) TvoColors.Blue else Color(t.color)
                 val on = t.key == selected
                 Surface(
@@ -720,7 +720,7 @@ private fun PlatformTiles(nav: Nav, type: String? = null) {
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             itemsIndexed(PLATFORMS) { pi, (pl, logo) -> RowItem(rf, pi) {
                 val (id, name, color) = pl
-                val shape = RoundedCornerShape(12.dp)
+                val shape = SquircleShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre(type ?: "movie", "prov:$id") },
                     modifier = Modifier.width(250.dp).height(124.dp).onFocused {
@@ -738,7 +738,7 @@ private fun PlatformTiles(nav: Nav, type: String? = null) {
                         (fresh[id] ?: PROV_BG[id])?.let { AsyncImage(TMDB_IMG + "w500" + it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, alpha = 0.45f) }
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color(0x99000000))))
                         Row(Modifier.align(Alignment.CenterStart).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)).border(2.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
+                            AsyncImage(TMDB_IMG + "w154" + logo, name, Modifier.size(72.dp).clip(SquircleShape(18.dp)).border(2.dp, Color(0x55FFFFFF), SquircleShape(18.dp)), contentScale = ContentScale.Crop)
                             Spacer(Modifier.width(14.dp))
                             Column {
                                 Text(name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -786,7 +786,7 @@ fun HeroInfo(item: MetaPreview?, modifier: Modifier = Modifier) {
 @Composable
 fun MetaLine(type: String, year: String?, rating: String?, genres: List<String>, runtime: String?) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(typeLabel(type, plural = false), Modifier.clip(RoundedCornerShape(5.dp)).background(TvoColors.Accent)
+        Text(typeLabel(type, plural = false), Modifier.clip(SquircleShape(5.dp)).background(TvoColors.Accent)
             .padding(horizontal = 8.dp, vertical = 2.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
         if (!year.isNullOrBlank()) Text(year, fontSize = 15.sp, color = TvoColors.Text)
         if (!rating.isNullOrBlank()) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -849,7 +849,7 @@ private fun LiveSuggestions() {
             items(LIVE_SUGG, key = { it[0] }) { sg ->
                 val (url, name, desc, ic, c1) = sg; val c2 = sg[5]
                 val added = addons.any { it.url.endsWith(url) }
-                val shape = RoundedCornerShape(16.dp)
+                val shape = SquircleShape(16.dp)
                 Surface(
                     onClick = {
                         if (added || busy != null) return@Surface
@@ -871,7 +871,7 @@ private fun LiveSuggestions() {
                             Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(desc, fontSize = 12.sp, color = Color(0xDDFFFFFF), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        Text(if (added) "✓ Ajoutée" else if (busy == url) "…" else "+ Ajouter", Modifier.align(Alignment.TopEnd).clip(RoundedCornerShape(8.dp))
+                        Text(if (added) "✓ Ajoutée" else if (busy == url) "…" else "+ Ajouter", Modifier.align(Alignment.TopEnd).clip(SquircleShape(8.dp))
                             .background(if (added) Color(0x5522C55E) else Color(0x33FFFFFF)).padding(horizontal = 8.dp, vertical = 3.dp),
                             fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }

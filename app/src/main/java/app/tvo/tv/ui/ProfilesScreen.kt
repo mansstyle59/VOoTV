@@ -99,8 +99,8 @@ private fun ProfileTile(p: Profile, manage: Boolean, modifier: Modifier, onClick
         Surface(
             onClick = onClick,
             modifier = modifier.size(132.dp),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(30.dp)),
-            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(4.dp, Color.White), shape = RoundedCornerShape(30.dp))),
+            shape = ClickableSurfaceDefaults.shape(SquircleShape(30.dp)),
+            border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(4.dp, Color.White), shape = SquircleShape(30.dp))),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.Transparent),
         ) {
@@ -119,7 +119,7 @@ private fun AddTile(onClick: () -> Unit) {
         Surface(
             onClick = onClick,
             modifier = Modifier.size(132.dp),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(30.dp)),
+            shape = ClickableSurfaceDefaults.shape(SquircleShape(30.dp)),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface2, contentColor = TvoColors.Muted,
                 focusedContainerColor = Color.White, focusedContentColor = Color.Black),
@@ -146,7 +146,7 @@ fun ProfileEditScreen(id: String, onDone: () -> Unit) {
             Spacer(Modifier.height(28.dp))
             Avatar(name.ifBlank { "?" }, color, 140.dp)
             Spacer(Modifier.height(18.dp))
-            Box(Modifier.width(320.dp).clip(RoundedCornerShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
+            Box(Modifier.width(320.dp).clip(SquircleShape(12.dp)).background(TvoColors.Surface).padding(14.dp)) {
                 Text(name.ifEmpty { "Prénom" }, fontSize = 22.sp, color = if (name.isEmpty()) TvoColors.Muted else TvoColors.Text)
             }
             Spacer(Modifier.height(20.dp))
