@@ -120,8 +120,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val seasons = remember(meta) { meta.episodes.mapNotNull { it.season }.distinct() }
     var season by remember(meta) { mutableStateOf(targetVideo?.season ?: seasons.firstOrNull()) }
     val playFr = remember { FocusRequester() }
-    // Bande-annonce VF, façon Nuvio : démarre seule, sans le son, en fond du visuel après un court délai,
-    // s'arrête dès qu'on quitte le haut de la fiche. Le bouton la lance en plein écran avec le son (Retour = fermer).
+    // Bande-annonce VF : jamais en fond de l'affiche ; le bouton la lance en plein écran avec le son (Retour = fermer).
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
     var trailerMode by remember(p.id) { mutableStateOf(0) }
     var videoKey by remember(p.id) { mutableStateOf<String?>(null) }
@@ -174,17 +173,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         // Visuel plein écran (image fixe), voilé à gauche et en bas pour garder le texte lisible
         Box(Modifier.fillMaxSize()) {
             FbImage(p.background ?: p.poster, p.id, false, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            // Bande-annonce de fond (muette) : fondu depuis l'image dès que la vidéo tourne vraiment, retour à l'image à la fin
-            var bgArmed by remember(p.id) { mutableStateOf(false) }
-            var bgPlaying by remember(p.id) { mutableStateOf(false) }
-            var bgDone by remember(p.id) { mutableStateOf(false) }
-            LaunchedEffect(heroHasFocus, trailer, trailerMode) {
-                if (heroHasFocus && trailer != null && trailerMode == 0 && !bgDone) { delay(2500); bgArmed = true }
-                else { bgArmed = false; bgPlaying = false }
-            }
-            val bgAlpha by androidx.compose.animation.core.animateFloatAsState(if (bgPlaying) 1f else 0f, androidx.compose.animation.core.tween(700), label = "trailerFade")
-            if (bgArmed && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize().graphicsLayer { alpha = bgAlpha }, cover = true, muted = true, loop = false,
-                onPlaying = { bgPlaying = true }, onEnded = { bgPlaying = false; bgDone = true; bgArmed = false })
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
                 0.0f to Color.Black.copy(alpha = 0.94f), 0.5f to Color.Black.copy(alpha = 0.7f), 0.85f to Color.Transparent)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,

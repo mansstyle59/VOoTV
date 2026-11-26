@@ -4961,24 +4961,6 @@ var qrcode = function() {
     const onScroll = () => { if (!document.body.contains(top)) return window.removeEventListener("scroll", onScroll); top.classList.toggle("on", window.scrollY > heroEl.offsetHeight - 120); };
     window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
-    // Bande-annonce VF muette en fond du visuel (fondu, arrêt hors écran, bouton son = plein écran avec le son)
-    if (m.tmdbId && LS.get("autoTrailer", true)) trailerVF(m).then((v) => {
-      const h = heroEl; if (!v || !h || !document.body.contains(h)) return;
-      setTimeout(() => {
-        if (!document.body.contains(h) || h.querySelector(".dt-trailer")) return;
-        h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="${esc(ytSrc(v.key, true))}"
-          allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1" title="Bande-annonce"></iframe></div>
-          <button class="dt-sound" aria-label="Regarder la bande-annonce avec le son"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg></button>`);
-        const stop = () => { h.classList.remove("playing"); const t = h.querySelector(".dt-trailer"); if (t) setTimeout(() => t.remove(), 900); const sb = h.querySelector(".dt-sound"); if (sb) sb.remove(); };
-        h.querySelector(".dt-sound").addEventListener("click", (e) => { e.stopPropagation(); stop(); playTrailerKey(v.key, v.name); });
-        setTimeout(() => { if (document.body.contains(h)) h.classList.add("playing"); }, 2200);
-        if ("IntersectionObserver" in window) {
-          const io = new IntersectionObserver((en) => { if (en[0] && en[0].intersectionRatio < 0.25) { stop(); io.disconnect(); } }, { threshold: [0, 0.25] });
-          io.observe(h);
-        }
-      }, 1200);
-    });
-
     // Épisodes (séries) : saisons en pastilles, épisodes en liste
     const drawEps = () => {
       const box = $("#nvEps"); if (!box) return;
