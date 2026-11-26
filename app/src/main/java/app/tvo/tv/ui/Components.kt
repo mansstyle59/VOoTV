@@ -712,7 +712,8 @@ class SquircleShape(private val radius: androidx.compose.ui.unit.Dp) : androidx.
         fun quarter(cx: Float, cy: Float, ax: Float, ay: Float, bx: Float, by: Float) {
             for (i in 0..steps) {
                 val t = (i.toFloat() / steps) * (Math.PI.toFloat() / 2f)
-                val u = kotlin.math.sqrt(kotlin.math.cos(t)); val v = kotlin.math.sqrt(kotlin.math.sin(t))
+                // cos/sin peuvent donner -0,00000004 au bout du coin : on borne à 0 (sinon racine impossible = forme vide)
+                val u = kotlin.math.sqrt(kotlin.math.cos(t).coerceIn(0f, 1f)); val v = kotlin.math.sqrt(kotlin.math.sin(t).coerceIn(0f, 1f))
                 val x = cx + r * (1f - u) * ax + r * (1f - v) * bx
                 val y = cy + r * (1f - u) * ay + r * (1f - v) * by
                 if (first) { p.moveTo(x, y); first = false } else p.lineTo(x, y)
