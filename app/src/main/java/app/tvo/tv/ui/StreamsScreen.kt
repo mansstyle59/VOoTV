@@ -151,7 +151,7 @@ fun StreamsScreen(type: String, metaId: String, videoId: String) {
         scope.launch { play(ctx, m, s, videoId, addons); starting = false }
     }
 
-    Row(Modifier.fillMaxSize().background(TvoColors.Bg)) {
+    Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(320.dp).padding(start = 48.dp, top = 48.dp, end = 24.dp)) {
             val p = meta?.preview
             AsyncImage(p?.poster, p?.name, Modifier.width(220.dp).aspectRatio(2f / 3f).clip(SquircleShape(12.dp)).background(TvoColors.Surface), contentScale = ContentScale.Crop)

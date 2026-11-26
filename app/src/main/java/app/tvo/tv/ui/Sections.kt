@@ -397,7 +397,7 @@ fun SettingsSection(nav: Nav) {
         }
         Spacer(Modifier.width(32.dp))
         // Contenu : panneau translucide pour que le fond coloré transparaisse
-        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(SquircleShape(24.dp)).background(Color(0xFF101731)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 24.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        LazyColumn(Modifier.weight(1f).fillMaxHeight().clip(SquircleShape(24.dp)).background(TvoColors.Panel.copy(alpha = 0.92f)).padding(horizontal = 28.dp), contentPadding = PaddingValues(top = 24.dp, bottom = 60.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             when (page) {
                 "profil" -> {
                     item { Heading("Profil") }
@@ -412,6 +412,16 @@ fun SettingsSection(nav: Nav) {
                             profile?.let { p -> TvoButton("Modifier", { nav.editProfile(p.id) }) }
                         }
                     }
+                    item { Heading("Apparence") }
+                    item {
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf("oled" to "Noir OLED", "nuit" to "Bleu nuit", "aurore" to "Aurore", "profil" to "Couleur du profil").forEach { (k, l) ->
+                                Chip(l, TvoColors.amb == k, { TvoColors.amb = k; ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE).edit().putString("amb", k).apply() })
+                            }
+                        }
+                    }
+                    item { Text("Le fond suit la couleur du profil, comme sur le téléphone.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { Heading("Compte et synchronisation") }
                     item { SyncBlock() }
                 }

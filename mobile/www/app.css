@@ -2434,3 +2434,42 @@ html[data-mode="light"] span.tvo-logo .tl-w { display: none; } html[data-mode="l
 html[data-mode="light"] .splash span.tvo-logo .tl-w { display: block; } html[data-mode="light"] .splash span.tvo-logo .tl-d { display: none; }
 /* Aperçus des icônes de l'appli (vraies images) */
 .aiprev { overflow: hidden; } .aiprev img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ===== Ambiances du mode sombre (le thème clair n'est pas concerné) ===== */
+html[data-mode="dark"]:root { --bg: #000; --panel: #07080b; --surface: #121419; --surface-2: #1a1d24; --line: #23272f; --g-fill: rgba(255,255,255,.045); --g-edge: rgba(255,255,255,.08); }
+html[data-mode="dark"][data-amb="nuit"]:root { --bg: #02060f; --panel: #050c1c; --surface: #0b1428; --surface-2: #111e38; --line: #192845; }
+html[data-mode="dark"][data-amb="profil"]:root { --bg: color-mix(in srgb, var(--acc,#3d7cff) 9%, #000); --panel: color-mix(in srgb, var(--acc,#3d7cff) 11%, #040406); --surface: color-mix(in srgb, var(--acc,#3d7cff) 13%, #0c0d11); --surface-2: color-mix(in srgb, var(--acc,#3d7cff) 15%, #14161b); --line: color-mix(in srgb, var(--acc,#3d7cff) 20%, #1c1f26); }
+html[data-mode="dark"] body, html[data-mode="dark"].glass body, html[data-mode="dark"].glass body::before { background: var(--bg); }
+html[data-mode="dark"] body::after { background: var(--bg); }
+/* Calque de fond : halos ronds flous + logo en filigrane, derrière tout le contenu */
+#amb { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; display: none; }
+html[data-mode="dark"] #amb { display: block; }
+#amb i { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .0; }
+#amb .g1 { width: 70vmax; height: 70vmax; left: -25vmax; top: -38vmax; background: var(--acc,#3d7cff); opacity: .16; }
+#amb .g2 { width: 55vmax; height: 55vmax; right: -28vmax; bottom: -30vmax; background: var(--acc,#3d7cff); opacity: .08; }
+#amb .g3 { width: 40vmax; height: 40vmax; left: 30%; top: 45%; background: #22d3ee; }
+#amb .wm { position: absolute; width: min(70vw, 560px); right: -12%; bottom: -8%; opacity: .045; filter: grayscale(.3); transform: rotate(-12deg); }
+html[data-amb="nuit"] #amb .g1 { opacity: .2; } html[data-amb="nuit"] #amb .g2 { background: #1e40af; opacity: .14; }
+html[data-amb="aurore"] #amb .g1 { opacity: .26; animation: ambA 26s ease-in-out infinite alternate; }
+html[data-amb="aurore"] #amb .g2 { background: #8b5cf6; opacity: .16; animation: ambB 32s ease-in-out infinite alternate; }
+html[data-amb="aurore"] #amb .g3 { opacity: .08; animation: ambA 40s ease-in-out infinite alternate-reverse; }
+html[data-amb="profil"] #amb .g1 { opacity: .24; } html[data-amb="profil"] #amb .g2 { opacity: .14; } html[data-amb="profil"] #amb .wm { opacity: .06; }
+@keyframes ambA { to { transform: translate(14vw, 10vh) scale(1.12); } }
+@keyframes ambB { to { transform: translate(-12vw, -14vh) scale(.92); } }
+@media (prefers-reduced-motion: reduce) { #amb i { animation: none !important; } }
+@media (min-width: 1024px) { #amb .wm { width: 520px; right: 4%; bottom: 6%; opacity: .04; } }
+/* Choix de l'ambiance */
+.amb-pick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 900px) { .amb-pick { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.amb-t { display: grid; gap: 4px; text-align: left; padding: 10px; border-radius: 18px; background: var(--surface); border: 2px solid transparent; color: var(--text); }
+.amb-t.on { border-color: var(--acc,#3d7cff); box-shadow: 0 0 0 3px rgba(var(--acc-rgb,61,124,255),.25); }
+.amb-t:focus-visible { outline: 2px solid var(--acc-hi,#8fc2ff); outline-offset: 2px; }
+.amb-t b { font-size: 14px; } .amb-t small { font-size: 12px; color: var(--muted); line-height: 1.25; }
+.amb-prev { position: relative; height: 64px; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 4px; }
+.amb-prev i { position: absolute; width: 90px; height: 90px; left: -20px; top: -40px; border-radius: 50%; filter: blur(18px); background: var(--acc,#3d7cff); opacity: .35; }
+.amb-prev img { position: absolute; width: 56px; right: -6px; bottom: -10px; opacity: .14; transform: rotate(-12deg); }
+.amb-nuit .amb-prev { background: #02060f; }
+.amb-aurore .amb-prev { background: radial-gradient(60px 50px at 80% 80%, rgba(139,92,246,.45), transparent), #000; }
+.amb-aurore .amb-prev i { opacity: .5; }
+.amb-profil .amb-prev { background: color-mix(in srgb, var(--acc,#3d7cff) 22%, #000); }
+@supports (corner-shape: squircle) { .amb-t, .amb-prev { corner-shape: squircle; } }

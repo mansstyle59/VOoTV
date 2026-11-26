@@ -2352,8 +2352,11 @@ var qrcode = function() {
     trash: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
   };
   // Logo vectoriel dans le code : toujours net, et mis à jour avec l'appli (sans réinstaller)
+  // Images de marque relues en ligne à chaque ouverture (la mise à jour automatique ne contient que le code) ; secours : fichier intégré
+  const BRAND = "https://raw.githubusercontent.com/mansstyle59/VOoTV/main/mobile/www/";
+  const BIMG = (f, cls = "", alt = "") => `<img class="${cls}" src="${BRAND}${f}" data-local="${f}" onerror="if(this.dataset.local){this.src=this.dataset.local;this.dataset.local=''}" alt="${alt}">`;
   // Logo TVO (fond transparent) ; lettres foncées en thème clair
-  const LOGO_SVG = `<span class="tvo-logo" role="img" aria-label="TVO"><img class="tl-w" src="logo-tvo.png" alt="TVO"><img class="tl-d" src="logo-tvo-sombre.png" alt=""></span>`;
+  const LOGO_SVG = `<span class="tvo-logo" role="img" aria-label="TVO">${BIMG("logo-tvo.png", "tl-w", "TVO")}${BIMG("logo-tvo-sombre.png", "tl-d")}</span>`;
   const LOGO = `<span class="logo">${LOGO_SVG}</span>`;
   // Écran de démarrage : créé ici s'il manque (anciennes installations dont la page d'origine ne l'avait pas)
   (() => {
@@ -2361,7 +2364,7 @@ var qrcode = function() {
     if (!sp) { sp = document.createElement("div"); sp.id = "splash"; sp.className = "splash"; document.body.prepend(sp); }
     sp.innerHTML = `<span class="splash-logo">${LOGO_SVG}</span><span class="stag">Films, séries et TV en direct</span><span class="sbar"><i></i></span><p id="splashMsg">Recherche de mise à jour…</p><small id="splashVer"></small>`;
   })();
-  const MARK = `<img class="mark" src="logo-mark.png" alt="TVO">`;
+  const MARK = BIMG("logo-mark.png", "mark", "TVO");
 
   // ------------------------------------------------------------------ storage
   const LS = {
@@ -2373,6 +2376,15 @@ var qrcode = function() {
   const theme = () => (LS.get("theme", "glass") === "classic" ? "classic" : "glass");
   function setTheme(t) { LS.set("theme", t); document.documentElement.classList.toggle("glass", t === "glass"); }
   setTheme(theme());
+  // Ambiance du mode sombre : fond noir OLED (pas de gris), halos discrets à la couleur du profil et logo en filigrane
+  const AMBS = [["oled", "Noir OLED", "Noir profond, halo léger"], ["nuit", "Bleu nuit", "Bleu très sombre"], ["aurore", "Aurore", "Halos colorés qui bougent doucement"], ["profil", "Couleur du profil", "Le fond prend la teinte du profil"]];
+  const amb = () => { const a = LS.get("amb", "oled"); return AMBS.some((x) => x[0] === a) ? a : "oled"; };
+  function setAmb(a) {
+    LS.set("amb", a); document.documentElement.dataset.amb = a;
+    if (!document.getElementById("amb")) { const d = document.createElement("div"); d.id = "amb"; d.setAttribute("aria-hidden", "true");
+      d.innerHTML = '<i class="g1"></i><i class="g2"></i><i class="g3"></i>' + BIMG("logo-mark.png", "wm") + ''; document.body.prepend(d); }
+  }
+  setAmb(amb());
 
   // Couleur d'accent = couleur du profil actif (boutons, onglet actif, liens, barres…). Les variantes sont calculées pour rester lisibles.
   function applyAccent(hex) {
@@ -2395,7 +2407,7 @@ var qrcode = function() {
     const dk = mix(acc, K, 0.25);
     if (!st) { st = document.createElement("style"); st.id = "accentStyle"; document.head.appendChild(st); }
     st.textContent = `:root{--acc:${hexOf(acc)};--acc-hi:${hexOf(hi)};--acc-lo:${hexOf(lo)};--acc-dk:${hexOf(dk)};--acc-rgb:${acc.join(",")}}`;
-    const tc = document.querySelector('meta[name="theme-color"]'); if (tc && document.documentElement.getAttribute("data-mode") !== "light") tc.setAttribute("content", "#141414");
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc && document.documentElement.getAttribute("data-mode") !== "light") tc.setAttribute("content", "#000000");
   }
   /** Mode d'affichage : « auto » (suit l'iPhone / l'ordinateur), « dark » (sombre) ou « light » (clair). */
   const MODES = ["auto", "dark", "light"];
@@ -2406,7 +2418,7 @@ var qrcode = function() {
     const root = document.documentElement;
     root.dataset.mode = light ? "light" : "dark";
     const tc = document.querySelector('meta[name="theme-color"]');
-    if (tc) tc.setAttribute("content", light ? "#f2f3f6" : "#141414");
+    if (tc) tc.setAttribute("content", light ? "#f2f3f6" : "#000000");
     const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if (sb) sb.setAttribute("content", light ? "default" : "black");
     // L'heure et la batterie de l'iPhone suivent le réglage du téléphone (clair/sombre). Si le mode choisi dans TVO est
@@ -5181,7 +5193,7 @@ var qrcode = function() {
     ["IconNoel", "Noël", "linear-gradient(135deg,#c8102e,#6b0a1a)", "#fff"], ["IconOr", "Or", "#121214", "#e0b04a"]];
   const APPICON = () => window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.Plugins && Capacitor.Plugins.AppIcon;
   const ICON_FILE = { "": "classique", IconTurquoise: "turquoise", IconNuit: "nuit", IconClair: "clair", IconNoel: "noel", IconOr: "or" };
-  const iconTile = ([n, label]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev"><img src="icons/${ICON_FILE[n || ""]}.png" alt=""></span><span>${label}</span></button>`;
+  const iconTile = ([n, label]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev">${BIMG(`icons/${ICON_FILE[n || ""]}.png`)}</span><span>${label}</span></button>`;
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
   // ---------- AllDebrid : connexion par code PIN, jours Premium restants (clé gardée sur cet appareil uniquement)
   const AD = "https://api.alldebrid.com";
@@ -5420,7 +5432,9 @@ var qrcode = function() {
       <p class="small muted mode-note">Auto suit le réglage de ton téléphone ou de ton ordinateur.</p>
       <div class="theme-pick" id="themePick">
         <button class="t-glass ${theme() === "glass" ? "on" : ""}" data-theme="glass"><i></i>Liquid Glass</button>
-        <button class="t-classic ${theme() === "classic" ? "on" : ""}" data-theme="classic"><i></i>Classique</button></div></div>
+        <button class="t-classic ${theme() === "classic" ? "on" : ""}" data-theme="classic"><i></i>Classique</button></div>
+      <p class="small muted mode-note">Ambiance du mode sombre (suit la couleur du profil)</p>
+      <div class="amb-pick" id="ambPick">${AMBS.map(([k, l, d]) => `<button class="amb-t amb-${k} ${amb() === k ? "on" : ""}" data-amb="${k}"><span class="amb-prev"><i></i>${BIMG("logo-mark.png")}</span><b>${l}</b><small>${d}</small></button>`).join("")}</div></div>
       ${APPICON() ? `<h2 class="section-title section"><span>Icône de l'appli</span></h2>
       <div class="list"><div class="card small muted">Change l'icône de TVO sur l'écran d'accueil, sans réinstaller.</div><div class="aicons" id="aicons">${APP_ICONS.map(iconTile).join("")}</div></div>` : ""}
       <h2 class="section-title section"><span>Application</span></h2>
@@ -5432,6 +5446,8 @@ var qrcode = function() {
       $("#editP").addEventListener("click", () => go("#/profile/" + enc(p.id)));
       $("#modePick").addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (!b) return; setMode(b.dataset.mode);
         $("#modePick").querySelectorAll("[data-mode]").forEach((x) => { const on = x === b; x.classList.toggle("on", on); x.setAttribute("aria-checked", on); }); });
+      $("#ambPick").addEventListener("click", (e) => { const b = e.target.closest("[data-amb]"); if (!b) return; setAmb(b.dataset.amb);
+        $("#ambPick").querySelectorAll("[data-amb]").forEach((x) => x.classList.toggle("on", x === b)); });
       $("#themePick").addEventListener("click", (e) => { const b = e.target.closest("[data-theme]"); if (!b) return; setTheme(b.dataset.theme);
         $("#themePick").querySelectorAll("[data-theme]").forEach((x) => x.classList.toggle("on", x === b)); });
       const drawHome = () => {

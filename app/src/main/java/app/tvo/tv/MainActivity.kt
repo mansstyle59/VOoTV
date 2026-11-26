@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
             i.getStringExtra("tvo_test_tmdb")?.takeIf { it.isNotBlank() }?.let { k -> Tvo.store.tmdbKey.value = k }
             if (t != null && id != null) t to id else null
         } else null
+        TvoColors.amb = getSharedPreferences("tvo_ui", MODE_PRIVATE).getString("amb", "oled") ?: "oled"
         setContent {
             var crash by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) } // plus d'écran d'erreur : l'appli repart simplement
             if (crash != null) {
@@ -109,6 +110,7 @@ class MainActivity : ComponentActivity() {
             }
             TvoTheme {
                 Surface(Modifier.fillMaxSize(), colors = SurfaceDefaults.colors(containerColor = TvoColors.Bg, contentColor = TvoColors.Text)) {
+                    app.tvo.tv.ui.AmbientBackground()
                     AppNav(testTarget)
                     if (testTarget == null) { UpdatePrompt(); WhatsNew(); AllDebridAlert() }
                 }
@@ -325,7 +327,7 @@ private fun AccountGate(onOk: () -> Unit) {
         contentAlignment = androidx.compose.ui.Alignment.Center) {
         Row(horizontalArrangement = Arrangement.spacedBy(56.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Column(Modifier.width(560.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(70.dp))
+                app.tvo.tv.ui.TvoLogo(Modifier.height(70.dp))
                 val (t, d) = when (status) {
                     "checking" -> "Vérification du compte…" to ""
                     "signed_out" -> "Bienvenue sur TVO" to "Avec ton téléphone, c'est le plus simple : scanne le QR code avec l'appareil photo.\n• Tu as déjà un compte : connecte-toi, la télé se connecte toute seule.\n• Pas encore de compte : crée-le en une minute sur la page qui s'ouvre.\n• Ou choisis « J'ai un code » et tape le code affiché dans l'appli du téléphone."
@@ -418,7 +420,7 @@ private fun SplashScreen(onDone: () -> Unit) {
         contentAlignment = androidx.compose.ui.Alignment.Center,
     ) {
         Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(22.dp)) {
-            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(110.dp))
+            app.tvo.tv.ui.TvoLogo(Modifier.height(110.dp))
             androidx.tv.material3.Text("Films, séries et TV en direct", fontSize = 18.sp, color = androidx.compose.ui.graphics.Color(0xFFC9D8FF))
             androidx.tv.material3.Text(status, fontSize = 16.sp, color = TvoColors.Muted)
             androidx.compose.foundation.layout.Box(Modifier.width(180.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(TvoColors.Surface2)) {

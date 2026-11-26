@@ -70,7 +70,7 @@ fun ProfilesScreen(onSelected: () -> Unit, onEdit: (String) -> Unit) {
     }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFF1F1F1F), TvoColors.Bg), radius = 1400f))) {
-        Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.padding(start = 48.dp, top = 32.dp).height(40.dp))
+        app.tvo.tv.ui.TvoLogo(Modifier.padding(start = 48.dp, top = 32.dp).height(40.dp))
         Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (manage) "Gérer les profils" else "Qui regarde ?", fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Spacer(Modifier.height(40.dp))
@@ -140,7 +140,7 @@ fun ProfileEditScreen(id: String, onDone: () -> Unit) {
     androidx.compose.runtime.DisposableEffect(Unit) { onDispose { TvoColors.setAccent(store.currentProfile.value?.color) } }
     val firstKey = remember { FocusRequester() }
 
-    Row(Modifier.fillMaxSize().background(TvoColors.Bg).padding(56.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
+    Row(Modifier.fillMaxSize().padding(56.dp), horizontalArrangement = Arrangement.spacedBy(56.dp)) {
         Column(Modifier.width(380.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(if (existing == null) "Nouveau profil" else "Modifier le profil", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Spacer(Modifier.height(28.dp))
@@ -197,7 +197,7 @@ private fun PinDialog(title: String, onCancel: () -> Unit, onSubmit: (String) ->
     var typed by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
     val fr = remember { FocusRequester() }
-    Box(Modifier.fillMaxSize().background(TvoColors.Bg), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Text(title, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
             Text("●".repeat(typed.length) + "○".repeat(4 - typed.length), fontSize = 34.sp, color = TvoColors.Text)

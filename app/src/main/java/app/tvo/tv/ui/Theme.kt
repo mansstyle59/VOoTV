@@ -1,6 +1,12 @@
 package app.tvo.tv.ui
 
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -12,11 +18,16 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 
 object TvoColors {
-    val Bg = Color(0xFF141414)
-    val Panel = Color(0xFF181818)
-    val Surface = Color(0xFF2B2B2B)
-    val Surface2 = Color(0xFF333333)
-    val Line = Color(0xFF404040)
+    /** Ambiance (même choix que sur le téléphone) : « oled », « nuit », « aurore » ou « profil ». */
+    var amb by androidx.compose.runtime.mutableStateOf("oled")
+    private fun tint(k: Float, over: Long): Color = androidx.compose.ui.graphics.lerp(Color(over), base, k)
+    val Bg: Color get() = when (amb) { "nuit" -> Color(0xFF02060F); "profil" -> tint(0.09f, 0xFF000000); else -> Color(0xFF000000) }
+    val Panel: Color get() = when (amb) { "nuit" -> Color(0xFF050C1C); "profil" -> tint(0.11f, 0xFF040406); else -> Color(0xFF07080B) }
+    val Surface: Color get() = when (amb) { "nuit" -> Color(0xFF0E1830); "profil" -> tint(0.14f, 0xFF15171C); else -> Color(0xFF17191F) }
+    val Surface2: Color get() = when (amb) { "nuit" -> Color(0xFF15223F); "profil" -> tint(0.16f, 0xFF1E2128); else -> Color(0xFF20232A) }
+    val Line: Color get() = when (amb) { "nuit" -> Color(0xFF1E2E50); "profil" -> tint(0.2f, 0xFF2A2E36); else -> Color(0xFF2C3038) }
+    /** Couleur brute du profil (pour les halos du fond). */
+    val Glow: Color get() = base
     val Text = Color(0xFFF5F5F5)
     val Muted = Color(0xFFB3B3B3)
     val Success = Color(0xFF34D399)
@@ -139,3 +150,24 @@ fun langLabel(code: String): String = when (code.lowercase().take(3)) {
 
 /** Échelle d'affichage courante (pixels par dp de référence), utilisée hors Compose (défilement). */
 object UiScale { @Volatile var density: Float = android.content.res.Resources.getSystem().displayMetrics.density }
+
+
+/** Fond d'ambiance : halos ronds flous à la couleur du profil et logo TVO en filigrane, très discrets. */
+@Composable
+fun AmbientBackground() {
+    val glow = TvoColors.Glow; val a = TvoColors.amb
+    val strong = when (a) { "aurore" -> 0.30f; "profil" -> 0.26f; "nuit" -> 0.20f; else -> 0.16f }
+    val drift = if (a == "aurore") androidx.compose.animation.core.rememberInfiniteTransition(label = "amb").animateFloat(0f, 1f,
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(24000), androidx.compose.animation.core.RepeatMode.Reverse), label = "d").value else 0f
+    androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(TvoColors.Bg)) {
+        androidx.compose.foundation.Canvas(androidx.compose.ui.Modifier.fillMaxSize()) {
+            val w = size.width; val h = size.height
+            fun halo(cx: Float, cy: Float, r: Float, c: Color, k: Float) =
+                drawCircle(Brush.radialGradient(listOf(c.copy(alpha = k), Color.Transparent), androidx.compose.ui.geometry.Offset(cx, cy), r), r, androidx.compose.ui.geometry.Offset(cx, cy))
+            halo(w * (0.08f + 0.12f * drift), h * (-0.05f + 0.1f * drift), w * 0.55f, glow, strong)
+            halo(w * (0.95f - 0.1f * drift), h * 1.05f, w * 0.45f, if (a == "aurore") Color(0xFF8B5CF6) else if (a == "nuit") Color(0xFF1E40AF) else glow, strong * 0.6f)
+        }
+        TvoLogo(androidx.compose.ui.Modifier.align(androidx.compose.ui.Alignment.BottomEnd).padding(end = 40.dp, bottom = 30.dp).size(300.dp)
+                .graphicsLayer { rotationZ = -12f; alpha = if (a == "profil") 0.06f else 0.045f }, file = "mobile/www/logo-mark.png", fallback = app.tvo.tv.R.drawable.logo_mark)
+    }
+}

@@ -726,3 +726,20 @@ class SquircleShape(private val radius: androidx.compose.ui.unit.Dp) : androidx.
         return androidx.compose.ui.graphics.Outline.Generic(p)
     }
 }
+
+
+/** Adresse des images de marque, relues à chaque ouverture : un nouveau logo s'affiche sans réinstaller l'appli. */
+const val BRAND_URL = "https://raw.githubusercontent.com/mansstyle59/VOoTV/main/"
+
+/** Logo TVO : version en ligne (toujours la dernière), sinon celle intégrée à l'appli. */
+@Composable
+fun TvoLogo(modifier: Modifier, file: String = "art/logo-tv.png", fallback: Int = app.tvo.tv.R.drawable.logo_tvo) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val req = androidx.compose.runtime.remember(file) {
+        coil.request.ImageRequest.Builder(ctx).data(BRAND_URL + file)
+            .memoryCacheKey(file).diskCachePolicy(coil.request.CachePolicy.ENABLED)
+            .networkCachePolicy(coil.request.CachePolicy.ENABLED).build()
+    }
+    val local = androidx.compose.ui.res.painterResource(fallback)
+    coil.compose.AsyncImage(req, "TVO", modifier, placeholder = local, error = local, fallback = local, contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+}

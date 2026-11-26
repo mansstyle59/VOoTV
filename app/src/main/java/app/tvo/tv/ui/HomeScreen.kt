@@ -187,7 +187,7 @@ fun HomeScreen(nav: Nav) {
     LaunchedEffect(hasTv, section) { if (!hasTv && section == Section.LIVE) section = Section.HOME }
     val navHidden = remember { mutableStateOf(false) }
     LaunchedEffect(section) { navHidden.value = false }
-    Box(Modifier.fillMaxSize().background(TvoColors.Bg)) {
+    Box(Modifier.fillMaxSize()) {
       androidx.compose.runtime.CompositionLocalProvider(LocalNavHidden provides navHidden) {
         Box(Modifier.fillMaxSize().padding(top = if (immersive) 0.dp else NavBarHeight)) {
             when (section) {
@@ -216,7 +216,7 @@ private fun TopNav(current: Section, profile: Profile?, onSelect: (Section) -> U
             .padding(horizontal = 48.dp).focusProperties { enter = { currentFr } },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Image(painterResource(R.drawable.logo_tvo), "TVO", Modifier.height(30.dp))
+        app.tvo.tv.ui.TvoLogo(Modifier.height(30.dp))
         Spacer(Modifier.width(34.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Section.entries.filter { it.inRail && (it != Section.LIVE || showLive) }.forEach { s ->
