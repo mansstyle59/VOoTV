@@ -469,9 +469,7 @@ fun BrowseSection(type: String?, nav: Nav) {
     val lib = remember(library, type) { if (kidsPage) emptyList() else library.filter { type == null || it.type == type } }
     val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key, epoch) {
         val r = rows.firstOrNull()
-        // Films et Séries : une seule affiche, pas de défilement automatique (carrousel seulement sur l'accueil)
-        val n = if (type == "movie" || type == "series") 1 else 5
-        value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(n) ?: emptyList()
+        value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(5) ?: emptyList()
     }
 
     Immersive(heroItems, nav, key = type) {
