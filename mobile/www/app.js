@@ -5809,7 +5809,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   function openPlayer(ctx) {
     const { m, s, v } = ctx;
     const el = $("#player");
-    el.hidden = false; document.body.style.overflow = "hidden";
+    el.hidden = false; document.body.style.overflow = "hidden"; el.classList.add("nv2"); el.classList.toggle("is-series", m.type === "series");
     const PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
     const R10 = (dir) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="${dir > 0 ? "transform:scaleX(-1)" : ""}"><path d="M4 12a8 8 0 1 0 3-6.2"/><path d="M4 3v4h4"/></svg>`;
     el.innerHTML = `
@@ -5818,9 +5818,10 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
       <div class="nf" id="nf">
         <div class="nf-top">
           <div class="pl-clock" id="pClock"><b id="pNow"></b><span id="pEnd"></span></div>
+          <b class="nf-spd" id="pSpd" hidden></b>
           ${document.pictureInPictureEnabled || isIOS || window.TvoPip ? `<button class="nf-ic" id="pPip" aria-label="Image dans l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1" fill="currentColor"/></svg></button>` : ""}
           <button class="nf-ic" id="pLock" aria-label="Verrouiller les commandes"><svg viewBox="0 0 24 24" fill="currentColor"><path class="lk-on" d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4zm2 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg></button>
-          <button class="nf-ic" id="pClose" aria-label="Fermer">${ICON.back}</button>
+          <button class="nf-ic" id="pClose" aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H5M11 5l-7 7 7 7"/></svg></button>
         </div>
         <div class="nf-mid">
           <button class="nf-big" id="pBack" aria-label="Reculer de 10 secondes">${R10(-1)}<i>10</i></button>
@@ -5830,12 +5831,19 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
         <div class="nf-bot">
           <div class="nf-title"><b>${esc(m.name)}</b><span>${v && v.season != null ? `S${v.season} E${v.episode} • ${esc(v.title)}` : esc(s.addonName)}</span></div>
           <div class="nf-seek"><input type="range" id="pSeek" min="0" max="1000" value="0" aria-label="Position"></div>
-          <div class="nf-row">
-            ${m.type === "series" ? `<button class="nf-opt" id="pPrev" aria-label="Épisode précédent"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4v16L8 12zM5 4h2v16H5z"/></svg><span>Précédent</span></button><button class="nf-opt" id="pEps" aria-label="Liste des épisodes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Épisodes</span></button><button class="nf-opt" id="pNext" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4v16l11-8zM17 4h2v16h-2z"/></svg><span>Épisode suivant</span></button>` : ""}
-            <button class="nf-opt" id="pSubs" aria-label="Sous-titres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6M17.5 10.2a2.2 2.2 0 1 0 0 3.6" stroke-linecap="round"/></svg><span>Audio et sous-titres</span></button>
-            <button class="nf-opt" id="pSpeed" aria-label="Vitesse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 14l4-5"/><path d="M3.5 17a9 9 0 1 1 17 0"/></svg><span>Vitesse (x1)</span></button>
-            <button class="nf-opt" id="pFit" aria-label="Ajuster l'image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Ajuster</span></button>
+          <div class="nf-row nv2-row">
+            ${m.type === "series" ? `<button class="nf-ico" id="pNext" aria-label="Épisode suivant"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4.5v15l11-7.5z"/><rect x="17.5" y="4.5" width="2.5" height="15" rx="1"/></svg></button>` : ""}
+            <button class="nf-ico" id="pSubs" aria-label="Sous-titres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="4"/><path d="M10.4 10.3a2.1 2.1 0 1 0 0 3.4M17.2 10.3a2.1 2.1 0 1 0 0 3.4"/></svg></button>
+            <button class="nf-ico" id="pAudio" aria-label="Pistes audio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><circle cx="12" cy="8" r="1.6"/><circle cx="12" cy="15" r="3"/></svg></button>
+            <button class="nf-ico" id="pSrcs" aria-label="Changer de source"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.5 4.5 0 0 0 7 18z"/></svg></button>
+            ${m.type === "series" ? `<button class="nf-ico" id="pEps" aria-label="Épisodes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="13" height="12" rx="2"/><path d="M7 5h12a2 2 0 0 1 2 2v9"/></svg></button>` : ""}
+            <button class="nf-ico" id="pMore" aria-label="Plus d'options"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
             <span class="nf-time" id="pTime">0:00</span>
+          </div>
+          <div class="nf-more" id="pMoreBox" hidden>
+            ${m.type === "series" ? `<button class="nf-opt" id="pPrev"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 4v16L8 12zM5 4h2v16H5z"/></svg><span>Épisode précédent</span></button>` : ""}
+            <button class="nf-opt" id="pSpeed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 14l4-5"/><path d="M3.5 17a9 9 0 1 1 17 0"/></svg><span>Vitesse (x1)</span></button>
+            <button class="nf-opt" id="pFit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Ajuster</span></button>
           </div>
         </div>
       </div>
@@ -5881,6 +5889,10 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     $("#pLock").addEventListener("click", (e) => { e.stopPropagation(); const on = el.classList.toggle("locked"); flash(on ? "Commandes verrouillées" : "Commandes déverrouillées"); wake(); });
     const pv = $("#pPrev"); if (pv) pv.addEventListener("click", (e) => { e.stopPropagation(); const i = m.episodes.findIndex((x) => x.id === ctx.videoId); if (i > 0) playEpisode(ctx, m.episodes[i - 1]); else toast("C'est le premier épisode"); });
     const pe = $("#pEps"); if (pe) pe.addEventListener("click", (e) => { e.stopPropagation(); episodesSheet(ctx); });
+    $("#pSpeed").addEventListener("click", () => { const r = video.playbackRate, b = $("#pSpd"); if (b) { b.hidden = r === 1; b.textContent = r + "x"; } });
+    $("#pMore").addEventListener("click", (e) => { e.stopPropagation(); const box = $("#pMoreBox"); box.hidden = !box.hidden; e.currentTarget.classList.toggle("on", !box.hidden); wake(); });
+    $("#pAudio").addEventListener("click", (e) => { e.stopPropagation(); $("#pSubs").click(); });
+    $("#pSrcs").addEventListener("click", (e) => { e.stopPropagation(); sourcesSheet(ctx, video.currentTime || 0); });
     const nx = $("#pNext"); if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); playNext(ctx); });
     // Feuille audio + sous-titres : langues claires (français d'abord), taille, fond, décalage précis
     const subPref = LS.get("subpref", { size: 1, box: false });
@@ -5928,7 +5940,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
           <div class="pl-shift"><button data-sh="-0.5">−0,5 s</button><button data-sh="-0.1">−0,1 s</button><b>${subShift > 0 ? "+" : ""}${subShift.toFixed(1).replace(".", ",")} s</b><button data-sh="0.1">+0,1 s</button><button data-sh="0.5">+0,5 s</button></div>
           <p class="muted small">Décalage : en arrière si les sous-titres arrivent trop tard, en avant s'ils arrivent trop tôt.</p></div>
         <button class="btn blue block" id="shClose">Fermer</button></div>`;
-      sh.hidden = false;
+      sh.hidden = false; sh.className = "nf-sheet";
       sh.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => {
         const k = b.dataset.k;
         if (k === "off") tt.forEach((t) => (t.mode = "disabled"));
@@ -6090,20 +6102,41 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     const subs = [...pick.subtitles, ...(await subtitles(m.type, next.id).catch(() => []))];
     openPlayer({ m, s: pick, v: next, videoId: next.id, start: 0, subs });
   }
-  /** Liste des épisodes dans le lecteur : changer d'épisode sans quitter la lecture. */
-  function episodesSheet(ctx) {
+  /** Sources dans le lecteur : passer à une autre source à la même seconde. */
+  function sourcesSheet(ctx, at) {
     const sh = $("#pSheet"); if (!sh) return;
-    const eps = ctx.m.episodes.filter((e) => e.season === (ctx.v && ctx.v.season));
-    const seasons = [...new Set(ctx.m.episodes.map((e) => e.season).filter((x) => x != null))];
-    sh.hidden = false;
-    sh.innerHTML = `<div class="sh-head"><b>Épisodes</b><button class="nf-ic" id="epClose" aria-label="Fermer">✕</button></div>
-      <div class="sh-chips">${seasons.map((n) => `<button class="chip${n === (ctx.v && ctx.v.season) ? " on" : ""}" data-ss="${n}">Saison ${n}</button>`).join("")}</div>
-      <div class="sh-list">${eps.map((e) => `<button class="ep-row${e.id === ctx.videoId ? " cur" : ""}" data-ep="${esc(e.id)}"><i>${e.episode}</i><span>${esc(e.title || "Épisode " + e.episode)}</span></button>`).join("")}</div>`;
-    sh.onclick = (ev) => ev.stopPropagation();
-    $("#epClose").onclick = (ev) => { ev.stopPropagation(); sh.hidden = true; };
-    sh.querySelectorAll("[data-ss]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const n = Number(b.dataset.ss); const first = ctx.m.episodes.find((e) => e.season === n); if (first) { episodesSheet({ ...ctx, v: first, videoId: ctx.videoId }); } }));
-    sh.querySelectorAll("[data-ep]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const e = ctx.m.episodes.find((x) => x.id === b.dataset.ep); if (e && e.id !== ctx.videoId) playEpisode(ctx, e); else sh.hidden = true; }));
+    const list = (SRC_QUEUE && SRC_QUEUE.videoId === ctx.videoId ? SRC_QUEUE.list : [ctx.s]).filter((x) => x.url).slice(0, 30);
+    sh.hidden = false; sh.className = "nf-sheet nv2-side";
+    sh.innerHTML = `<div class="sd-head"><h2>Sources</h2><button class="sd-close" id="sdClose">Fermer</button></div>
+      <div class="sd-list">${list.map((x, i) => `<button class="sd-src${x === ctx.s || x.url === ctx.s.url ? " cur" : ""}" data-i="${i}"><b>${esc(String(x.name || "").replace(/\n/g, " ").slice(0, 70))}</b><span>${esc((String(x.title || "").split("\n").filter(Boolean)[0] || "").slice(0, 90))}</span><small>${esc(x.addonName || "")}</small></button>`).join("")}</div>`;
+    sh.onclick = (ev) => { if (ev.target === sh) sh.hidden = true; ev.stopPropagation(); };
+    $("#sdClose").onclick = (ev) => { ev.stopPropagation(); sh.hidden = true; };
+    sh.querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const x = list[+b.dataset.i];
+      if (!x || x.url === ctx.s.url) { sh.hidden = true; return; }
+      closePlayer(); openPlayer({ ...ctx, s: x, start: at > 2 ? at : ctx.start, forceNative: false, forceMpv: false }); }));
   }
+  /** Liste des épisodes dans le lecteur : changer d'épisode sans quitter la lecture. */
+  function episodesSheet(ctx, season) {
+    const sh = $("#pSheet"); if (!sh) return;
+    const curSeason = ctx.v && ctx.v.season;
+    const seasons = [...new Set(ctx.m.episodes.map((e) => e.season).filter((x) => x != null))].sort((x, y) => (x === 0) - (y === 0) || x - y);
+    const ss = season != null ? season : curSeason != null ? curSeason : seasons[0];
+    const eps = ctx.m.episodes.filter((e) => e.season === ss);
+    const fdate = (d) => { const t = d ? new Date(d) : null; return t && !isNaN(t) ? t.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : ""; };
+    sh.hidden = false; sh.className = "nf-sheet nv2-side";
+    sh.innerHTML = `<div class="sd-head"><h2>Épisodes</h2><button class="sd-close" id="epClose">Fermer</button></div>
+      <div class="sd-seasons">${seasons.map((n) => `<button class="${n === ss ? "on" : ""}" data-ss="${n}">${n === 0 ? "Bonus" : "Saison " + n}</button>`).join("")}</div>
+      <div class="sd-list">${eps.map((e) => `<button class="sd-ep${e.id === ctx.videoId ? " cur" : ""}" data-ep="${esc(e.id)}">
+          <span class="th">${e.thumbnail || ctx.m.background ? `<img src="${esc(e.thumbnail || ctx.m.background)}" alt="" loading="lazy">` : ""}<i>S${e.season}E${e.episode}</i></span>
+          <span class="tx"><b>${esc(e.title || "Épisode " + e.episode)}</b>${fdate(e.released) ? `<small>${fdate(e.released)}</small>` : ""}${e.overview ? `<span class="ov">${esc(e.overview)}</span>` : ""}</span></button>`).join("") || `<div class="small muted">Aucun épisode.</div>`}</div>`;
+    sh.onclick = (ev) => { if (ev.target === sh) sh.hidden = true; ev.stopPropagation(); };
+    $("#epClose").onclick = (ev) => { ev.stopPropagation(); sh.hidden = true; };
+    sh.querySelectorAll("[data-ss]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); episodesSheet(ctx, Number(b.dataset.ss)); }));
+    sh.querySelectorAll("[data-ep]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const e = ctx.m.episodes.find((x) => x.id === b.dataset.ep); if (e && e.id !== ctx.videoId) playEpisode(ctx, e); else sh.hidden = true; }));
+    const cur = sh.querySelector(".sd-ep.cur"); if (cur) cur.scrollIntoView({ block: "center" });
+    const on = sh.querySelector(".sd-seasons .on"); if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
+  }
+
 
   // ------------------------------------------------------------------ mises à jour (automatiques, sans réinstaller)
   let updateInfo = null;
