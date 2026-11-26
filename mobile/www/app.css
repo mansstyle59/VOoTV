@@ -2535,3 +2535,29 @@ html[data-amb="profil"] #amb .g1 { opacity: .24; } html[data-amb="profil"] #amb 
 @supports (corner-shape: squircle) { #player .nv2-side .sd-ep, #player .nv2-side .sd-ep .th, #player .nv2-side .sd-close { corner-shape: squircle; } }
 #player .nf-sheet.nv2-side[hidden] { display: none; }
 #player:has(.nf-sheet.nv2-side:not([hidden])) .nf { opacity: 0; pointer-events: none; }
+/* Panneau latéral : options (audio, sous-titres) et cartes de sources, même style que les épisodes */
+#player .nv2-side .sd-opt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; text-align: left; padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,.04); border: 2px solid transparent; color: #fff; font-size: 16px; }
+#player .nv2-side .sd-opt .ck { width: 22px; flex: none; font-weight: 900; color: var(--acc-hi, #4a9dff); }
+#player .nv2-side .sd-opt b { font-weight: 700; }
+#player .nv2-side .sd-opt i { font-style: normal; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(255,255,255,.1); color: #dfe3ea; }
+#player .nv2-side .sd-opt.cur { border-color: var(--acc-hi, #4a9dff); background: rgba(74,157,255,.08); }
+#player .nv2-side .sd-sub { margin: 14px 2px 2px; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #9aa1ad; }
+#player .nv2-side .sd-pills { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+#player .nv2-side .sd-pills button { padding: 10px 16px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,.14); color: #e6e8ee; font-size: 14px; font-weight: 700; }
+#player .nv2-side .sd-pills button.on { background: #f5f6f8; color: #0b0c0f; border-color: #f5f6f8; }
+#player .nv2-side .sd-shift b { padding: 0 6px; font-variant-numeric: tabular-nums; color: #fff; }
+#player .nv2-side .sd-note { font-size: 13px; color: #9aa1ad; padding: 4px 2px; }
+#player .nv2-side .sd-src { display: flex; align-items: center; gap: 14px; padding: 14px 14px 14px 18px; }
+#player .nv2-side .sd-src .tx { flex: 1; min-width: 0; display: grid; gap: 5px; }
+#player .nv2-side .sd-src .tx b { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#player .nv2-side .sd-src .tx small { font-size: 13px; color: #b9bfca; }
+#player .nv2-side .sd-src .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+#player .nv2-side .sd-src .chips:empty { display: none; }
+#player .nv2-side .sd-src .chips i { font-style: normal; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--blue, #3d7cff) 30%, #0b1430); color: #e6eeff; }
+#player .nv2-side .sd-src .chips i.now { background: var(--acc-hi, #4a9dff); color: #05101f; }
+#player .nv2-side .sd-src .tx em { font-style: normal; font-size: 12.5px; color: #9aa1ad; }
+#player .nv2-side .sd-src .pl { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, #3d9bff, var(--blue, #3d7cff)); box-shadow: 0 6px 16px rgba(61,124,255,.4); }
+#player .nv2-side .sd-src .pl svg { width: 20px; height: 20px; fill: #fff; margin-left: 2px; }
+#player .nv2-side .sd-list { align-content: start; }
+@supports (corner-shape: squircle) { #player .nv2-side .sd-opt, #player .nv2-side .sd-src { corner-shape: squircle; } }
+#player .nv2-side .sd-src .chips { margin: 0; padding: 0; justify-content: flex-start; } #player .nv2-side .sd-src .tx b { color: #fff; }

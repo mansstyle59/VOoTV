@@ -5891,7 +5891,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     const pe = $("#pEps"); if (pe) pe.addEventListener("click", (e) => { e.stopPropagation(); episodesSheet(ctx); });
     $("#pSpeed").addEventListener("click", () => { const r = video.playbackRate, b = $("#pSpd"); if (b) { b.hidden = r === 1; b.textContent = r + "x"; } });
     $("#pMore").addEventListener("click", (e) => { e.stopPropagation(); const box = $("#pMoreBox"); box.hidden = !box.hidden; e.currentTarget.classList.toggle("on", !box.hidden); wake(); });
-    $("#pAudio").addEventListener("click", (e) => { e.stopPropagation(); $("#pSubs").click(); });
+    $("#pAudio").addEventListener("click", (e) => { e.stopPropagation(); drawTracks("audio"); });
     $("#pSrcs").addEventListener("click", (e) => { e.stopPropagation(); sourcesSheet(ctx, video.currentTime || 0); });
     const nx = $("#pNext"); if (nx) nx.addEventListener("click", (e) => { e.stopPropagation(); playNext(ctx); });
     // Feuille audio + sous-titres : langues claires (français d'abord), taille, fond, décalage précis
@@ -5920,8 +5920,8 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
       if (/ad\b|audiodesc/i.test(l)) tags.push("Audiodescription");
       return { name: base, tags, rank: /^fr/.test(c) || /fran|vf/i.test(l) ? 0 : /^en/.test(c) || /angl|english/i.test(l) ? 1 : 2 };
     };
-    $("#pSubs").addEventListener("click", (e) => {
-      e.stopPropagation();
+    // Audio et sous-titres : même panneau latéral que Épisodes et Sources
+    const drawTracks = (mode) => {
       const sh = $("#pSheet");
       const tt = [...video.textTracks];
       const at = video.audioTracks ? [...video.audioTracks] : [];
@@ -5930,31 +5930,33 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
         : at.map((t, i) => [`a${i}`, langName(t.language, t.label), t.enabled])).sort((x, y) => x[1].rank - y[1].rank);
       const subItems = tt.map((t, i) => [`t${i}`, langName(t.language, t.label), t.mode === "showing"]).sort((x, y) => x[1].rank - y[1].rank);
       const off = tt.every((t) => t.mode !== "showing");
-      const row = ([k, n, on]) => `<button data-k="${k}" class="${on ? "on" : ""}"><span class="ck">${on ? "✓" : ""}</span><b>${esc(n.name)}</b>${n.tags.map((g) => `<i>${esc(g)}</i>`).join("")}</button>`;
-      sh.innerHTML = `<div class="nf-sheet-in pl-opts">
-        <div class="col"><h3>Audio</h3>${audioItems.length ? audioItems.map(row).join("") : '<p class="muted">Une seule langue</p>'}</div>
-        <div class="col"><h3>Sous-titres</h3><button data-k="off" class="${off ? "on" : ""}"><span class="ck">${off ? "✓" : ""}</span><b>Désactivés</b></button>${subItems.map(row).join("")}</div>
-        <div class="col"><h3>Réglages des sous-titres</h3>
-          <div class="pl-seg">${[["Petite", 0.8], ["Normale", 1], ["Grande", 1.25], ["Très grande", 1.5]].map(([l, k]) => `<button data-size="${k}" class="${subPref.size === k ? "on" : ""}">${l}</button>`).join("")}</div>
-          <div class="pl-seg"><button data-box="0" class="${!subPref.box ? "on" : ""}">Ombre</button><button data-box="1" class="${subPref.box ? "on" : ""}">Fond noir</button></div>
-          <div class="pl-shift"><button data-sh="-0.5">−0,5 s</button><button data-sh="-0.1">−0,1 s</button><b>${subShift > 0 ? "+" : ""}${subShift.toFixed(1).replace(".", ",")} s</b><button data-sh="0.1">+0,1 s</button><button data-sh="0.5">+0,5 s</button></div>
-          <p class="muted small">Décalage : en arrière si les sous-titres arrivent trop tard, en avant s'ils arrivent trop tôt.</p></div>
-        <button class="btn blue block" id="shClose">Fermer</button></div>`;
-      sh.hidden = false; sh.className = "nf-sheet";
-      sh.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", () => {
-        const k = b.dataset.k;
+      const row = ([k, n, on]) => `<button data-k="${k}" class="sd-opt${on ? " cur" : ""}"><span class="ck">${on ? "✓" : ""}</span><b>${esc(n.name)}</b>${n.tags.map((g) => `<i>${esc(g)}</i>`).join("")}</button>`;
+      const tabs = `<div class="sd-seasons"><button class="${mode === "audio" ? "on" : ""}" data-tab="audio">Audio</button><button class="${mode === "subs" ? "on" : ""}" data-tab="subs">Sous-titres</button></div>`;
+      const body = mode === "audio"
+        ? (audioItems.length ? audioItems.map(row).join("") : '<div class="sd-note">Cette vidéo n\'a qu\'une seule langue.</div>')
+        : `<button data-k="off" class="sd-opt${off ? " cur" : ""}"><span class="ck">${off ? "✓" : ""}</span><b>Désactivés</b></button>${subItems.map(row).join("")}
+          <h3 class="sd-sub">Taille</h3><div class="sd-pills">${[["Petite", 0.8], ["Normale", 1], ["Grande", 1.25], ["Très grande", 1.5]].map(([l, k]) => `<button data-size="${k}" class="${subPref.size === k ? "on" : ""}">${l}</button>`).join("")}</div>
+          <h3 class="sd-sub">Style</h3><div class="sd-pills"><button data-box="0" class="${!subPref.box ? "on" : ""}">Ombre</button><button data-box="1" class="${subPref.box ? "on" : ""}">Fond noir</button></div>
+          <h3 class="sd-sub">Décalage</h3><div class="sd-pills sd-shift"><button data-sh="-0.5">−0,5 s</button><button data-sh="-0.1">−0,1 s</button><b>${subShift > 0 ? "+" : ""}${subShift.toFixed(1).replace(".", ",")} s</b><button data-sh="0.1">+0,1 s</button><button data-sh="0.5">+0,5 s</button></div>
+          <div class="sd-note">En arrière si les sous-titres arrivent trop tard, en avant s'ils arrivent trop tôt.</div>`;
+      sh.innerHTML = `<div class="sd-head"><h2>${mode === "audio" ? "Audio" : "Sous-titres"}</h2><button class="sd-close" id="shClose">Fermer</button></div>${tabs}<div class="sd-list">${body}</div>`;
+      sh.hidden = false; sh.className = "nf-sheet nv2-side";
+      sh.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); drawTracks(b.dataset.tab); }));
+      sh.querySelectorAll("[data-k]").forEach((b) => b.addEventListener("click", (ev) => {
+        ev.stopPropagation(); const k = b.dataset.k;
         if (k === "off") tt.forEach((t) => (t.mode = "disabled"));
         else if (k[0] === "t") tt.forEach((t, i) => (t.mode = "t" + i === k ? "showing" : "disabled"));
         else if (k.startsWith("ha")) hls.audioTrack = Number(k.slice(2));
         else if (k[0] === "a") at.forEach((t, i) => (t.enabled = "a" + i === k));
-        $("#pSubs").click();
+        drawTracks(mode);
       }));
-      sh.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => { subPref.size = Number(b.dataset.size); applySubStyle(); $("#pSubs").click(); }));
-      sh.querySelectorAll("[data-box]").forEach((b) => b.addEventListener("click", () => { subPref.box = b.dataset.box === "1"; applySubStyle(); $("#pSubs").click(); }));
-      sh.querySelectorAll("[data-sh]").forEach((b) => b.addEventListener("click", () => { shiftCues(Number(b.dataset.sh)); $("#pSubs").click(); }));
+      sh.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); subPref.size = Number(b.dataset.size); applySubStyle(); drawTracks(mode); }));
+      sh.querySelectorAll("[data-box]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); subPref.box = b.dataset.box === "1"; applySubStyle(); drawTracks(mode); }));
+      sh.querySelectorAll("[data-sh]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); shiftCues(Number(b.dataset.sh)); drawTracks(mode); }));
       $("#shClose").addEventListener("click", (ev) => { ev.stopPropagation(); sh.hidden = true; });
-      sh.addEventListener("click", (ev) => ev.stopPropagation());
-    });
+      sh.onclick = (ev) => { if (ev.target === sh) sh.hidden = true; ev.stopPropagation(); };
+    };
+    $("#pSubs").addEventListener("click", (e) => { e.stopPropagation(); drawTracks("subs"); });
     const pip = $("#pPip");
     if (pip) pip.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -6106,15 +6108,26 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   function sourcesSheet(ctx, at) {
     const sh = $("#pSheet"); if (!sh) return;
     const list = (SRC_QUEUE && SRC_QUEUE.videoId === ctx.videoId ? SRC_QUEUE.list : [ctx.s]).filter((x) => x.url).slice(0, 30);
+    const txt = (x) => `${x.name || ""} ${x.title || ""}`;
+    const lang = (x) => { const t = txt(x).toLowerCase(); return /\bmulti\b/.test(t) ? "MULTI" : /\b(vff|vfq|vf2?|french|truefrench|fr)\b|🇫🇷/.test(t) ? "VF" : /\bvostfr\b/.test(t) ? "VOSTFR" : ""; };
+    const size = (x) => { const r = txt(x).match(/(\d+(?:[.,]\d+)?)\s?(GB|Go|MB|Mo)\b/i); return r ? r[1].replace(",", ".") + " " + (/g/i.test(r[2]) ? "Go" : "Mo") : ""; };
+    const codec = (x) => { const t = txt(x); return [/hevc|x265|h\.?265/i.test(t) ? "HEVC" : /x264|h\.?264|avc/i.test(t) ? "H.264" : "", /dolby vision|\bdv\b/i.test(t) ? "Dolby Vision" : /hdr/i.test(t) ? "HDR" : ""].filter(Boolean).join(" · "); };
+    const isCur = (x) => x === ctx.s || x.url === ctx.s.url;
     sh.hidden = false; sh.className = "nf-sheet nv2-side";
     sh.innerHTML = `<div class="sd-head"><h2>Sources</h2><button class="sd-close" id="sdClose">Fermer</button></div>
-      <div class="sd-list">${list.map((x, i) => `<button class="sd-src${x === ctx.s || x.url === ctx.s.url ? " cur" : ""}" data-i="${i}"><b>${esc(String(x.name || "").replace(/\n/g, " ").slice(0, 70))}</b><span>${esc((String(x.title || "").split("\n").filter(Boolean)[0] || "").slice(0, 90))}</span><small>${esc(x.addonName || "")}</small></button>`).join("")}</div>`;
+      <div class="sd-list">${list.map((x, i) => `<button class="sd-src${isCur(x) ? " cur" : ""}" data-i="${i}">
+          <span class="tx"><b>${esc(String(x.name || "").replace(/\n/g, " ").slice(0, 70))}</b>
+          ${codec(x) || qLabel(x.quality) ? `<small>${esc([qLabel(x.quality), codec(x)].filter((y) => y && y !== "Auto").join(" | "))}</small>` : ""}
+          <span class="chips">${isCur(x) ? `<i class="now">En cours</i>` : ""}${lang(x) ? `<i>${lang(x)}</i>` : ""}${size(x) ? `<i>${size(x)}</i>` : ""}</span>
+          <em>${esc(x.addonName || "")}</em></span>
+          <span class="pl">${ICON.play}</span></button>`).join("")}</div>`;
     sh.onclick = (ev) => { if (ev.target === sh) sh.hidden = true; ev.stopPropagation(); };
     $("#sdClose").onclick = (ev) => { ev.stopPropagation(); sh.hidden = true; };
     sh.querySelectorAll("[data-i]").forEach((b) => b.addEventListener("click", (ev) => { ev.stopPropagation(); const x = list[+b.dataset.i];
-      if (!x || x.url === ctx.s.url) { sh.hidden = true; return; }
+      if (!x || isCur(x)) { sh.hidden = true; return; }
       closePlayer(); openPlayer({ ...ctx, s: x, start: at > 2 ? at : ctx.start, forceNative: false, forceMpv: false }); }));
   }
+
   /** Liste des épisodes dans le lecteur : changer d'épisode sans quitter la lecture. */
   function episodesSheet(ctx, season) {
     const sh = $("#pSheet"); if (!sh) return;
