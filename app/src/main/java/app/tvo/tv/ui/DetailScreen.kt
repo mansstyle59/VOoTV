@@ -381,7 +381,7 @@ fun PersonBubble(person: app.tvo.tv.data.Person, onFocus: () -> Unit = {}, onCli
         androidx.tv.material3.Surface(
             onClick = onClick, modifier = Modifier.size(84.dp).onFocusChanged { if (it.isFocused) onFocus() },
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
-            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+            scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = androidx.tv.material3.Border(
                 androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = androidx.compose.foundation.shape.CircleShape),
                 border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)), shape = androidx.compose.foundation.shape.CircleShape)),

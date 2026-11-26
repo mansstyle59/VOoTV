@@ -102,7 +102,7 @@ fun PosterCard(
         onLongClick = { menu = true },
         modifier = modifier.width(width).aspectRatio(2f / 3f).onFocused(onFocus),
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.08f),
+        scale = CardDefaults.scale(focusedScale = 1.04f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = CardDefaults.colors(containerColor = TvoColors.Surface),
     ) {
@@ -138,7 +138,7 @@ fun WideCard(
         onLongClick = onLongClick,
         modifier = modifier.width(width).aspectRatio(16f / 9f).onFocused(onFocus),
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.06f),
+        scale = CardDefaults.scale(focusedScale = 1.04f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = CardDefaults.colors(containerColor = TvoColors.Surface2),
     ) {
@@ -365,7 +365,7 @@ fun LandscapeCard(
         onLongClick = { menu = true },
         modifier = modifier.width(width).aspectRatio(16f / 9f).onFocused(onFocus),
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.1f),
+        scale = CardDefaults.scale(focusedScale = 1.04f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = CardDefaults.colors(containerColor = TvoColors.Surface),
     ) {
@@ -416,7 +416,7 @@ fun PortraitCard(item: MetaPreview, onClick: () -> Unit, modifier: Modifier = Mo
             onLongClick = { menu = true },
             modifier = Modifier.fillMaxWidth().aspectRatio(0.667f).onFocused(onFocus),
             shape = CardDefaults.shape(shape),
-            scale = CardDefaults.scale(focusedScale = 1.06f),
+            scale = CardDefaults.scale(focusedScale = 1.04f),
             border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, TvoColors.Blue), shape = shape)),
             colors = CardDefaults.colors(containerColor = TvoColors.Surface),
         ) {
@@ -461,7 +461,7 @@ fun ExpandCard(item: MetaPreview, onClick: () -> Unit, onFocus: () -> Unit = {},
         onClick = onClick,
         modifier = Modifier.width(w).height(height).onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() },
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.03f),
+        scale = CardDefaults.scale(focusedScale = 1.04f),
         border = CardDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = CardDefaults.colors(containerColor = TvoColors.Surface),
     ) {
@@ -492,7 +492,7 @@ fun SagaTile(sg: app.tvo.tv.data.Tmdb.Saga, onFocus: () -> Unit = {}, onClick: (
         onClick = onClick,
         modifier = Modifier.width(240.dp).height(135.dp).onFocusChanged { if (it.isFocused) onFocus() },
         shape = ClickableSurfaceDefaults.shape(shape),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF333333), focusedContainerColor = Color(0xFF333333)),
     ) {

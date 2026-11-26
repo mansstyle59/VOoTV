@@ -147,7 +147,7 @@ val RowSideSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpe
 val GridCenterSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
         if (containerSize <= 0f || size <= 0f) return 0f
-        val d = (offset + size / 2f) - containerSize * 0.45f
+        val d = (offset + size / 2f) - containerSize * 0.42f
         val visible = offset >= 0f && offset + size <= containerSize
         return if (visible && kotlin.math.abs(d) < 24f * UiScale.density) 0f else d
     }
@@ -633,7 +633,7 @@ private fun GenreTiles(nav: Nav, type: String = "movie", onFocus: () -> Unit) {
                     onClick = { nav.openGenre(type, g) },
                     modifier = Modifier.width(240.dp).height(135.dp).onFocused { onFocus(); select(GenreTilesSelect(g, fresh[g] ?: GENRE_IMG[g])) },
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.1f),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, focusedContainerColor = TvoColors.Surface),
                 ) {
@@ -679,7 +679,7 @@ private fun KidsTiles(selected: String, onPick: (String) -> Unit) {
                     onClick = { onPick(t.key) },
                     modifier = Modifier.width(170.dp).height(110.dp),
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
                     border = ClickableSurfaceDefaults.border(
                         border = if (on) Border(BorderStroke(3.dp, c), shape = shape) else Border.None,
                         focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
@@ -728,7 +728,7 @@ private fun PlatformTiles(nav: Nav, type: String? = null) {
                             "Les nouveautés films et séries disponibles sur $name, en France."))
                     },
                     shape = ClickableSurfaceDefaults.shape(shape),
-                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.08f),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
                     border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = shape)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color(color), focusedContainerColor = Color(color)),
                 ) {
