@@ -118,7 +118,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val seasons = remember(meta) { meta.episodes.mapNotNull { it.season }.distinct() }
     var season by remember(meta) { mutableStateOf(targetVideo?.season ?: seasons.firstOrNull()) }
     val playFr = remember { FocusRequester() }
-    // Bande-annonce VF : uniquement dans une fenêtre centrée (jamais en fond de fiche). Retour = fermer.
+    // Bande-annonce VF, façon Nuvio : démarre seule, sans le son, en fond du visuel après un court délai,
+    // s'arrête dès qu'on quitte le haut de la fiche. Le bouton la lance en plein écran avec le son (Retour = fermer).
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
     var trailerMode by remember(p.id) { mutableStateOf(0) }
     val trailerWin = trailerMode == 2
@@ -169,6 +170,17 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         // Visuel plein écran (image fixe), voilé à gauche et en bas pour garder le texte lisible
         Box(Modifier.fillMaxSize()) {
             FbImage(p.background ?: p.poster, p.id, false, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            // Bande-annonce de fond (muette) : fondu depuis l'image dès que la vidéo tourne vraiment, retour à l'image à la fin
+            var bgArmed by remember(p.id) { mutableStateOf(false) }
+            var bgPlaying by remember(p.id) { mutableStateOf(false) }
+            var bgDone by remember(p.id) { mutableStateOf(false) }
+            LaunchedEffect(heroHasFocus, trailer, trailerMode) {
+                if (heroHasFocus && trailer != null && trailerMode == 0 && !bgDone) { delay(2500); bgArmed = true }
+                else { bgArmed = false; bgPlaying = false }
+            }
+            val bgAlpha by androidx.compose.animation.core.animateFloatAsState(if (bgPlaying) 1f else 0f, androidx.compose.animation.core.tween(700), label = "trailerFade")
+            if (bgArmed && trailer != null) TrailerView(trailer!!, Modifier.fillMaxSize().graphicsLayer { alpha = bgAlpha }, cover = true, muted = true, loop = false,
+                onPlaying = { bgPlaying = true }, onEnded = { bgPlaying = false; bgDone = true; bgArmed = false })
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
                 0.0f to Color.Black.copy(alpha = 0.94f), 0.5f to Color.Black.copy(alpha = 0.7f), 0.85f to Color.Transparent)))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
@@ -196,7 +208,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                 store.toggleLibrary(LibraryItem(p.id, p.type, p.name, p.poster, p.background))
                                 android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                            // Bande-annonce : s'ouvre dans une fenêtre au centre (Retour pour fermer)
+                            // Bande-annonce : plein écran avec le son (Retour pour fermer)
                             if (trailer != null) RoundButton(TvIcon) { trailerMode = 2 }
                             if (p.type == "movie") {
                                 val seen = targetProgress?.finished == true
@@ -290,15 +302,13 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         }
         }
     }
-    // Fenêtre de bande-annonce : vidéo entière au centre, fond assombri. Retour pour fermer.
-    if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color(0xB3000000)), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth(0.78f).aspectRatio(16f / 9f).clip(RoundedCornerShape(18.dp)).background(Color.Black)
-                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))) {
-                TrailerView(trailer!!, Modifier.fillMaxSize(), cover = false)
-            }
-            Text("Bande-annonce VF · ${p.name}  —  Retour pour fermer", Modifier.padding(top = 14.dp), fontSize = 15.sp, color = TvoColors.Muted)
-        }
+    // Bande-annonce plein écran avec le son. Retour pour fermer ; à la fin, retour automatique à la fiche.
+    if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color.Black)) {
+        TrailerView(trailer!!, Modifier.fillMaxSize(), cover = false, loop = false, onEnded = { trailerMode = 0 })
+        var hint by remember { mutableStateOf(true) }
+        LaunchedEffect(Unit) { delay(3500); hint = false }
+        if (hint) Text("Bande-annonce VF · ${p.name}  —  Retour pour fermer", Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
+            .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 18.dp, vertical = 8.dp), fontSize = 15.sp, color = Color.White)
     }
     }
     LaunchedEffect(Unit) { delay(100); runCatching { playFr.requestFocus() } }

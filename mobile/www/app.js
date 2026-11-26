@@ -4234,6 +4234,7 @@ var qrcode = function() {
    *  sinon YouTube refuse la lecture (erreur 153 : adresse d'origine manquante). */
   function ytSrc(key, bg) {
     const k = encodeURIComponent(key);
+    if (bg) return `https://mansstyle59.github.io/VOoTV/trailer/?v=${k}&bg=1&mute=1`;
     if (location.protocol === "https:" && !window.Capacitor?.isNativePlatform?.()) {
       return `https://www.youtube-nocookie.com/embed/${k}?autoplay=1&playsinline=1&rel=0&modestbranding=1&hl=fr&cc_lang_pref=fr` + (bg ? `&controls=0&loop=1&playlist=${k}` : "");
     }
@@ -4917,12 +4918,23 @@ var qrcode = function() {
       <p class="dt-tmdb">Données fournies par TMDB</p>`;
 
     const tr = $("#trailer"); if (tr) tr.addEventListener("click", () => playTrailer(m));
-    // Ordinateur : la bande-annonce VF démarre toute seule dans le grand visuel (rien si pas de VF)
-    if (isDesk() && m.tmdbId) trailerVF(m).then((v) => {
+    // Façon Nuvio (téléphone et ordinateur) : la bande-annonce VF démarre seule, sans le son, dans le grand visuel,
+    // avec un fondu depuis l'image. Elle s'arrête dès que le visuel sort de l'écran. Le bouton son la relance en grand avec le son.
+    if (m.tmdbId && LS.get("autoTrailer", true)) trailerVF(m).then((v) => {
       const h = app.querySelector(".dt-hero"); if (!v || !h || !document.body.contains(h)) return;
-      h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="${esc(ytSrc(v.key, true))}"
-        allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1"></iframe></div>`);
-      setTimeout(() => h.classList.add("playing"), 2500);
+      setTimeout(() => {
+        if (!document.body.contains(h) || h.querySelector(".dt-trailer")) return;
+        h.insertAdjacentHTML("afterbegin", `<div class="dt-trailer"><iframe src="${esc(ytSrc(v.key, true))}"
+          allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1" title="Bande-annonce"></iframe></div>
+          <button class="dt-sound" aria-label="Regarder la bande-annonce avec le son"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg></button>`);
+        const stop = () => { h.classList.remove("playing"); const t = h.querySelector(".dt-trailer"); if (t) setTimeout(() => t.remove(), 900); const s = h.querySelector(".dt-sound"); if (s) s.remove(); };
+        h.querySelector(".dt-sound").addEventListener("click", (e) => { e.stopPropagation(); stop(); playTrailer(m); });
+        setTimeout(() => { if (document.body.contains(h)) h.classList.add("playing"); }, 2200); // le temps que YouTube démarre : pas d'écran noir
+        if ("IntersectionObserver" in window) {
+          const io = new IntersectionObserver((en) => { if (en[0] && en[0].intersectionRatio < 0.25) { stop(); io.disconnect(); } }, { threshold: [0, 0.25] });
+          io.observe(h);
+        }
+      }, 1200);
     });
     const drawTabs = () => {
       $("#dtTabs").innerHTML = tabsDef.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-t="${k}">${l}</button>`).join("");

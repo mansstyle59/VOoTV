@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -280,7 +281,9 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
     val m = mState
     val logo = logoState
     val target = selected ?: hero.getOrNull(heroIndex)
-    LaunchedEffect(hero, selected) { if (selected == null && hero.size > 1) while (true) { delay(9000); heroIndex = (heroIndex + 1) % hero.size } }
+    // Bande-annonce de la bannière (façon Nuvio) : tant qu'elle tourne, le carrousel automatique attend
+    var bannerTrailerOn by remember(key) { mutableStateOf(false) }
+    LaunchedEffect(hero, selected) { if (selected == null && hero.size > 1) while (true) { delay(9000); if (!bannerTrailerOn) heroIndex = (heroIndex + 1) % hero.size } }
     val watchFr = remember(key) { FocusRequester() }
     val library by Tvo.store.library.collectAsState()
     var inRows by remember(key) { mutableStateOf(false) }
@@ -323,6 +326,21 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
             FbImage(m.background ?: m.poster, m.id, false, null,
                 Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).let { if (tv) it.padding(60.dp) else it },
                 contentScale = if (tv) ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.TopCenter else Alignment.Center)
+            // Bande-annonce VF muette à la place de l'image, 3 s après s'être arrêté sur un titre ; fondu à l'arrivée, image à la fin
+            if (m.type == "movie" || m.type == "series") androidx.compose.runtime.key(m.id) {
+                val trailerKey by produceState<String?>(null, m.id) {
+                    delay(3000)
+                    value = if (app.tvo.tv.data.Tmdb.enabled) runCatching { app.tvo.tv.data.Tmdb.trailerVF(m.type, m.id) }.getOrNull() else null
+                }
+                var playing by remember { mutableStateOf(false) }
+                var done by remember { mutableStateOf(false) }
+                val a by androidx.compose.animation.core.animateFloatAsState(if (playing) 1f else 0f, androidx.compose.animation.core.tween(700), label = "bannerTrailer")
+                androidx.compose.runtime.DisposableEffect(Unit) { onDispose { bannerTrailerOn = false } }
+                val k = trailerKey
+                if (k != null && !done) TrailerView(k, Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).graphicsLayer { alpha = a },
+                    cover = true, muted = true, loop = false,
+                    onPlaying = { playing = true; bannerTrailerOn = true }, onEnded = { playing = false; done = true; bannerTrailerOn = false })
+            }
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
                 .background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.35f to Color(0x990A0F1E), 1f to Color.Transparent)))
             Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
