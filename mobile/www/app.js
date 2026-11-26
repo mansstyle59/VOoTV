@@ -4267,41 +4267,68 @@ var qrcode = function() {
   }
 
   // ------------------------------------------------------------------ appui long : menu d'options sur les cartes
-  function actionSheet(title, actions) {
-    const box = document.createElement("div"); box.className = "as-sheet";
-    box.innerHTML = `<div class="as-card"><b class="as-t">${esc(title)}</b>${actions.map((a, i) => `<button class="as-btn ${a.danger ? "danger" : ""}" data-a="${i}">${a.icon || ""}<span>${esc(a.label)}</span></button>`).join("")}
-      <button class="as-btn cancel" data-x>Annuler</button></div>`;
+  /** Menu façon Nuvio : fond sombre (image floutée), aperçu de la carte, titre, puis liste d'actions (icône à droite). */
+  function actionSheet(title, actions, o = {}) {
+    const box = document.createElement("div"); box.className = "nvm" + (o.image ? "" : " noimg");
+    box.innerHTML = `${o.image ? `<img class="nvm-bg" src="${esc(o.image)}" alt="">` : ""}<div class="nvm-dim"></div>
+      <div class="nvm-in">${o.image ? `<div class="nvm-card ${o.wide ? "wide" : ""}"><img src="${esc(o.image)}" alt="">${o.progress ? `<i class="nvm-bar" style="width:${Math.round(o.progress * 100)}%"></i>` : ""}</div>` : ""}
+        <div class="nvm-t"><b>${esc(title)}</b>${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</div>
+        <div class="nvm-list">${actions.map((a2, i) => `<button class="nvm-btn ${a2.danger ? "danger" : ""}" data-a="${i}"><span>${esc(a2.label)}</span>${a2.icon || ""}</button>`).join("")}</div></div>`;
     document.body.appendChild(box);
-    box.addEventListener("click", (e) => { if (e.target === box || e.target.closest("[data-x]")) return box.remove();
-      const b = e.target.closest("[data-a]"); if (b) { box.remove(); actions[+b.dataset.a].run(); } });
+    requestAnimationFrame(() => box.classList.add("on"));
+    const close = () => { window.removeEventListener("popstate", close); box.classList.remove("on"); setTimeout(() => box.remove(), 180); };
+    box.addEventListener("click", (e) => {
+      const b2 = e.target.closest("[data-a]"); if (b2) { close(); actions[+b2.dataset.a].run(); return; }
+      if (!e.target.closest(".nvm-list, .nvm-card")) close();
+    });
+    window.addEventListener("popstate", close);
   }
   function setProg(videoId, f) { const i = S.prog.findIndex((x) => x.videoId === videoId); if (i < 0) return; S.prog[i] = { ...S.prog[i], ...f(S.prog[i]), updatedAt: Date.now() }; saveProg(); }
+  const I_INFO = `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 10.5v6M12 7.2v.1" stroke="#16161c" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  const I_RESTART = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4.5h4.5"/></svg>`;
+  const I_CHECKC = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="m8 12.3 2.8 2.7L16.2 9.5"/></svg>`;
+  const I_PLUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`;
+  const I_MINUS = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>`;
+  const I_SHARE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>`;
+  const I_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>`;
+  const I_PLAY = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>`;
   function cardMenu(el) {
     const [kind, ref] = (el.dataset.menu || "").split("|");
     if (kind === "cont") {
       const x = S.prog.find((p) => p.videoId === ref); if (!x) return;
-      const m = { id: x.metaId, type: x.type, name: x.name, poster: x.poster, background: x.background };
+      const left = x.duration > 1 ? Math.max(1, Math.round((x.duration - x.position) / 60000)) : 0;
       actionSheet(x.name, [
-        { label: "Reprendre la lecture", icon: ICON.play, run: () => go(`#/sources/${enc(x.type)}/${enc(x.metaId)}/${enc(x.videoId)}`) },
-        { label: "Voir la fiche", icon: ICON.movie, run: () => go(`#/title/${enc(x.type)}/${enc(x.metaId)}`) },
-        { label: inLib(x.metaId) ? "Retirer de Ma liste" : "Ajouter à Ma liste", icon: ICON.heart, run: () => { toggleLib(m); toast(inLib(x.metaId) ? "Ajouté à Ma liste ✓" : "Retiré de Ma liste"); } },
-        { label: "Marquer comme vu", icon: ICON.check, run: () => { setProg(x.videoId, (p) => ({ position: p.duration || 1, duration: p.duration || 1 })); toast("Marqué comme vu ✓"); route(); } },
-        { label: "Retirer de Continuer à regarder", danger: true, icon: ICON.trash, run: () => { S.prog.filter((p) => p.metaId === x.metaId).forEach((p) => setProg(p.videoId, () => ({ position: 0 }))); toast("Retiré ✓"); route(); } },
-      ]);
+        { label: "Voir les détails", icon: I_INFO, run: () => go(`#/title/${enc(x.type)}/${enc(x.metaId)}`) },
+        { label: "Reprendre la lecture", icon: I_PLAY, run: () => go(`#/sources/${enc(x.type)}/${enc(x.metaId)}/${enc(x.videoId)}`) },
+        { label: "Recommencer depuis le début", icon: I_RESTART, run: () => { setProg(x.videoId, () => ({ position: 0 })); go(`#/sources/${enc(x.type)}/${enc(x.metaId)}/${enc(x.videoId)}`); } },
+        { label: "Marquer comme vu", icon: I_CHECKC, run: () => { setProg(x.videoId, (p) => ({ position: p.duration || 1, duration: p.duration || 1 })); toast("Marqué comme vu ✓"); route(); } },
+        { label: "Supprimer", danger: true, icon: I_TRASH, run: () => { S.prog.filter((p) => p.metaId === x.metaId).forEach((p) => setProg(p.videoId, () => ({ position: 0 }))); toast("Retiré ✓"); route(); } },
+      ], { image: x.background || x.poster, wide: true, progress: x.duration > 1 ? x.position / x.duration : 0,
+        sub: (x.season != null ? `Saison ${x.season} · Épisode ${x.episode}` : x.type === "series" ? "Série" : "Film") + (left ? ` · ${left} min restantes` : "") });
       return;
     }
     const [type, id] = (el.dataset.open || "").split("|"); if (!id) return;
     const name = el.getAttribute("aria-label") || "";
-    const img = el.querySelector("img"); const m = { id, type, name, poster: img ? img.getAttribute("src") : null, background: null };
-    const acts = [{ label: "Ouvrir", icon: ICON.play, run: () => el.click() }];
-    if (type === "movie" || type === "series") acts.push({ label: inLib(id) ? "Retirer de Ma liste" : "Ajouter à Ma liste", icon: ICON.heart, run: () => { toggleLib(m); toast(inLib(id) ? "Ajouté à Ma liste ✓" : "Retiré de Ma liste"); } });
-    acts.push({ label: "Partager le titre", icon: ICON.doc, run: async () => { try { await navigator.share({ title: name, text: name + " — à regarder sur TVO" }); } catch { try { await navigator.clipboard.writeText(name); toast("Titre copié"); } catch {} } } });
-    actionSheet(name, acts);
+    const img = el.querySelector("img"); const src = img ? img.getAttribute("src") : null;
+    const wide = !!el.closest(".lcard, .ncard, .land, .nv-saga, .sgcard, .ccard");
+    const m = { id, type, name, poster: wide ? null : src, background: wide ? src : null };
+    const acts = [];
+    if (type === "movie" || type === "series") {
+      acts.push({ label: inLib(id) ? "Retirer de la bibliothèque" : "Ajouter à la bibliothèque", icon: inLib(id) ? I_MINUS : I_PLUS, run: () => { toggleLib(m); toast(inLib(id) ? "Ajouté à ta liste ✓" : "Retiré de ta liste"); } });
+      if (type === "movie") {
+        const seen = seenMovie(id);
+        acts.push({ label: seen ? "Marquer comme non vu" : "Marquer comme vu", icon: I_CHECKC, run: () => {
+          saveProgress({ videoId: id, metaId: id, type, name, poster: m.poster, background: m.background, season: null, episode: null, episodeTitle: null,
+            position: seen ? 0 : 1, duration: 1, updatedAt: Date.now() }); toast(seen ? "Marqué non vu" : "Marqué comme vu ✓"); route(); } });
+      }
+    } else acts.push({ label: "Ouvrir", icon: I_PLAY, run: () => el.click() });
+    acts.push({ label: "Partager", icon: I_SHARE, run: async () => { try { await navigator.share({ title: name, text: name + " — à regarder sur TVO" }); } catch { try { await navigator.clipboard.writeText(name); toast("Copié"); } catch {} } } });
+    actionSheet(name, acts, { image: src, wide, sub: type === "series" ? "Série" : type === "movie" ? "Film" : "" });
   }
   (() => {
     let timer = null, startX = 0, startY = 0, fired = false;
     document.addEventListener("touchstart", (e) => {
-      const el = e.target.closest("[data-menu], [data-open]"); if (!el || el.closest(".as-sheet")) return;
+      const el = e.target.closest("[data-menu], [data-open]"); if (!el || el.closest(".as-sheet, .nvm")) return;
       fired = false; startX = e.touches[0].clientX; startY = e.touches[0].clientY;
       timer = setTimeout(() => { fired = true; if (navigator.vibrate) navigator.vibrate(12); cardMenu(el); }, 480);
     }, { passive: true });
@@ -4933,7 +4960,9 @@ var qrcode = function() {
       <div class="nv-body">
         <div class="nv-cta">
           <button class="nv-play" id="play">${ICON.play}<span>${esc(label)}</span></button>
-          <button class="nv-more" id="more" aria-label="Plus d'options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg></button>
+          <button class="nv-rb ${prog && finished(prog) ? "on" : ""}" id="seen" aria-label="Marquer comme vu">${I_CHECKC}</button>
+          <button class="nv-rb" id="lib" aria-label="Ma liste">${inLib(m.id) ? ICON.check : I_PLUS}</button>
+          <button class="nv-rb nv-white" id="more" aria-label="Plus d'options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg></button>
         </div>
         ${started ? `<div class="nv-prog"><i style="width:${Math.round(fraction(prog) * 100)}%"></i></div>` : ""}
         <div class="nv-facts">${year ? `<b>${esc(year)}</b>` : ""}${series && x.seasons ? `<b>${x.seasons} saison${x.seasons > 1 ? "s" : ""}</b>` : m.runtime ? `<b>${esc(fmtRuntime(m.runtime))}</b>` : ""}${x.cert ? `<span class="nv-cert">${esc(x.cert)}</span>` : ""}</div>
@@ -5018,22 +5047,24 @@ var qrcode = function() {
 
     // Actions
     $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
-    const toggleL = () => { toggleLib(m); $("#libTop").innerHTML = inLib(m.id) ? ICON.check : ICON.plus; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); };
+    const toggleL = () => { toggleLib(m); const ic = inLib(m.id) ? ICON.check : I_PLUS; $("#libTop").innerHTML = ic; $("#lib").innerHTML = ic; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); };
     $("#libTop").addEventListener("click", toggleL);
-    $("#more").addEventListener("click", () => {
+    $("#lib").addEventListener("click", toggleL);
+    $("#seen").addEventListener("click", () => {
       const was = !!(prog && finished(prog));
+      saveProgress({ videoId: vid, metaId: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background,
+        season: tv ? tv.season : null, episode: tv ? tv.episode : null, episodeTitle: tv ? tv.title : null,
+        position: was ? 0 : 1, duration: 1, updatedAt: Date.now() });
+      toast(was ? "Marqué non vu" : "Marqué comme vu ✓"); route();
+    });
+    $("#more").addEventListener("click", () => {
       actionSheet(m.name, [
-        { label: inLib(m.id) ? "Retirer de ma liste" : "Ajouter à ma liste", icon: inLib(m.id) ? ICON.check : ICON.plus, run: toggleL },
-        { label: was ? "Marquer comme non vu" : "Marquer comme vu", icon: ICON.check, run: () => {
-          saveProgress({ videoId: vid, metaId: m.id, type: m.type, name: m.name, poster: m.poster, background: m.background,
-            season: tv ? tv.season : null, episode: tv ? tv.episode : null, episodeTitle: tv ? tv.title : null,
-            position: was ? 0 : 1, duration: 1, updatedAt: Date.now() });
-          toast(was ? "Marqué non vu" : "Marqué comme vu ✓"); route(); } },
-        ...(m.tmdbId ? [{ label: "Bande-annonce", icon: ICON.play, run: () => playTrailer(m) }] : []),
-        { label: "Partager", icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>`, run: async () => {
+        ...(m.tmdbId ? [{ label: "Bande-annonce", icon: I_PLAY, run: () => playTrailer(m) }] : []),
+        ...(started ? [{ label: "Recommencer depuis le début", icon: I_RESTART, run: () => { setProg(vid, () => ({ position: 0 })); go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`); } }] : []),
+        { label: "Partager", icon: I_SHARE, run: async () => {
           const text = `${m.name}${m.releaseInfo ? " (" + m.releaseInfo + ")" : ""} — à regarder sur TVO`;
           try { if (navigator.share) await navigator.share({ title: m.name, text }); else { await navigator.clipboard.writeText(text); toast("Copié"); } } catch { /* annulé */ } } },
-      ]);
+      ], { image: m.background || m.poster, wide: true, sub: [year, series ? "Série" : "Film"].filter(Boolean).join(" · ") });
     });
     const d = $("#desc"), dm = $("#descMore");
     if (d && dm) {
@@ -6187,7 +6218,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
 
 // ---- Logos de titre sombres (noir sur fond sombre) : passés en blanc, comme sur la TV ----
 (function () {
-  const SEL = "img.hlogo, img.logo-img, img.dt-logo";
+  const SEL = "img.hlogo, img.logo-img, img.dt-logo, img.nv-logo, .nv-tlogo img";
   const cache = new Map();
   const isDark = (url) => {
     if (cache.has(url)) return cache.get(url);

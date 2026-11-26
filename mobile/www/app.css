@@ -2270,3 +2270,38 @@ html[data-mode="light"]:root .nv-tb, html[data-mode="light"]:root .nv-more { col
   .nv-hero { height: min(64vh, 600px); min-height: 380px; }
   .nv-hero > img { object-position: center 30%; }
 }
+
+/* Boutons de la fiche : Lire + ronds (Vu, Ma liste) + ⋮ blanc, façon Nuvio */
+.nv-cta { gap: 10px; }
+.nv-play { flex: 1 1 auto; min-width: 0; }
+.nv-rb { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: #fff; border: 0; }
+.nv-rb svg { width: 24px; height: 24px; } .nv-rb.on { color: var(--success, #34d399); }
+.nv-rb.nv-white { background: #f3f4f6; color: #000; }
+.nv-rb:active { transform: scale(.94); }
+.nv-more { display: none; }
+
+/* Menu d'appui long façon Nuvio : fond sombre, aperçu centré, liste d'actions groupée */
+.nvm { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 24px);
+  opacity: 0; transition: opacity .18s ease; }
+.nvm.on { opacity: 1; }
+.nvm-bg { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(40px) saturate(1.2); transform: scale(1.1); opacity: .55; }
+.nvm-dim { position: absolute; inset: 0; background: rgba(8,8,12,.72); }
+.nvm-in { position: relative; width: 100%; max-width: 380px; display: grid; justify-items: center; gap: 14px; transform: scale(.94); transition: transform .22s cubic-bezier(.2,.9,.3,1.2); }
+.nvm.on .nvm-in { transform: none; }
+.nvm-card { position: relative; width: 62%; aspect-ratio: 2/3; border-radius: 22px; overflow: hidden; background: var(--surface-2); box-shadow: 0 24px 60px rgba(0,0,0,.6); }
+.nvm-card.wide { width: 92%; aspect-ratio: 16/9; }
+.nvm-card img { width: 100%; height: 100%; object-fit: cover; }
+.nvm-bar { position: absolute; left: 14px; bottom: 12px; height: 5px; border-radius: 3px; background: var(--blue); max-width: calc(100% - 28px); }
+.nvm-t { display: grid; justify-items: center; gap: 2px; text-align: center; }
+.nvm-t b { font-size: 19px; font-weight: 800; } .nvm-t small { font-size: 15px; color: var(--muted); }
+.nvm-list { width: 86%; border-radius: 20px; overflow: hidden; background: #1c1c22; }
+.nvm-btn { width: 100%; min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 0 20px; background: none; border: 0; color: #fff; font: inherit; font-size: 16px; text-align: left; }
+.nvm-btn + .nvm-btn { border-top: 1px solid rgba(255,255,255,.08); }
+.nvm-btn span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nvm-btn svg { flex: none; width: 22px; height: 22px; }
+.nvm-btn:active { background: rgba(255,255,255,.06); }
+.nvm-btn.danger { color: #f472b6; }
+.nvm.noimg .nvm-list { width: 100%; }
+html[data-mode="light"]:root .nvm-dim { background: rgba(242,243,246,.78); }
+html[data-mode="light"]:root .nvm-list { background: #fff; } html[data-mode="light"]:root .nvm-btn { color: #111; }
+@media (min-width: 1024px) { .nvm-in { max-width: 440px; } .nvm-card { width: 52%; } .nvm-card.wide { width: 100%; } }
