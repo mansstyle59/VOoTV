@@ -67,7 +67,24 @@ fun TvoTheme(content: @Composable () -> Unit) {
             border = TvoColors.Muted,
         ),
         content = {
+            // Auto-adaptation : toute l'interface est dessinée pour un écran de référence 960 x 540
+            // et mise à l'échelle de la vraie TV (HD, Full HD, 4K, densité exotique des box Android).
+            val baseD = androidx.compose.ui.platform.LocalDensity.current
+            val baseCfg = androidx.compose.ui.platform.LocalConfiguration.current
+            val wPx = baseCfg.screenWidthDp * baseD.density
+            val hPx = baseCfg.screenHeightDp * baseD.density
+            val scale = if (wPx > 0f && hPx > 0f) minOf(wPx / 960f, hPx / 540f) else baseD.density
+            val d = androidx.compose.ui.unit.Density(scale, baseD.fontScale.coerceIn(0.85f, 1.15f))
+            UiScale.density = scale
+            val cfg = androidx.compose.runtime.remember(baseCfg, scale) {
+                android.content.res.Configuration(baseCfg).apply {
+                    screenWidthDp = (wPx / scale).toInt(); screenHeightDp = (hPx / scale).toInt()
+                    smallestScreenWidthDp = minOf(screenWidthDp, screenHeightDp); densityDpi = (scale * 160).toInt()
+                }
+            }
             androidx.compose.runtime.CompositionLocalProvider(
+                androidx.compose.ui.platform.LocalDensity provides d,
+                androidx.compose.ui.platform.LocalConfiguration provides cfg,
                 androidx.tv.material3.LocalTextStyle provides androidx.tv.material3.LocalTextStyle.current.copy(fontFamily = Inter, letterSpacing = (-0.1).sp),
                 content = content,
             )
@@ -119,3 +136,6 @@ fun langLabel(code: String): String = when (code.lowercase().take(3)) {
     "tr", "tur" -> "Turc"
     else -> code
 }
+
+/** Échelle d'affichage courante (pixels par dp de référence), utilisée hors Compose (défilement). */
+object UiScale { @Volatile var density: Float = android.content.res.Resources.getSystem().displayMetrics.density }

@@ -120,7 +120,7 @@ val LocalNavHidden = androidx.compose.runtime.staticCompositionLocalOf { android
 /** Défilement vertical : la rangée choisie se place toujours en haut de la liste (titre compris), jamais coupée. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 val RowTopSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - 50f * android.content.res.Resources.getSystem().displayMetrics.density
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = offset - 50f * UiScale.density
 }
 /** Aucun défilement : pour les boutons du haut des fiches (la page reste fixe quand on change de bouton). */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -132,7 +132,7 @@ val NoScrollSpec = object : androidx.compose.foundation.gestures.BringIntoViewSp
 val RowSideSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
     // Garde toujours une marge de 48 dp à gauche et à droite : la carte choisie (agrandie) ne dépasse jamais de l'écran
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        val pad = 56f * android.content.res.Resources.getSystem().displayMetrics.density
+        val pad = 56f * UiScale.density
         val end = offset + size
         return when {
             offset < pad -> offset - pad
