@@ -129,7 +129,11 @@ private fun AppNav(testTarget: Pair<String, String>? = null) {
         popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(170)) },
         popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(110)) }) {
         composable("test") {
-            LaunchedEffect(Unit) { testTarget?.let { (t, id) -> nc.navigate("detail/${e(t)}/${e(id)}") { popUpTo("test") { inclusive = true } } } }
+            LaunchedEffect(Unit) { testTarget?.let { (t, id) ->
+                // « home » : parcours client depuis l'accueil (premier profil choisi d'office)
+                if (t == "home") { (Tvo.store.profiles.value.firstOrNull() ?: Tvo.store.upsertProfile(null, "Test", 0xFF3B82F6)).let { Tvo.store.selectProfile(it) }; nc.navigate("home") { popUpTo("test") { inclusive = true } } }
+                else nc.navigate("detail/${e(t)}/${e(id)}") { popUpTo("test") { inclusive = true } }
+            } }
         }
         composable("splash") { SplashScreen { nc.navigate("gate") { popUpTo("splash") { inclusive = true } } } }
         composable("gate") { AccountGate {

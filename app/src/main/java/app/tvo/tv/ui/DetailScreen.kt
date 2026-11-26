@@ -147,27 +147,28 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     var heroMeasured by remember { mutableStateOf(0f) }
     val heroFullPx = maxOf((cfg.screenHeightDp - 96).coerceAtLeast(340) * density, heroMeasured)
     val widthPx = cfg.screenWidthDp * density
-    // Une seule règle de défilement pour toute la fiche, basée sur la POSITION de l'élément choisi :
-    //  - boutons du haut : la page ne bouge pas ;
-    //  - retour vers le haut : la page remonte d'un coup tout en haut (synopsis + boutons entiers) ;
-    //  - rangée du bas : elle se cale en haut de l'écran, titre compris (comme sur l'accueil) ;
-    //  - défilement horizontal dans une rangée : marge normale à gauche et à droite.
-    val pageSpec = remember(widthPx, heroFullPx, density, mainState) {
+    // Deux « pages », comme Nuvio :
+    //  - page 1 = la fiche (logo, boutons, infos) : tant qu'on est sur les boutons, la fiche est affichée en entier ;
+    //  - page 2 = tout le reste : dès qu'on descend, le premier bloc (onglets ou épisodes) se cale en haut de l'écran,
+    //    la fiche disparaît d'un coup ; ensuite on ne défile que du nécessaire ;
+    //  - dans une rangée (défilement horizontal) : la carte se cale à gauche.
+    val heroFocus = remember { java.util.concurrent.atomic.AtomicBoolean(true) }
+    val pageSpec = remember(widthPx, density, mainState) {
         object : androidx.compose.foundation.gestures.BringIntoViewSpec {
             override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
                 if (kotlin.math.abs(containerSize - widthPx) < 8f) return RowSideSpec.calculateScrollDistance(offset, size, containerSize)
-                val idx = mainState.firstVisibleItemIndex
-                val so = mainState.firstVisibleItemScrollOffset
-                if (idx == 0 && so == 0 && offset >= 0f && offset + size <= heroFullPx + 40f * density) return 0f
-                if (offset < 0f && idx <= 1) return -(if (idx == 0) so.toFloat() else heroFullPx + 10f * density + so)
-                // Comme Nuvio : défilement minimal. La rangée choisie entre juste en bas de l'écran (on garde le synopsis
-                // et les rangées précédentes en vue) ; en remontant, on laisse de la place au titre / aux onglets au-dessus.
-                val top = 96f * density; val bottom = 56f * density
-                return when {
-                    offset < top -> offset - top
-                    offset + size > containerSize - bottom -> (offset + size) - (containerSize - bottom)
-                    else -> 0f
+                val items = mainState.layoutInfo.visibleItemsInfo
+                if (heroFocus.get()) {
+                    val hero = items.firstOrNull { it.index == 0 }
+                    return hero?.offset?.toFloat() ?: (offset - 160f * density)
                 }
+                val top = 28f * density; val bottom = 40f * density
+                val page2 = items.firstOrNull { it.index == 1 }
+                var d = if (page2 != null) page2.offset - top else 0f
+                val after = offset - d
+                if (after + size > containerSize - bottom) d += (after + size) - (containerSize - bottom)
+                else if (after < top) d += after - top
+                return d
             }
         }
     }
@@ -190,7 +191,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().heightIn(min = heroFull).onSizeChanged { heroMeasured = it.height.toFloat() }.padding(top = 28.dp, bottom = 8.dp)) {
+        Box(Modifier.fillMaxWidth().heightIn(min = heroFull).onSizeChanged { heroMeasured = it.height.toFloat() }.padding(top = 28.dp, bottom = 8.dp).onFocusChanged { heroFocus.set(it.hasFocus) }) {
                     Column(Modifier.padding(start = 48.dp).width(680.dp)) {
                         // Logo manquant ou cassé : le titre du film en texte stylé à la place
                         var logoFail by remember(p.logo) { mutableStateOf(false) }
