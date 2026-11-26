@@ -778,7 +778,7 @@ private fun HomeEditor() {
 
 // ---------- AllDebrid : connexion par code PIN (saisi sur le téléphone), jours Premium restants.
 // La clé reste sur cette télé uniquement (pas envoyée au serveur de synchronisation).
-private object AllDebrid {
+internal object AllDebrid {
     private const val API = "https://api.alldebrid.com"
     private fun http(url: String, post: String? = null, key: String? = null): kotlinx.serialization.json.JsonObject {
         val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection

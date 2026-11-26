@@ -2,6 +2,9 @@ package app.tvo.tv
 
 import app.tvo.tv.ui.QuickMenu
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.layout.heightIn
 import androidx.lifecycle.lifecycleScope
@@ -107,7 +110,7 @@ class MainActivity : ComponentActivity() {
             TvoTheme {
                 Surface(Modifier.fillMaxSize(), colors = SurfaceDefaults.colors(containerColor = TvoColors.Bg, contentColor = TvoColors.Text)) {
                     AppNav(testTarget)
-                    if (testTarget == null) { UpdatePrompt(); WhatsNew() }
+                    if (testTarget == null) { UpdatePrompt(); WhatsNew(); AllDebridAlert() }
                 }
             }
         }
@@ -185,44 +188,107 @@ private suspend fun refreshAddons() {
     store.setAddons(fresh, userChange = false)
 }
 
+/** Bannière commune (mise à jour, AllDebrid) en haut à droite : icône de couleur, titre, détail, lignes, barre de progression, boutons. */
+@Composable
+private fun NoticeCard(tone: Color, icon: String, title: String, sub: String?, lines: List<String> = emptyList(), progress: Float? = null, buttons: @Composable () -> Unit) {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(top = 22.dp, end = 36.dp), contentAlignment = androidx.compose.ui.Alignment.TopEnd) {
+        Column(Modifier.width(500.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF16171D))
+            .border(1.dp, tone.copy(alpha = 0.45f), RoundedCornerShape(20.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.foundation.layout.Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(tone), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Text(icon, fontSize = 20.sp, fontWeight = FontWeight.Black, color = if (tone == NoticeWarn) Color(0xFF111111) else Color.White)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(title, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    if (!sub.isNullOrBlank()) Text(sub, fontSize = 14.sp, color = Color(0xFFB9C0CF))
+                }
+            }
+            lines.forEach { Text("•  $it", Modifier.padding(start = 56.dp), fontSize = 14.sp, color = Color(0xFFDFE4EE), maxLines = 2) }
+            if (progress != null) androidx.compose.foundation.layout.Box(Modifier.padding(start = 56.dp).fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.12f))) {
+                androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth(progress.coerceIn(0.02f, 1f)).height(5.dp).background(tone))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, androidx.compose.ui.Alignment.End)) { buttons() }
+        }
+    }
+}
+private val NoticeBlue = Color(0xFF3D7CFF)
+private val NoticeWarn = Color(0xFFF59E0B)
+private val NoticeDanger = Color(0xFFDC2626)
+
 @Composable
 private fun UpdatePrompt() {
-    // À l'ouverture : la nouvelle version se télécharge toute seule, puis l'installateur Android s'ouvre.
+    // Une nouvelle version est proposée : ce qui change sur la TV, « Installer » (barre de progression), « Plus tard » (redemande dans 12 h)
     var release by remember { mutableStateOf<Updater.Release?>(null) }
     var msg by remember { mutableStateOf<String?>(null) }
+    var prog by remember { mutableStateOf<Float?>(null) }
     var file by remember { mutableStateOf<java.io.File?>(null) }
     val ctx = LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE) }
     val scope = rememberCoroutineScope()
-    fun install() { file?.let { f -> msg = Updater.install(ctx, f) ?: "Valide « Installer » sur l'écran suivant." } }
+    fun install() { file?.let { f -> prog = null; msg = Updater.install(ctx, f) ?: "Valide « Installer » sur l'écran suivant." } }
     val pending by PendingUpdate.release
-    // La mise à jour est proposée ; elle ne s'installe que si on appuie sur « Mettre à jour »
-    LaunchedEffect(pending) { val r = pending ?: return@LaunchedEffect; release = r; msg = null; file = null }
+    LaunchedEffect(pending) {
+        val r = pending ?: return@LaunchedEffect
+        val snoozed = prefs.getInt("upd_snooze_code", -1) == r.versionCode && System.currentTimeMillis() < prefs.getLong("upd_snooze_until", 0)
+        if (!snoozed) { release = r; msg = null; file = null; prog = null }
+    }
+    fun later(r: Updater.Release) {
+        prefs.edit().putInt("upd_snooze_code", r.versionCode).putLong("upd_snooze_until", System.currentTimeMillis() + 12 * 3_600_000L).apply()
+        release = null
+    }
     fun start() {
         val r = release ?: return
         if (file != null) { install(); return }
         scope.launch {
-            msg = "Téléchargement…"
-            file = runCatching { Updater.download(ctx, r.apkUrl) { p -> msg = "Téléchargement ${(p * 100).toInt()} %" } }
-                .onFailure { msg = "Échec du téléchargement : ${it.message}" }.getOrNull()
+            msg = "Téléchargement…"; prog = 0f
+            file = runCatching { Updater.download(ctx, r.apkUrl) { p -> prog = p; msg = "Téléchargement ${(p * 100).toInt()} %" } }
+                .onFailure { prog = null; msg = "Échec du téléchargement, vérifie la connexion puis réessaie." }.getOrNull()
             install()
         }
     }
     val r = release ?: return
     val fr = remember { FocusRequester() }
-    androidx.activity.compose.BackHandler { release = null }
-    // Petite bannière discrète en haut à droite (plus de grande fenêtre)
-    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(top = 20.dp, end = 40.dp), contentAlignment = androidx.compose.ui.Alignment.TopEnd) {
-        Row(Modifier.clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Column {
-                Text("Nouvelle version TVO ${r.versionName}", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                Text(msg ?: "Tes réglages sont conservés", fontSize = 12.sp, color = if (msg != null) TvoColors.Cyan else TvoColors.Muted)
-            }
-            TvoButton("Installer", { start() }, Modifier.focusRequester(fr), primary = true)
-            TvoButton("Plus tard", { release = null })
-        }
+    androidx.activity.compose.BackHandler { later(r) }
+    val tvLines = remember(r) {
+        r.notes.lines().map { it.trim().removePrefix("- ") }
+            .filter { it.isNotBlank() && !Regex("^(Mobile|Lecteur mobile|iPhone|Téléphone|Mac)\\b", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+            .map { it.replace(Regex("^(TV|Android TV)\\s*:?\\s*", RegexOption.IGNORE_CASE), "") }.take(2)
+    }
+    NoticeCard(NoticeBlue, "⬆", "Mise à jour disponible · TVO ${r.versionName}", msg ?: "Tes réglages et ta liste sont conservés", if (msg == null) tvLines else emptyList(), prog) {
+        TvoButton(if (file != null) "Installer" else if (prog != null) "Téléchargement…" else "Installer", { start() }, Modifier.focusRequester(fr), primary = true)
+        TvoButton("Plus tard", { later(r) })
     }
     LaunchedEffect(r) { delay(100); runCatching { fr.requestFocus() } }
+}
+
+/** À l'ouverture : AllDebrid expire aujourd'hui/demain ou a expiré → bannière (une fois par jour). */
+@Composable
+private fun AllDebridAlert() {
+    val ctx = LocalContext.current
+    var state by remember { mutableStateOf<Pair<Boolean, Long>?>(null) } // (expiré, date de fin)
+    LaunchedEffect(Unit) {
+        val key = ctx.getSharedPreferences("tvo_alldebrid", android.content.Context.MODE_PRIVATE).getString("key", null) ?: return@LaunchedEffect
+        val prefs = ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE)
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        if (prefs.getString("ad_warn_day", "") == today) return@LaunchedEffect
+        delay(5000) // après l'arrivée sur l'accueil
+        val u = runCatching { app.tvo.tv.ui.AllDebrid.user(key) }.getOrNull() ?: return@LaunchedEffect
+        val days = if (u.until > 0) kotlin.math.ceil((u.until - System.currentTimeMillis()) / 86_400_000.0).toInt() else 0
+        if (u.premium && days > 1) return@LaunchedEffect
+        prefs.edit().putString("ad_warn_day", today).apply()
+        state = (!u.premium || days <= 0) to u.until
+    }
+    val st = state ?: return
+    val fr = remember { FocusRequester() }
+    androidx.activity.compose.BackHandler { state = null }
+    val (expired, until) = st
+    NoticeCard(if (expired) NoticeDanger else NoticeWarn, "!",
+        if (expired) "Ton abonnement AllDebrid a expiré" else "AllDebrid expire demain",
+        if (expired) "Les sources débridées ne se lancent plus. Prolonge-le sur alldebrid.com depuis ton téléphone."
+        else "Fin le " + java.text.SimpleDateFormat("d MMMM", java.util.Locale.FRENCH).format(java.util.Date(until)) + " : pense à le prolonger sur alldebrid.com.") {
+        TvoButton("Compris", { state = null }, Modifier.focusRequester(fr), primary = true)
+    }
+    LaunchedEffect(st) { delay(100); runCatching { fr.requestFocus() } }
 }
 
 
