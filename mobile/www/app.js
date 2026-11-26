@@ -5945,6 +5945,12 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
       // Lecteur MPV (MKV, HEVC…) : l'iPhone ne sait pas mettre ce lecteur en incrustation.
       // Si le format le permet, on repasse sur le lecteur de l'iPhone à la même seconde, puis un 2e appui lance l'incrustation.
       if (mpvVid) {
+        // Lecteur MPV : incrustation native (les images de mpv sont transmises à iOS), puis repli sur l'ancien comportement
+        const P = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.TvoMpv;
+        if (P && P.pip) {
+          try { await P.pip(); return; }
+          catch (err) { if (!safariOk(s)) { toast((err && err.message) || "Image dans l'image indisponible pour cette vidéo", 4000); return; } }
+        }
         if (safariOk(s)) { const t = mpvVid.currentTime || 0; closePlayer(); openPlayer({ ...ctx, forceNative: true, forceMpv: false, start: t > 2 ? t : ctx.start }); toast("Touche encore l'icône pour lancer l'image dans l'image", 4000); }
         else toast("Ce fichier (MKV, HEVC…) ne peut pas passer en image dans l'image sur iPhone. Choisis une source MP4 si tu en as besoin.", 5000);
         return;

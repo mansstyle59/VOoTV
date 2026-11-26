@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import AVFoundation
+import AVKit
 import Capacitor
 
 /// Pont entre la page web TVO et le lecteur mpv.
@@ -24,7 +25,11 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getTracks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setOrientation", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pip", returnType: CAPPluginReturnPromise),
     ]
+    private var pipCtl: AVPictureInPictureController?
+    private var pipTimer: Timer?
+    private var pipActive = false
 
     private var player: TvoMpvPlayer?
     private var fitTimer: Timer?
@@ -32,7 +37,8 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
 
     override public func load() {
         NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.player?.enterBackground()
+            guard let self, !self.pipActive else { return }   // en incrustation, la vidéo continue
+            self.player?.enterBackground()
         }
         NotificationCenter.default.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) { [weak self] _ in
             self?.player?.enterForeground()
@@ -91,6 +97,8 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func teardown(_ done: @escaping () -> Void) {
+        if let c = pipCtl, c.isPictureInPictureActive { c.stopPictureInPicture() }
+        pipTimer?.invalidate(); pipTimer = nil; pipCtl = nil; pipActive = false
         guard let p = player else { done(); return }
         player = nil
         fitTimer?.invalidate(); fitTimer = nil
@@ -145,4 +153,90 @@ public class TvoMpvPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func getTracks(_ call: CAPPluginCall) { call.resolve(["tracks": player?.tracks() ?? []]) }
+
+    // MARK: image dans l'image (MKV, HEVC… lus par mpv)
+
+    @objc func pip(_ call: CAPPluginCall) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let p = self.player else { call.reject("Aucune vidéo en cours"); return }
+            guard #available(iOS 15.0, *), AVPictureInPictureController.isPictureInPictureSupported() else {
+                call.reject("Image dans l'image non prise en charge sur cet appareil"); return
+            }
+            if let c = self.pipCtl, c.isPictureInPictureActive { c.stopPictureInPicture(); call.resolve(["active": false]); return }
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [])
+            try? AVAudioSession.sharedInstance().setActive(true)
+            let feeder = p.pipFeeder()
+            feeder.layer.frame = p.view.bounds
+            feeder.start()
+            if self.pipCtl == nil {
+                let src = AVPictureInPictureController.ContentSource(sampleBufferDisplayLayer: feeder.layer, playbackDelegate: self)
+                let c = AVPictureInPictureController(contentSource: src)
+                c.delegate = self
+                c.requiresLinearPlayback = false
+                self.pipCtl = c
+            }
+            self.pipTimer?.invalidate()
+            self.pipTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                guard let self, let pl = self.player, pl.hasPip else { return }
+                pl.pip.syncClock(); self.pipCtl?.invalidatePlaybackState()
+            }
+            // On attend les premières images (jusqu'à 4 s) avant de lancer l'incrustation
+            var tries = 0
+            func attempt() {
+                guard let c = self.pipCtl else { call.reject("Image dans l'image indisponible"); return }
+                if c.isPictureInPicturePossible && feeder.framesSent > 0 { c.startPictureInPicture(); call.resolve(["active": true]); return }
+                tries += 1
+                if tries > 40 { feeder.stop(); call.reject("La vidéo n'a pas pu passer en image dans l'image"); return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { attempt() }
+            }
+            attempt()
+        }
+    }
+}
+
+@available(iOS 15.0, *)
+extension TvoMpvPlugin: AVPictureInPictureSampleBufferPlaybackDelegate, AVPictureInPictureControllerDelegate {
+    public func pictureInPictureController(_ c: AVPictureInPictureController, setPlaying playing: Bool) {
+        player?.setPause(!playing)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.player?.pip.syncClock(); c.invalidatePlaybackState() }
+    }
+    public func pictureInPictureControllerTimeRangeForPlayback(_ c: AVPictureInPictureController) -> CMTimeRange {
+        let d = (player?.state()["duration"] as? Double) ?? -1
+        if d <= 0 { return CMTimeRange(start: .negativeInfinity, duration: .positiveInfinity) }
+        return CMTimeRange(start: .zero, duration: CMTime(seconds: d, preferredTimescale: 600))
+    }
+    public func pictureInPictureControllerIsPlaybackPaused(_ c: AVPictureInPictureController) -> Bool {
+        return (player?.state()["paused"] as? Bool) ?? false
+    }
+    public func pictureInPictureController(_ c: AVPictureInPictureController, didTransitionToRenderSize newRenderSize: CMVideoDimensions) {
+        guard let p = player, p.hasPip else { return }
+        let scale = Int(UIScreen.main.nativeScale.rounded())
+        if let w = p.videoWidth(), let h = p.videoHeight() {
+            let want = max(Int(newRenderSize.width) * scale, 640)
+            p.pip.setTargetSize(width: min(w, want), height: Int(Double(h) * Double(min(w, want)) / Double(w)))
+        }
+    }
+    public func pictureInPictureController(_ c: AVPictureInPictureController, skipByInterval skipInterval: CMTime, completion completionHandler: @escaping () -> Void) {
+        player?.seekRelative(skipInterval.seconds)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in self?.player?.pip.syncClock(); completionHandler() }
+    }
+    public func pictureInPictureControllerDidStartPictureInPicture(_ c: AVPictureInPictureController) {
+        pipActive = true
+        notifyListeners("mpvEvent", data: ["type": "pip", "active": true])
+    }
+    public func pictureInPictureControllerDidStopPictureInPicture(_ c: AVPictureInPictureController) {
+        pipActive = false
+        pipTimer?.invalidate(); pipTimer = nil
+        if let p = player, p.hasPip { p.pip.stop() }
+        player?.enterForeground()
+        notifyListeners("mpvEvent", data: ["type": "pip", "active": false])
+    }
+    public func pictureInPictureController(_ c: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
+        pipActive = false
+        if let p = player, p.hasPip { p.pip.stop() }
+        notifyListeners("mpvEvent", data: ["type": "pip", "active": false, "error": error.localizedDescription])
+    }
+    public func pictureInPictureController(_ c: AVPictureInPictureController, restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void) {
+        completionHandler(true)
+    }
 }

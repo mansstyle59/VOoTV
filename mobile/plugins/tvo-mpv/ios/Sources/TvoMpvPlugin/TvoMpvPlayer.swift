@@ -14,6 +14,7 @@ final class TvoMetalLayer: CAMetalLayer {
 /// Vue noire plein écran placée sous la page web (les commandes TVO restent par-dessus).
 final class TvoMpvView: UIView {
     let metalLayer = TvoMetalLayer()
+    weak var pipLayer: CALayer?
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .black
@@ -30,6 +31,7 @@ final class TvoMpvView: UIView {
         super.layoutSubviews()
         CATransaction.begin(); CATransaction.setDisableActions(true)
         metalLayer.frame = bounds
+        pipLayer?.frame = bounds
         let s = metalLayer.contentsScale
         if bounds.width > 1 && bounds.height > 1 {
             metalLayer.drawableSize = CGSize(width: (bounds.width * s).rounded(), height: (bounds.height * s).rounded())
@@ -130,6 +132,22 @@ final class TvoMpvPlayer {
         return out
     }
 
+    func videoWidth() -> Int? { let v = getInt("video-params/dw"); return v > 0 ? v : nil }
+    func videoHeight() -> Int? { let v = getInt("video-params/dh"); return v > 0 ? v : nil }
+    func setOptionString(_ name: String, _ value: String) { setString(name, value) }
+    func seekRelative(_ d: Double) { command(["seek", String(format: "%.2f", d), "relative"]) }
+
+    /// Image dans l'image (créée à la demande)
+    private(set) lazy var pip: TvoMpvPipFeeder = {
+        let f = TvoMpvPipFeeder(player: self)
+        f.layer.frame = view.bounds
+        view.layer.addSublayer(f.layer)
+        view.pipLayer = f.layer
+        return f
+    }()
+    private(set) var hasPip = false
+    func pipFeeder() -> TvoMpvPipFeeder { hasPip = true; return pip }
+
     func enterBackground() { setString("vid", "no") }
     func enterForeground() { setString("vid", "auto") }
 
@@ -140,6 +158,7 @@ final class TvoMpvPlayer {
         onEvent = nil
         mpv_set_wakeup_callback(ctx, nil, nil)
         let keep = view
+        if hasPip { pip.release() }
         eventQueue.async {
             mpv_terminate_destroy(ctx)
             DispatchQueue.main.async { _ = keep; completion() }
