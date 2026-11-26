@@ -85,6 +85,7 @@ class VlcPlayerActivity : ComponentActivity() {
 
     private var uiVisible by mutableStateOf(true)
     private var options by mutableStateOf(false)
+    private var episodes by mutableStateOf(false)
     private var error by mutableStateOf<String?>(null)
     private var position by mutableLongStateOf(0L)
     private var length by mutableLongStateOf(0L)
@@ -145,7 +146,7 @@ class VlcPlayerActivity : ComponentActivity() {
             while (isActive) {
                 delay(5000)
                 save()
-                if (System.currentTimeMillis() - lastInput > 5000 && playing && !options) uiVisible = false
+                if (System.currentTimeMillis() - lastInput > 5000 && playing && !options && !episodes) uiVisible = false
             }
         }
     }
@@ -174,9 +175,9 @@ class VlcPlayerActivity : ComponentActivity() {
             lastInput = System.currentTimeMillis()
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
                 // Retour : 1er appui = cacher les boutons, 2e appui = quitter
-                when { options -> { options = false; return true }; uiVisible && error == null -> { uiVisible = false; return true }; else -> { save(); app.tvo.tv.data.Sync.syncInBackground(); finish(); return true } }
+                when { episodes -> { episodes = false; return true }; options -> { options = false; return true }; uiVisible && error == null -> { uiVisible = false; return true }; else -> { save(); app.tvo.tv.data.Sync.syncInBackground(); finish(); return true } }
             }
-            if (!options && error == null) {
+            if (!options && !episodes && error == null) {
                 val step = if (event.repeatCount > 2) 30_000L else 10_000L
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-step); uiVisible = true; return true }
@@ -231,6 +232,9 @@ class VlcPlayerActivity : ComponentActivity() {
                 }
             }
             if (options) Options()
+            if (episodes) TvEpisodesPanel(req, onClose = { episodes = false; overlayView.requestFocus() }) { ep, _ ->
+                episodes = false; save(); NextEpisode.play(this@VlcPlayerActivity, req, ep)
+            }
             error?.let { msg ->
                 val fr = remember { FocusRequester() }
                 Box(Modifier.fillMaxSize().background(Color(0xCC000000)), contentAlignment = Alignment.Center) {
@@ -257,6 +261,7 @@ class VlcPlayerActivity : ComponentActivity() {
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0.45f to Color.Transparent, 1f to Color(0xEE000000)))) {
             LazyColumn(Modifier.align(Alignment.CenterEnd).width(520.dp).fillMaxHeight().padding(end = 40.dp, top = 40.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { Text("Options de lecture", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                if (req.type == "series") item { TvoButton("Épisodes", { options = false; episodes = true }, primary = true) }
                 item { Text("Audio", fontSize = 15.sp, color = TvoColors.Cyan) }
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

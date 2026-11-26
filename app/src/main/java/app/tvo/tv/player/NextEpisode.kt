@@ -12,15 +12,18 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /** Épisode suivant pour les lecteurs MPV et VLC : même choix de source que le lecteur principal. */
 object NextEpisode {
-    fun playOrFinish(act: Activity, req: PlayRequest) {
+    fun playOrFinish(act: Activity, req: PlayRequest) = play(act, req, null)
+
+    /** Lance l'épisode choisi (menu Épisodes) ou, sans choix, l'épisode suivant. */
+    fun play(act: Activity, req: PlayRequest, target: app.tvo.tv.data.Video?) {
         if (req.type != "series") { act.finish(); return }
-        android.widget.Toast.makeText(act, "Épisode suivant…", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(act, if (target == null) "Épisode suivant…" else "Recherche de la source…", android.widget.Toast.LENGTH_SHORT).show()
         CoroutineScope(Dispatchers.Main).launch {
             val next = runCatching {
                 val addons = Tvo.store.allowed(Tvo.store.addons.value)
                 val meta = Tvo.client.meta(addons, req.type, req.metaId) ?: return@runCatching null
                 val eps = meta.episodes
-                val ep = eps.getOrNull(eps.indexOfFirst { it.id == req.videoId } + 1) ?: return@runCatching null
+                val ep = target ?: eps.getOrNull(eps.indexOfFirst { it.id == req.videoId } + 1) ?: return@runCatching null
                 val all = withTimeoutOrNull(20_000) { Tvo.client.streams(addons, req.type, ep.id).toList().flatMap { it.items } } ?: emptyList()
                 val playable = all.filter { it.url != null }
                 val pick: StreamItem = playable.firstOrNull { req.bingeGroup != null && it.bingeGroup == req.bingeGroup }
