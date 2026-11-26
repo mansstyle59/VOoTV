@@ -419,6 +419,21 @@ object Tmdb {
         (fr.firstOrNull { it.s("type") == "Trailer" } ?: fr.firstOrNull { it.s("type") == "Teaser" } ?: fr.firstOrNull())?.s("key")
     }.getOrNull()
 
+    data class TVideo(val key: String, val name: String, val type: String, val year: String?)
+    /** Toutes les vidéos YouTube en français (bandes-annonces, teasers, extraits, making-of…). */
+    suspend fun videosFr(type: String, id: String): List<TVideo> = runCatching {
+        val k = kind(type)
+        val tid = when {
+            id.startsWith("tmdb:") -> id.split(":").getOrNull(2)
+            id.startsWith("tt") -> (get("/find/${id.substringBefore(":")}", mapOf("external_source" to "imdb_id"))
+                .arr(if (k == "tv") "tv_results" else "movie_results")?.firstOrNull() as? JsonObject)?.i("id")?.toString()
+            else -> null
+        } ?: return@runCatching emptyList()
+        (get("/$k/$tid/videos", mapOf("language" to "fr-FR")).arr("results")?.mapNotNull { it as? JsonObject } ?: emptyList())
+            .filter { it.s("site") == "YouTube" && it.s("iso_639_1") == "fr" && !it.s("key").isNullOrBlank() && !Regex("vost|sous-titr|subtitled|\\bvo\\b", RegexOption.IGNORE_CASE).containsMatchIn(it.s("name") ?: "") }
+            .map { TVideo(it.s("key")!!, it.s("name") ?: "Vidéo", it.s("type") ?: "Trailer", it.s("published_at")?.take(4)) }
+    }.getOrDefault(emptyList())
+
     /** French details on top of an add-on's meta (or a TMDB-only meta when [base] is null). */
     suspend fun enrich(type: String, imdb: String?, tmdbId: String?, base: MetaDetail?): MetaDetail? = runCatching {
         val k = kind(type)
@@ -481,6 +496,18 @@ object Tmdb {
             d.s("original_language")?.let { put("lang", it.uppercase()) }
             frDate(date)?.let { put("date", it) }
             d.s("vote_average")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { put("tmdb", "%.1f".format(java.util.Locale.FRANCE, it * 10)) }
+            // Fiche complète (comme le téléphone) : scénaristes, sociétés, pays et langue en toutes lettres, statut en français
+            val writers = crewObjs.filter { it.s("job") in setOf("Screenplay", "Writer", "Story", "Novel", "Author", "Teleplay", "Characters") }.mapNotNull { it.s("name") }.distinct().take(3)
+            if (writers.isNotEmpty()) put("writers", writers.joinToString(", "))
+            val comps = d.arr("production_companies")?.mapNotNull { it as? JsonObject }?.filter { !it.s("logo_path").isNullOrBlank() }?.take(5)
+                ?.joinToString(";;") { (it.s("name") ?: "") + "|" + (img(it.s("logo_path"), "w185") ?: "") }
+            if (!comps.isNullOrBlank()) put("companies", comps)
+            val iso = (d.arr("production_countries")?.firstOrNull() as? JsonObject)?.s("iso_3166_1") ?: d.arr("origin_country")?.firstOrNull()?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+            iso?.let { java.util.Locale("", it).getDisplayCountry(java.util.Locale.FRENCH).takeIf { n -> n.isNotBlank() }?.let { n -> put("countryName", n) } }
+            d.s("original_language")?.let { java.util.Locale(it).getDisplayLanguage(java.util.Locale.FRENCH).takeIf { n -> n.isNotBlank() }?.let { n -> put("langName", n.replaceFirstChar { c -> c.uppercase() }) } }
+            when (d.s("status")) { "Released" -> "Sorti"; "Returning Series" -> "En cours"; "Ended" -> "Terminée"; "Canceled" -> "Annulée"; "Planned" -> "À venir"
+                "In Production" -> "En production"; "Post Production" -> "En post-production"; "Rumored" -> "Annoncé"; else -> null }?.let { put("statusFr", it) }
+            if (k == "tv") { d.i("number_of_seasons")?.let { put("seasons", it.toString()) }; d.i("number_of_episodes")?.let { put("episodes", it.toString()) } }
         }
         MetaDetail(preview, runtime?.let { "$it min" } ?: base?.runtime, videos, cast.ifEmpty { base?.cast ?: emptyList() },
             base?.director?.takeIf { it.isNotEmpty() } ?: listOfNotNull(dirObj?.s("name")), base?.defaultVideoId, people, ex)

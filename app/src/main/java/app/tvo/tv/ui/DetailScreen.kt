@@ -1,5 +1,7 @@
 package app.tvo.tv.ui
 
+import androidx.compose.foundation.focusable
+
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -122,8 +124,10 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     // s'arrête dès qu'on quitte le haut de la fiche. Le bouton la lance en plein écran avec le son (Retour = fermer).
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
     var trailerMode by remember(p.id) { mutableStateOf(0) }
+    var videoKey by remember(p.id) { mutableStateOf<String?>(null) }
+    val videos by produceState(emptyList<app.tvo.tv.data.Tmdb.TVideo>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.videosFr(p.type, p.id) else emptyList() }
     val trailerWin = trailerMode == 2
-    androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = 0 }
+    androidx.activity.compose.BackHandler(enabled = trailerMode != 0) { trailerMode = 0; videoKey = null }
     val similar by produceState(emptyList<MetaPreview>(), p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.similar(p.type, p.id) else emptyList() }
     val saga by produceState<Pair<app.tvo.tv.data.Tmdb.Saga, List<MetaPreview>>?>(null, p.id) {
         value = if (p.type == "movie" && app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.sagaOf(p.type, p.id) else null
@@ -209,7 +213,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                                 android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
                             }
                             // Bande-annonce : plein écran avec le son (Retour pour fermer)
-                            if (trailer != null) RoundButton(TvIcon) { trailerMode = 2 }
+                            if (trailer != null) RoundButton(TvIcon) { videoKey = null; trailerMode = 2 }
                             if (p.type == "movie") {
                                 val seen = targetProgress?.finished == true
                                 RoundButton(Icons.Default.CheckCircle, active = seen) {
@@ -221,6 +225,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                             }
                         }
                         if (meta.director.isNotEmpty()) Text("Réalisateur : " + meta.director.joinToString(", "), Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        meta.extra["writers"]?.let { w -> Text("Scénariste : $w", Modifier.padding(top = 2.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         val tm = meta.extra["tmdb"]
                         if (tm != null || !p.imdbRating.isNullOrBlank()) Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (tm != null) Text("TMDB  " + tm.substringBefore(",") + "%", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TvoColors.Cyan)
@@ -244,25 +249,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
         }
         }
-            if (meta.people.isNotEmpty()) item(key = "cast") {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (p.type == "series") "Création et distribution" else "Réalisateur et distribution", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    val fr = remember { FocusRequester() }
-                    LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        itemsIndexed(meta.people.distinctBy { it.id }, key = { _, it -> it.id }) { i, person -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PersonBubble(person) { nav.openPerson(person.id) } } }
-                    }
-                }
-            }
-            if (similar.isNotEmpty()) item(key = "similar") {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (p.type == "series") "Séries similaires" else "Films similaires", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    val fr = remember { FocusRequester() }
-                    LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        itemsIndexed(similar.distinctBy { it.id }, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
-                    }
-                }
-            }
             if (seasons.isNotEmpty()) {
+                item(key = "epsTitle") { Text("Épisodes", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text) }
                 item {
                     val fr = remember { FocusRequester() }
                     LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -282,6 +270,77 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
+            // Production : logos des sociétés sur fond clair
+            val companies = meta.extra["companies"]?.split(";;")?.mapNotNull { c -> c.split("|").takeIf { it.size == 2 && it[1].isNotBlank() } } ?: emptyList()
+            if (companies.isNotEmpty()) item(key = "prod") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Production", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    // Zone focusable : la télécommande s'y arrête pour qu'on puisse la lire (pas de saut par-dessus)
+                    Row(Modifier.padding(start = 48.dp).focusable(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        companies.forEach { (name, logo) ->
+                            Box(Modifier.width(132.dp).height(64.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFE6E6E6)).padding(10.dp), contentAlignment = Alignment.Center) {
+                                AsyncImage(logo, name, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                            }
+                        }
+                    }
+                }
+            }
+            if (meta.people.isNotEmpty()) item(key = "cast") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Casting", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                        itemsIndexed(meta.people.distinctBy { it.id }, key = { _, it -> it.id }) { i, person -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PersonBubble(person) { nav.openPerson(person.id) } } }
+                    }
+                }
+            }
+            // Vidéos en français par type (bandes-annonces, teasers, extraits…) : OK = plein écran avec le son
+            if (videos.isNotEmpty()) item(key = "videos") {
+                val types = VTYPES.keys.filter { t -> videos.any { it.type == t } }
+                var cur by remember(videos) { mutableStateOf(types.firstOrNull() ?: "Trailer") }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.padding(start = 48.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Vidéos", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                        if (types.size > 1) types.forEach { t -> Chip(VTYPES[t] ?: t, t == cur, { cur = t }) }
+                    }
+                    val list = videos.filter { it.type == cur }
+                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowSideSpec) {
+                        val fr = remember { FocusRequester() }
+                        LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            itemsIndexed(list, key = { _, v -> v.key }) { i, v ->
+                                Column(Modifier.width(260.dp).let { if (i == 0) it.focusRequester(fr).focusGroup() else it }) {
+                                    WideCard(image = "https://i.ytimg.com/vi/${v.key}/hqdefault.jpg", title = v.name, subtitle = v.year ?: "", progress = null,
+                                        onClick = { videoKey = v.key; trailerMode = 2 }, width = 260.dp, showPlay = true)
+                                    Text(v.name, Modifier.padding(top = 6.dp), fontSize = 13.sp, color = TvoColors.Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Détails : tableau clé / valeur
+            item(key = "details") {
+                val ser = p.type == "series"
+                val rows = listOfNotNull(
+                    meta.extra["statusFr"]?.let { "Statut" to it },
+                    (meta.extra["date"] ?: p.releaseInfo)?.let { (if (ser) "Première diffusion" else "Date de sortie") to it },
+                    if (ser) meta.extra["seasons"]?.let { "Saisons" to it } else meta.runtime?.let { "Durée" to it },
+                    if (ser) meta.extra["episodes"]?.let { "Épisodes" to it } else null,
+                    meta.extra["cert"]?.let { "Classification" to it },
+                    (meta.extra["countryName"] ?: meta.extra["country"])?.let { "Pays d'origine" to it },
+                    (meta.extra["langName"] ?: meta.extra["lang"])?.let { "Langue originale" to it },
+                )
+                if (rows.isNotEmpty()) Column(Modifier.padding(horizontal = 48.dp).width(640.dp).focusable()) {
+                    Text(if (ser) "Détails de la série" else "Détails du film", Modifier.padding(bottom = 6.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    rows.forEachIndexed { i, (k, v) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(k, fontSize = 15.sp, color = TvoColors.Muted, fontWeight = FontWeight.SemiBold)
+                            Text(v, fontSize = 15.sp, color = TvoColors.Text)
+                        }
+                        if (i < rows.size - 1) Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.10f)))
+                    }
+                }
+            }
             saga?.let { sg -> item(key = "saga") {
                 val nm = sg.first.name.replace(" - Saga", "").replace(" Collection", "").trim()
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -299,12 +358,22 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                     }
                 }
             } }
+            if (similar.isNotEmpty()) item(key = "similar") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("À voir aussi", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
+                    val fr = remember { FocusRequester() }
+                    LazyRow(Modifier.focusRestorer { fr }, contentPadding = PaddingValues(horizontal = 48.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        itemsIndexed(similar.distinctBy { it.id }, key = { _, it -> it.id }) { i, m -> Box(if (i == 0) Modifier.focusRequester(fr).focusGroup() else Modifier) { PosterCard(m, { nav.openMeta(m) }, width = 136.dp) } }
+                    }
+                }
+            }
         }
         }
     }
     // Bande-annonce plein écran avec le son. Retour pour fermer ; à la fin, retour automatique à la fiche.
-    if (trailerWin && trailer != null) Box(Modifier.fillMaxSize().background(Color.Black)) {
-        TrailerView(trailer!!, Modifier.fillMaxSize(), cover = false, loop = false, onEnded = { trailerMode = 0 })
+    val fullKey = videoKey ?: trailer
+    if (trailerWin && fullKey != null) Box(Modifier.fillMaxSize().background(Color.Black)) {
+        TrailerView(fullKey, Modifier.fillMaxSize(), cover = false, loop = false, onEnded = { trailerMode = 0; videoKey = null })
         var hint by remember { mutableStateOf(true) }
         LaunchedEffect(Unit) { delay(3500); hint = false }
         if (hint) Text("Bande-annonce VF · ${p.name}  —  Retour pour fermer", Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
@@ -480,3 +549,7 @@ private val TvIcon: androidx.compose.ui.graphics.vector.ImageVector by lazy {
         fill = androidx.compose.ui.graphics.SolidColor(Color.White),
     ).build()
 }
+
+/** Types de vidéos TMDB, dans l'ordre d'affichage, avec leur nom en français. */
+private val VTYPES = linkedMapOf("Trailer" to "Bandes-annonces", "Teaser" to "Teasers", "Clip" to "Extraits", "Featurette" to "Making-of",
+    "Behind the Scenes" to "Coulisses", "Bloopers" to "Bêtisier", "Opening Credits" to "Génériques")
