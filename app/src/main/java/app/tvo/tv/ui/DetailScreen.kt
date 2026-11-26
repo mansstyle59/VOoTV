@@ -258,21 +258,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         fontSize = 14.sp, color = TvoColors.Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
-            // Production : logos des sociétés sur fond clair
-            val companies = meta.extra["companies"]?.split(";;")?.mapNotNull { c -> c.split("|").takeIf { it.size == 2 && it[1].isNotBlank() } } ?: emptyList()
-            if (companies.isNotEmpty()) item(key = "prod") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Production", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
-                    // Zone focusable : la télécommande s'y arrête pour qu'on puisse la lire (pas de saut par-dessus)
-                    Row(Modifier.padding(start = 48.dp).focusable(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        companies.forEach { (name, logo) ->
-                            Box(Modifier.width(132.dp).height(64.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFE6E6E6)).padding(10.dp), contentAlignment = Alignment.Center) {
-                                AsyncImage(logo, name, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                            }
-                        }
-                    }
-                }
-            }
             if (meta.people.isNotEmpty()) item(key = "cast") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Casting", Modifier.padding(start = 48.dp), fontSize = 19.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)

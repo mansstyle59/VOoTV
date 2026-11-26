@@ -4972,7 +4972,6 @@ var qrcode = function() {
         ${m.description ? `<p class="nv-desc clamp" id="desc">${esc(m.description)}</p><button class="nv-moretxt" id="descMore">Afficher plus ▾</button>` : ""}
       </div>
       ${seasons.length ? `<section class="nv-sec" id="nvEps"></section>` : ""}
-      ${m.companies && m.companies.length ? `<section class="nv-sec"><h2 class="nv-h">Production</h2><div class="nv-row">${m.companies.map((c) => `<span class="nv-prod" title="${esc(c.name)}"><img src="${esc(c.logo)}" alt="${esc(c.name)}" loading="lazy"></span>`).join("")}</div></section>` : ""}
       ${m.people && m.people.length ? `<section class="nv-sec"><h2 class="nv-h">Casting</h2><div class="nv-row">${m.people.map((pp) => `<a class="nv-cast" href="#/person/${enc(pp.id)}"><span class="ph">${pp.photo ? `<img src="${esc(pp.photo)}" alt="" loading="lazy">` : esc(pp.name.slice(0, 1))}</span>
           <b>${esc(pp.name)}</b>${pp.role ? `<small>${esc(pp.role)}</small>` : ""}</a>`).join("")}</div></section>` : ""}
       <section class="nv-sec" id="nvVids" hidden></section>
@@ -6232,7 +6231,8 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
         for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) { n++; sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; }
         res(n > 20 && sum / n < 0.45);
       } catch (e) { res(false); } };
-      im.onerror = () => res(false); im.src = url;
+      // adresse légèrement différente : sinon l'iPhone réutilise l'image déjà affichée (sans autorisation de lecture) et la mesure échoue
+      im.onerror = () => res(false); im.src = url + (url.includes("?") ? "&" : "?") + "tvo-lum=1";
     });
     cache.set(url, p); return p;
   };

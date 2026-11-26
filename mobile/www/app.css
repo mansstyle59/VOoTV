@@ -2324,3 +2324,7 @@ html[data-mode="light"]:root .nv-cast .ph, html[data-mode="light"]:root .nv-vid 
 html[data-mode="light"]:root .nv-r.tmdb { color: #0284c7; }
 html[data-mode="light"]:root .nv-r.imdb { color: #b45309; }
 html[data-mode="light"]:root .nvm-t small { color: #475569; }
+/* Bouton retour sur le visuel : toujours un disque sombre, même en thème clair */
+html[data-mode="light"]:root .icon-btn.round.floating-back { background: #141414 !important; color: #fff !important; }
+/* Barre du haut en thème clair : le logo reste dans sa couleur (fond clair), jamais passé en blanc */
+html[data-mode="light"]:root .nv-tlogo img.logo-white { filter: none; }
