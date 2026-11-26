@@ -477,7 +477,7 @@ fun BrowseSection(type: String?, nav: Nav) {
         if (kidsPage && (kidsFilter == "all" || kidsFilter == "sagas")) item(key = "sagas") { SagaTiles(nav, kids = true) }
         if (!kidsPage && "top10" !in hidden) item(key = "top10") { Top10Row(type, nav) }
         if (!kidsPage && (type != null || "genres" !in hidden)) item(key = "genres") { GenreTiles(nav, type ?: "movie") { } }
-        if (type == null && "platforms" !in hidden) item(key = "platforms") { PlatformTiles(nav) }
+        if (!kidsPage && (type != null || "platforms" !in hidden)) item(key = "platforms") { PlatformTiles(nav, type) }
         if ((type == null && "collections" !in hidden) || type == "movie") item(key = "sagas") { SagaTiles(nav) }
         items(rows, key = { it.key }) { row -> CatalogRow(row, nav, seen) }
         if (rows.isEmpty() && kidsFilter != "sagas") item { CenterMessage("Aucun catalogue", "Ajoute un add-on de catalogue dans Réglages.") }
@@ -688,7 +688,7 @@ private fun SagaTiles(nav: Nav, kids: Boolean = false) {
 }
 
 @Composable
-private fun PlatformTiles(nav: Nav) {
+private fun PlatformTiles(nav: Nav, type: String? = null) {
     val select = LocalSelect.current
     val fresh by produceState<Map<String, String>>(emptyMap()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.providerBackdrops(PLATFORMS.map { it.first.first }) else emptyMap() }
     PanelSection("Plateformes") {
@@ -698,7 +698,7 @@ private fun PlatformTiles(nav: Nav) {
                 val (id, name, color) = pl
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
-                    onClick = { nav.openGenre("all", "prov:$id") },
+                    onClick = { nav.openGenre(type ?: "movie", "prov:$id") },
                     modifier = Modifier.width(250.dp).height(124.dp).onFocused {
                         select(MetaPreview("platform:$id", "platform", name, null, (fresh[id] ?: PROV_BG[id])?.let { TMDB_IMG + "w1280" + it }, TMDB_IMG + "w300" + logo,
                             "Les nouveautés films et séries disponibles sur $name, en France."))

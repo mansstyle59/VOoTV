@@ -362,16 +362,16 @@ fun PersonScreen(id: String, nav: Nav) {
     LaunchedEffect(topFocus) { if (topFocus) { kotlinx.coroutines.delay(250); runCatching { gridState.animateScrollToItem(0) } } }
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         state = gridState,
-        columns = androidx.compose.foundation.lazy.grid.GridCells.Adaptive(150.dp),
+        columns = androidx.compose.foundation.lazy.grid.GridCells.FixedSize(GridCardWidth),
         modifier = Modifier.fillMaxSize().imageBackdrop(Color(0xFF8B5CF6), p.works.firstNotNullOfOrNull { it.background }),
         contentPadding = PaddingValues(start = 48.dp, end = 48.dp, top = 40.dp, bottom = 48.dp),
-        horizontalArrangement = Arrangement.spacedBy(18.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+        horizontalArrangement = Arrangement.spacedBy(GridGap),
+        verticalArrangement = Arrangement.spacedBy(GridRowGap),
     ) {
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(p.photo, p.name, Modifier.size(140.dp).clip(androidx.compose.foundation.shape.CircleShape).background(TvoColors.Surface), contentScale = ContentScale.Crop)
-                Column(Modifier.width(720.dp)) {
+                AsyncImage(p.photo, p.name, Modifier.size(120.dp).clip(androidx.compose.foundation.shape.CircleShape).background(TvoColors.Surface), contentScale = ContentScale.Crop)
+                Column(Modifier.weight(1f)) {
                     Text(p.name, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = TvoColors.Text)
                     Text("${p.works.size} films et séries", fontSize = 15.sp, color = TvoColors.Cyan)
                     p.born?.let { Text(it, Modifier.padding(top = 2.dp), fontSize = 13.sp, color = TvoColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis) }
@@ -401,7 +401,7 @@ fun PersonScreen(id: String, nav: Nav) {
         }
         items(works.size, key = { works[it].id }) { i ->
             val m = works[i]
-            PortraitCard(m, { nav.openMeta(m) })
+            PortraitCard(m, { nav.openMeta(m) }, width = GridCardWidth)
         }
     }
     LaunchedEffect(p) { kotlinx.coroutines.delay(120); runCatching { first.requestFocus() } }

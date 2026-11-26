@@ -105,13 +105,13 @@ fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () 
         Text(title, Modifier.padding(start = 48.dp, top = 36.dp, bottom = 8.dp), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
         header()
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(136.dp),
+            columns = GridCells.FixedSize(GridCardWidth),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(18.dp),
-            verticalArrangement = Arrangement.spacedBy(22.dp),
+            horizontalArrangement = Arrangement.spacedBy(GridGap),
+            verticalArrangement = Arrangement.spacedBy(GridRowGap),
         ) {
             itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
-                PosterCard(item, { nav.openMeta(item) }, if (i == 0) Modifier.focusRequester(first) else Modifier, width = 136.dp,
+                PosterCard(item, { nav.openMeta(item) }, if (i == 0) Modifier.focusRequester(first) else Modifier, width = GridCardWidth,
                     onFocus = { if (i >= items.size - 14) onNearEnd() })
             }
         }
@@ -153,18 +153,17 @@ private fun UniversePage(
             center = androidx.compose.ui.geometry.Offset(0f, 0f), radius = 1100f)))
         Column(Modifier.fillMaxSize()) {
             // En-tête fixe : jamais coupé, toujours visible
-            Row(Modifier.padding(start = 56.dp, top = 40.dp, end = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 56.dp, top = 30.dp, end = 56.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (logo != null) {
-                    coil.compose.AsyncImage(logo, title, Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)).background(Color.Black))
-                    Spacer(Modifier.width(20.dp))
+                    coil.compose.AsyncImage(logo, title, Modifier.size(60.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black))
+                    Spacer(Modifier.width(16.dp))
                 }
                 Column {
-                    Text(title, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, lineHeight = 48.sp, maxLines = 1)
-                    Text(subtitle, fontSize = 17.sp, color = Color.White.copy(alpha = 0.82f), maxLines = 1)
+                    Text(title, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, lineHeight = 38.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(subtitle, fontSize = 15.sp, color = Color.White.copy(alpha = 0.82f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
             }
-            Spacer(Modifier.weight(0.25f))
-            if (tabs) Row(Modifier.padding(start = 56.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (tabs) Row(Modifier.padding(start = 56.dp, top = 16.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 TvoButton("Films", { onType("movie") }, Modifier.focusRequester(tabFocus).onFocusChanged { if (it.isFocused) onType("movie") }, primary = type == "movie")
                 TvoButton("Séries", { onType("series") }, Modifier.onFocusChanged { if (it.isFocused) onType("series") }, primary = type == "series")
                 Text("◀ ▶  pour changer", Modifier.padding(start = 10.dp), fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
@@ -174,13 +173,13 @@ private fun UniversePage(
                     Modifier.padding(start = 56.dp, top = 20.dp), fontSize = 17.sp, color = Color.White.copy(alpha = 0.7f))
                 else androidx.compose.runtime.key(type) {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(136.dp),
-                        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 18.dp, bottom = 40.dp),
-                        horizontalArrangement = Arrangement.spacedBy(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(22.dp),
+                        columns = GridCells.FixedSize(GridCardWidth),
+                        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 14.dp, bottom = 40.dp),
+                        horizontalArrangement = Arrangement.spacedBy(GridGap),
+                        verticalArrangement = Arrangement.spacedBy(GridRowGap),
                     ) {
                         itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
-                            PosterCard(item, { nav.openMeta(item) }, Modifier, width = 136.dp, onFocus = { if (i >= items.size - 14) onNearEnd() })
+                            PosterCard(item, { nav.openMeta(item) }, Modifier, width = GridCardWidth, onFocus = { if (i >= items.size - 14) onNearEnd() })
                         }
                     }
                 }
@@ -190,10 +189,10 @@ private fun UniversePage(
 }
 
 @Composable
-private fun ProviderGrid(id: String, nav: Nav) {
+private fun ProviderGrid(id: String, nav: Nav, initial: String = "movie") {
     val p = PLATFORMS.firstOrNull { it.first.first == id }
     val name = p?.first?.second ?: "Plateforme"
-    var type by rememberSaveable { mutableStateOf("movie") }
+    var type by rememberSaveable { mutableStateOf(if (initial == "series") "series" else "movie") }
     val items = remember { mutableStateListOf<MetaPreview>() }
     var loading by remember { mutableStateOf(false) }
     var end by remember { mutableStateOf(false) }
@@ -225,7 +224,7 @@ private fun CollectionScreen(id: String, nav: Nav) {
 
 @Composable
 fun GenreScreen(type: String, genre: String, nav: Nav) {
-    if (genre.startsWith("prov:")) return ProviderGrid(genre.removePrefix("prov:"), nav)
+    if (genre.startsWith("prov:")) return ProviderGrid(genre.removePrefix("prov:"), nav, type)
     if (genre.startsWith("col:")) return CollectionScreen(genre.removePrefix("col:"), nav)
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()

@@ -626,3 +626,8 @@ private fun metahubUrl(poster: Boolean, id: String): String? {
     val rid = id.substringBefore(":")
     return if (Regex("tt\\d+").matches(rid)) "https://images.metahub.space/${if (poster) "poster" else "background"}/medium/$rid/img" else null
 }
+
+/** Taille unique des cartes dans toutes les grilles (plateformes, catégories, sagas, Ma liste, acteurs). */
+val GridCardWidth = 112.dp
+val GridGap = 14.dp
+val GridRowGap = 18.dp
