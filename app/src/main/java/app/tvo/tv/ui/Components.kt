@@ -689,3 +689,11 @@ private fun metahubUrl(poster: Boolean, id: String): String? {
 val GridCardWidth = 112.dp
 val GridGap = 14.dp
 val GridRowGap = 18.dp
+
+/** Titre « logo » quand l'image du logo manque : gras, serré, avec une ombre douce pour rester lisible sur n'importe quelle image. */
+@Composable
+fun StyledTitle(name: String, size: Int) {
+    Text(name, fontSize = size.sp, fontWeight = FontWeight.Black, color = Color.White, maxLines = 2,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, lineHeight = (size * 1.05f).sp, letterSpacing = (-0.5).sp,
+        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(Color(0xCC000000), androidx.compose.ui.geometry.Offset(0f, 3f), 14f)))
+}

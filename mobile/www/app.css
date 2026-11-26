@@ -2328,3 +2328,10 @@ html[data-mode="light"]:root .nvm-t small { color: #475569; }
 html[data-mode="light"]:root .icon-btn.round.floating-back { background: #141414 !important; color: #fff !important; }
 /* Barre du haut en thème clair : le logo reste dans sa couleur (fond clair), jamais passé en blanc */
 html[data-mode="light"]:root .nv-tlogo img.logo-white { filter: none; }
+
+/* Titre de secours (logo absent ou cassé) : style « affiche » lisible sur n'importe quelle image */
+.nv-logo-t { margin: 0; max-width: 92%; color: #fff; font-size: clamp(30px, 9vw, 46px); font-weight: 900; line-height: 1.02; letter-spacing: -.02em;
+  text-wrap: balance; text-shadow: 0 2px 4px rgba(0,0,0,.5), 0 6px 24px rgba(0,0,0,.65);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+@media (min-width: 1024px) { .nv-logo-t { font-size: 56px; } }
+.nv-tlogo b { font-weight: 900; letter-spacing: -.01em; }

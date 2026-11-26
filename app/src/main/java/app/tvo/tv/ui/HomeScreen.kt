@@ -332,13 +332,15 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 48.dp, top = if (inRows) 22.dp else NavBarHeight + 4.dp).width(470.dp).height(if (inRows) 250.dp else 240.dp)) {
                 if (m != null) {
+                    var bannerLogoFail by remember(logo) { mutableStateOf(false) }
                     if (logo != null && m.type == "platform") Row(verticalAlignment = Alignment.CenterVertically) {
                         AsyncImage(logo, m.name, Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop)
                         Spacer(Modifier.width(16.dp))
                         Text(m.name, fontSize = 36.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
                     }
-                    else if (logo != null) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart, colorFilter = if (logoDark) WhiteLogoFilter else null)
-                    else Text(m.name, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 36.sp)
+                    else if (logo != null && !bannerLogoFail) AsyncImage(logo, m.name, Modifier.height(if (inRows) 88.dp else 70.dp).fillMaxWidth(0.75f), contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
+                        colorFilter = if (logoDark) WhiteLogoFilter else null, onError = { bannerLogoFail = true })
+                    else StyledTitle(m.name, 34)
                     Spacer(Modifier.height(10.dp))
                     Text(if (m.type == "genre") "Catégorie  •  Films et séries" else if (m.type == "platform") "Plateforme  •  Films et séries" else if (m.type == "collection") "Saga  •  Tous les films" else if (m.type == "person") listOfNotNull("Acteur / actrice", m.releaseInfo).joinToString("  •  ")
                         else listOfNotNull(typeLabel(m.type, plural = false), m.genres.firstOrNull()?.let { genreLabel(it) }, m.releaseInfo).joinToString("  •  "),

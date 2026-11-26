@@ -4943,12 +4943,14 @@ var qrcode = function() {
     const dirLabel = series ? "Création" : "Réalisateur";
     const dirs = (m.people || []).filter((p) => p.dir).map((p) => p.name);
     const directors = dirs.length ? dirs : (m.director || []);
-    const logoImg = (cls) => m.logo ? `<img class="${cls}" src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<h1 class="${cls}-t">${esc(m.name)}</h1>`;
+    // Logo manquant ou cassé : le titre du film en texte stylé à la place (jamais de cadre vide)
+    const titleTxt = (cls) => `<h1 class="${cls}-t">${esc(m.name)}</h1>`;
+    const logoImg = (cls) => m.logo ? `<img class="${cls}" src="${esc(m.logo)}" alt="" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(titleTxt(cls))}">` : titleTxt(cls);
     const row = (k, v) => v ? `<div class="nv-kv"><span>${k}</span><b>${esc(String(v))}</b></div>` : "";
 
     app.innerHTML = `
       <div class="nv-top" id="nvTop"><button class="nv-tb" onclick="history.back()" aria-label="Retour">${ICON.back}</button>
-        <span class="nv-tlogo">${m.logo ? `<img src="${esc(m.logo)}" alt="${esc(m.name)}">` : `<b>${esc(m.name)}</b>`}</span>
+        <span class="nv-tlogo">${m.logo ? `<img src="${esc(m.logo)}" alt="" onerror="this.outerHTML=this.dataset.fb" data-fb="${esc(`<b>${esc(m.name)}</b>`)}">` : `<b>${esc(m.name)}</b>`}</span>
         <button class="nv-tb" id="libTop" aria-label="Ma liste">${inLib(m.id) ? ICON.check : ICON.plus}</button></div>
       <div class="dt-hero nv-hero">
         <img src="${esc(heroImg || "")}" alt="">

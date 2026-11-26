@@ -186,8 +186,11 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             item(key = "hero") {
         Box(Modifier.fillMaxWidth().height(heroFull).padding(top = 40.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
                     Column(Modifier.padding(start = 48.dp).width(640.dp)) {
-                        if (p.logo != null) AsyncImage(p.logo, p.name, Modifier.height(72.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart, colorFilter = if (logoDark) WhiteLogoFilter else null)
-                        else Text(p.name, fontSize = 38.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text, maxLines = 1)
+                        // Logo manquant ou cassé : le titre du film en texte stylé à la place
+                        var logoFail by remember(p.logo) { mutableStateOf(false) }
+                        if (p.logo != null && !logoFail) AsyncImage(p.logo, p.name, Modifier.height(72.dp).fillMaxWidth(0.85f), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart,
+                            colorFilter = if (logoDark) WhiteLogoFilter else null, onError = { logoFail = true })
+                        else StyledTitle(p.name, 40)
                         Spacer(Modifier.height(6.dp))
                         // Boutons d'abord (pilule « Regarder » + boutons ronds), comme sur la maquette
                         Spacer(Modifier.height(8.dp))
