@@ -26,13 +26,104 @@
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape"
-            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout|orientation">
+            android:configChanges="keyboard|keyboardHidden|navigation|screenSize|smallestScreenSize|screenLayout|orientation" />
+
+        <!-- Icône « classique » sur l'écran d'accueil de la télé (choisie dans Réglages › Profil › Apparence) -->
+        <activity-alias
+            android:name=".Icon_classique"
+            android:targetActivity=".MainActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_tvo_classique"
+            android:banner="@drawable/banner_classique"
+            android:label="TVO">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+
+        <!-- Icône « turquoise » sur l'écran d'accueil de la télé (choisie dans Réglages › Profil › Apparence) -->
+        <activity-alias
+            android:name=".Icon_turquoise"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_tvo_turquoise"
+            android:banner="@drawable/banner_turquoise"
+            android:label="TVO">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Icône « nuit » sur l'écran d'accueil de la télé (choisie dans Réglages › Profil › Apparence) -->
+        <activity-alias
+            android:name=".Icon_nuit"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_tvo_nuit"
+            android:banner="@drawable/banner_nuit"
+            android:label="TVO">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Icône « clair » sur l'écran d'accueil de la télé (choisie dans Réglages › Profil › Apparence) -->
+        <activity-alias
+            android:name=".Icon_clair"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_tvo_clair"
+            android:banner="@drawable/banner_clair"
+            android:label="TVO">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Icône « noel » sur l'écran d'accueil de la télé (choisie dans Réglages › Profil › Apparence) -->
+        <activity-alias
+            android:name=".Icon_noel"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_tvo_noel"
+            android:banner="@drawable/banner_noel"
+            android:label="TVO">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Icône « or » sur l'écran d'accueil de la télé (choisie dans Réglages › Profil › Apparence) -->
+        <activity-alias
+            android:name=".Icon_or"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_tvo_or"
+            android:banner="@drawable/banner_or"
+            android:label="TVO">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
 
         <activity
             android:name=".player.PlayerActivity"

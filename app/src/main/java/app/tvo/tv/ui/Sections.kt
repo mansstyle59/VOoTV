@@ -422,6 +422,21 @@ fun SettingsSection(nav: Nav) {
                         }
                     }
                     item { Text("Le fond suit la couleur du profil, comme sur le téléphone.", fontSize = 14.sp, color = TvoColors.Muted) }
+                    item { Heading("Icône de l'appli") }
+                    item {
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
+                        val prefs = remember { ctx.getSharedPreferences("tvo_ui", android.content.Context.MODE_PRIVATE) }
+                        var cur by remember { mutableStateOf(prefs.getString("icon", "classique") ?: "classique") }
+                        androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            items(TV_ICONS.size) { i -> val (k, l) = TV_ICONS[i]
+                                IconChoice(k, l, cur == k) {
+                                    if (cur != k) { setTvIcon(ctx, k); cur = k; prefs.edit().putString("icon", k).apply()
+                                        android.widget.Toast.makeText(ctx, "Icône « $l » : elle apparaît sur l'écran d'accueil d'ici quelques secondes", android.widget.Toast.LENGTH_LONG).show() }
+                                }
+                            }
+                        }
+                    }
+                    item { Text("Change l'icône et la bannière de TVO sur l'écran d'accueil de la télé, sans réinstaller.", fontSize = 14.sp, color = TvoColors.Muted) }
                     item { Heading("Compte et synchronisation") }
                     item { SyncBlock() }
                 }
@@ -887,6 +902,40 @@ private fun AllDebridBlock() {
                 Text(err ?: "Chargement…", fontSize = 16.sp, color = TvoColors.Muted)
                 if (err != null) TvoButton("Réessayer", { retry++ })
             }
+        }
+    }
+}
+
+
+internal val TV_ICONS = listOf("classique" to "Classique", "turquoise" to "Turquoise", "nuit" to "Nuit", "clair" to "Clair", "noel" to "Noël", "or" to "Or")
+
+/** Active l'icône choisie (alias d'activité) et désactive les autres, sans fermer l'appli. */
+internal fun setTvIcon(ctx: android.content.Context, key: String) {
+    val pm = ctx.packageManager
+    // On active d'abord la nouvelle : l'appli reste toujours visible sur l'écran d'accueil
+    val order = TV_ICONS.map { it.first }.sortedBy { if (it == key) 0 else 1 }
+    for (k in order) {
+        val cn = android.content.ComponentName(ctx, "app.tvo.tv.Icon_$k")
+        val st = if (k == key) android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED else android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        runCatching { pm.setComponentEnabledSetting(cn, st, android.content.pm.PackageManager.DONT_KILL_APP) }
+    }
+}
+
+@Composable
+private fun IconChoice(key: String, label: String, on: Boolean, onClick: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val res = remember(key) { ctx.resources.getIdentifier("banner_$key", "drawable", ctx.packageName) }
+    Surface(onClick = onClick, shape = ClickableSurfaceDefaults.shape(SquircleShape(14.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+        border = ClickableSurfaceDefaults.border(
+            border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(if (on) 3.dp else 0.dp, if (on) TvoColors.Blue else Color.Transparent), shape = SquircleShape(14.dp)),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = SquircleShape(14.dp))),
+        colors = ClickableSurfaceDefaults.colors(containerColor = TvoColors.Surface, focusedContainerColor = TvoColors.Surface2)) {
+        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            if (res != 0) androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(res), label,
+                Modifier.width(160.dp).height(90.dp).clip(SquircleShape(10.dp)), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+            Spacer(Modifier.height(6.dp))
+            Text((if (on) "✓ " else "") + label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TvoColors.Text)
         }
     }
 }
