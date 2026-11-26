@@ -138,14 +138,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val logoDark by produceState(false, p.logo) { value = p.logo?.let { logoIsDark(ctx, it) } ?: false }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val mainState = androidx.compose.foundation.lazy.rememberLazyListState()
-    // Tant que le focus est sur les boutons du haut, la page reste calée tout en haut (titre jamais coupé)
-    var heroHasFocus by remember { mutableStateOf(true) }
-    // Retour sur les boutons depuis les rangées : un seul retour en haut, en douceur (plus de « combat » de défilement)
-    LaunchedEffect(heroHasFocus) {
-        if (!heroHasFocus) return@LaunchedEffect
-        delay(400)
-        if (mainState.firstVisibleItemIndex > 0 || mainState.firstVisibleItemScrollOffset > 0) mainState.animateScrollToItem(0)
-    }
+    // Le défilement est laissé à BringIntoView/à la navigation TV.
+    // Ne pas forcer la remontée en haut au retour du focus : cela provoquait des sauts
+    // et entrait en conflit avec le défilement automatique des éléments Compose.
     // Défilement de la page : quand le focus est sur les boutons du haut, la page ne bouge JAMAIS (cause du clignotement).
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val cfg = androidx.compose.ui.platform.LocalConfiguration.current
@@ -176,8 +171,6 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             }
         }
     }
-    // Basé sur le focus (et non sur le défilement) : plus de clignotement du voile quand on passe d'un bouton à l'autre
-    val heroFocused = heroHasFocus
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     // Hauteur du bloc d'infos : toujours assez courte pour que la 1re rangée reste visible (sinon elle n'est pas atteignable)
     val heroFull = (screenH - 96).coerceAtLeast(340).dp
@@ -197,7 +190,7 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
-        Box(Modifier.fillMaxWidth().heightIn(min = heroFull).onSizeChanged { heroMeasured = it.height.toFloat() }.padding(top = 28.dp, bottom = 8.dp).onFocusChanged { heroHasFocus = it.hasFocus }) {
+        Box(Modifier.fillMaxWidth().heightIn(min = heroFull).onSizeChanged { heroMeasured = it.height.toFloat() }.padding(top = 28.dp, bottom = 8.dp)) {
                     Column(Modifier.padding(start = 48.dp).width(680.dp)) {
                         // Logo manquant ou cassé : le titre du film en texte stylé à la place
                         var logoFail by remember(p.logo) { mutableStateOf(false) }
