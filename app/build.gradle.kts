@@ -39,7 +39,11 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("tvo")
         }
-        debug { signingConfig = signingConfigs.getByName("tvo") }
+        debug {
+            signingConfig = signingConfigs.getByName("tvo")
+            // Version de test seulement : ajoute les bibliothèques pour la télé virtuelle (processeur de PC)
+            ndk { abiFilters += listOf("x86", "x86_64") }
+        }
     }
 
     compileOptions {
