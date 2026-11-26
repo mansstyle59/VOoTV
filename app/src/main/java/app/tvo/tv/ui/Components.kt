@@ -533,60 +533,113 @@ fun Modifier.imageBackdrop(accent: Color, url: String? = rememberPageImage()): M
 object QuickMenu { var nav: Nav? = null }
 
 /** Petit menu d'appui long : regarder, ouvrir la fiche, ajouter / retirer de ma liste. */
+/** Une ligne du menu façon Nuvio : libellé à gauche, icône à droite ; rouge pour « Supprimer ». */
+class NvItem(val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val danger: Boolean = false, val onClick: () -> Unit)
+
+/**
+ * Menu d'appui long façon Nuvio, adapté à la télé : fond sombre avec l'image du titre, aperçu de la carte à gauche,
+ * titre, sous-titre et liste d'actions groupée à droite. Retour = fermer.
+ */
 @Composable
-fun QuickMenuHost(item: MetaPreview, onOpen: () -> Unit, show: Boolean, onDismiss: () -> Unit) {
-    if (!show) return
-    val lib by Tvo.store.library.collectAsState()
-    val inList = lib.any { it.id == item.id }
-    val ctx = androidx.compose.ui.platform.LocalContext.current
+fun NvMenu(image: String?, wide: Boolean, title: String, sub: String?, items: List<NvItem>, onDismiss: () -> Unit, progress: Float? = null) {
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(440.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(item.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
-            Spacer(Modifier.height(4.dp))
-            if (item.type == "movie") TvoButton("Regarder", { onDismiss(); QuickMenu.nav?.openStreams(item.type, item.id, item.id) },
-                Modifier.focusRequester(first).fillMaxWidth(), androidx.compose.material.icons.Icons.Filled.PlayArrow, primary = true, wide = true)
-            TvoButton("Ouvrir la fiche", { onDismiss(); onOpen() },
-                (if (item.type == "movie") Modifier else Modifier.focusRequester(first)).fillMaxWidth(), wide = true, primary = item.type != "movie")
-            TvoButton(if (inList) "Retirer de ma liste" else "Ajouter à ma liste", {
-                Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(item.id, item.type, item.name, item.poster, item.background))
-                android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
-                onDismiss()
-            }, Modifier.fillMaxWidth(),
-                if (inList) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add, wide = true)
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(60); runCatching { first.requestFocus() } }
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(Color(0xF00B0B10))) {
+            if (image != null) AsyncImage(image, null, Modifier.fillMaxSize().graphicsLayer { alpha = 0.22f }, contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.radialGradient(listOf(Color(0x660B0B10), Color(0xF20B0B10)), radius = 1400f)))
+            Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (image != null) Box(Modifier.width(if (wide) 360.dp else 210.dp).aspectRatio(if (wide) 16f / 9f else 2f / 3f)
+                    .clip(RoundedCornerShape(22.dp)).background(TvoColors.Surface)) {
+                    AsyncImage(image, title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    if (progress != null && progress > 0f) Box(Modifier.align(Alignment.BottomStart).padding(14.dp).fillMaxWidth(progress.coerceIn(0.03f, 1f)).height(5.dp)
+                        .clip(RoundedCornerShape(3.dp)).background(TvoColors.Blue))
+                }
+                Column(Modifier.width(420.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Column {
+                        Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        if (!sub.isNullOrBlank()) Text(sub, fontSize = 16.sp, color = TvoColors.Muted, maxLines = 1)
+                    }
+                    Column(Modifier.clip(RoundedCornerShape(18.dp)).background(Color(0xFF1C1C22)).padding(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        items.forEachIndexed { i, it ->
+                            androidx.tv.material3.Surface(
+                                onClick = { onDismiss(); it.onClick() },
+                                modifier = Modifier.fillMaxWidth().height(52.dp).let { m -> if (i == 0) m.focusRequester(first) else m },
+                                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                                scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+                                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                                    containerColor = Color.Transparent, contentColor = if (it.danger) Color(0xFFF472B6) else Color.White,
+                                    focusedContainerColor = if (it.danger) Color(0xFFE11D48) else Color.White, focusedContentColor = if (it.danger) Color.White else Color.Black),
+                            ) {
+                                Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(it.label, Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, color = androidx.tv.material3.LocalContentColor.current)
+                                    androidx.tv.material3.Icon(it.icon, null, Modifier.size(22.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+/** Appui long sur une carte : bibliothèque, vu, fiche (comme Nuvio). */
+@Composable
+fun QuickMenuHost(item: MetaPreview, onOpen: () -> Unit, show: Boolean, onDismiss: () -> Unit) {
+    if (!show) return
+    val lib by Tvo.store.library.collectAsState()
+    val prog by Tvo.store.progress.collectAsState()
+    val inList = lib.any { it.id == item.id }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val ic = androidx.compose.material.icons.Icons.Filled
+    val seen = item.type == "movie" && prog.any { it.metaId == item.id && it.finished }
+    val items = buildList {
+        add(NvItem("Voir les détails", ic.Info) { onOpen() })
+        if (item.type == "movie" || item.type == "series") {
+            add(NvItem(if (inList) "Retirer de la bibliothèque" else "Ajouter à la bibliothèque", if (inList) ic.Check else ic.Add) {
+                Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(item.id, item.type, item.name, item.poster, item.background))
+                android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
+            })
+        }
+        if (item.type == "movie") add(NvItem(if (seen) "Marquer comme non vu" else "Marquer comme vu", ic.CheckCircle) {
+            val pid = Tvo.store.currentProfile.value?.id
+            if (pid != null) Tvo.store.saveProgress(pid, app.tvo.tv.data.Progress(item.id, item.id, item.type, item.name, item.poster, item.background,
+                position = if (seen) 0 else 1, duration = 1, updatedAt = System.currentTimeMillis()))
+            android.widget.Toast.makeText(ctx, if (seen) "Marqué non vu" else "Marqué comme vu", android.widget.Toast.LENGTH_SHORT).show()
+        })
+    }
+    val wide = item.poster == null
+    NvMenu(item.poster ?: item.background, wide, item.name,
+        listOfNotNull(when (item.type) { "movie" -> "Film"; "series" -> "Série"; else -> null }, item.releaseInfo).joinToString(" · ").ifBlank { null }, items, onDismiss)
+}
 
-/** Menu d'appui long sur « Continuer à regarder » : reprendre, fiche, ma liste, retirer de la rangée. */
+
+/** Appui long sur « Continuer à regarder » : détails, reprendre, recommencer, supprimer (comme Nuvio). */
 @Composable
 fun ContinueMenuHost(p: app.tvo.tv.data.Progress, show: Boolean, nav: Nav, ctx: android.content.Context,
                      scope: kotlinx.coroutines.CoroutineScope, onDismiss: () -> Unit) {
     if (!show) return
     val lib by Tvo.store.library.collectAsState()
     val inList = lib.any { it.id == p.metaId }
-    val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Column(Modifier.width(460.dp).clip(RoundedCornerShape(16.dp)).background(TvoColors.Surface).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(p.name, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2)
-            if (p.season != null) Text("S${p.season} : É${p.episode}", fontSize = 15.sp, color = Color(0xCCFFFFFF))
-            Spacer(Modifier.height(4.dp))
-            TvoButton("Reprendre", { onDismiss(); resumeFast(ctx, scope, nav, p.type, p.metaId, p.videoId) },
-                Modifier.focusRequester(first).fillMaxWidth(), androidx.compose.material.icons.Icons.Filled.PlayArrow, primary = true, wide = true)
-            TvoButton("Ouvrir la fiche", { onDismiss(); nav.openMeta(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) }, Modifier.fillMaxWidth(), wide = true)
-            TvoButton(if (inList) "Retirer de ma liste" else "Ajouter à ma liste", {
-                Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(p.metaId, p.type, p.name, p.poster, p.background))
-                android.widget.Toast.makeText(ctx, if (inList) "Retiré de ma liste" else "Ajouté à ma liste", android.widget.Toast.LENGTH_SHORT).show()
-                onDismiss()
-            }, Modifier.fillMaxWidth(), if (inList) androidx.compose.material.icons.Icons.Filled.Check else androidx.compose.material.icons.Icons.Filled.Add, wide = true)
-            TvoButton("Retirer de « Continuer à regarder »", { Tvo.store.removeFromContinue(p.metaId); onDismiss() }, Modifier.fillMaxWidth(), wide = true)
-        }
-    }
+    val ic = androidx.compose.material.icons.Icons.Filled
+    val left = if (p.duration > 1) ((p.duration - p.position) / 60000).coerceAtLeast(1) else 0
+    val sub = listOfNotNull(if (p.season != null) "Saison ${p.season} · Épisode ${p.episode}" else if (p.type == "series") "Série" else "Film",
+        if (left > 0) "$left min restantes" else null).joinToString(" · ")
+    NvMenu(p.background ?: p.poster, p.background != null, p.name, sub, listOf(
+        NvItem("Voir les détails", ic.Info) { nav.openMeta(MetaPreview(p.metaId, p.type, p.name, p.poster, p.background)) },
+        NvItem("Reprendre la lecture", ic.PlayArrow) { resumeFast(ctx, scope, nav, p.type, p.metaId, p.videoId) },
+        NvItem("Recommencer depuis le début", ic.Refresh) {
+            val pid = Tvo.store.currentProfile.value?.id
+            if (pid != null) Tvo.store.saveProgress(pid, p.copy(position = 0, updatedAt = System.currentTimeMillis()))
+            nav.openStreams(p.type, p.metaId, p.videoId)
+        },
+        NvItem(if (inList) "Retirer de la bibliothèque" else "Ajouter à la bibliothèque", if (inList) ic.Check else ic.Add) {
+            Tvo.store.toggleLibrary(app.tvo.tv.data.LibraryItem(p.metaId, p.type, p.name, p.poster, p.background))
+        },
+        NvItem("Supprimer", ic.Delete, danger = true) { Tvo.store.removeFromContinue(p.metaId) },
+    ), onDismiss, progress = if (p.duration > 1) p.position.toFloat() / p.duration else null)
 }
 
 
