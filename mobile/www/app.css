@@ -2534,3 +2534,4 @@ html[data-amb="profil"] #amb .g1 { opacity: .24; } html[data-amb="profil"] #amb 
 }
 @supports (corner-shape: squircle) { #player .nv2-side .sd-ep, #player .nv2-side .sd-ep .th, #player .nv2-side .sd-close { corner-shape: squircle; } }
 #player .nf-sheet.nv2-side[hidden] { display: none; }
+#player:has(.nf-sheet.nv2-side:not([hidden])) .nf { opacity: 0; pointer-events: none; }
