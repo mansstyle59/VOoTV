@@ -10,10 +10,20 @@ rec_start() { adb shell "screenrecord --bit-rate 6000000 --time-limit 175 /sdcar
 rec_stop() { adb shell pkill -INT screenrecord || true; wait $REC 2>/dev/null || true; sleep 2; adb pull "/sdcard/$1.mp4" "shots/$1.mp4" || true; }
 open() {
   adb shell am force-stop app.tvo.tv
-  adb shell am start -n app.tvo.tv/.MainActivity --es tvo_test_type "$1" --es tvo_test_id "$2" --es tvo_test_tmdb "${TMDB:-}"
+  # la clé TMDB n'est passée que si elle existe (un paramètre vide fait échouer le lancement)
+  if [ -n "${TMDB:-}" ]; then adb shell am start -n app.tvo.tv/.MainActivity --es tvo_test_type "$1" --es tvo_test_id "$2" --es tvo_test_tmdb "$TMDB"
+  else adb shell am start -n app.tvo.tv/.MainActivity --es tvo_test_type "$1" --es tvo_test_id "$2"; fi
   sleep 18
 }
 UP=19; DOWN=20; LEFT=21; RIGHT=22; OK=23; BACK=4
+
+# 0) Écran « Qui regarde ? » : profils visibles, on monte et on se déplace entre eux
+open profiles x; n=0
+shot profils "ouverture"
+key $UP; shot profils "haut"
+key $RIGHT; shot profils "droite"
+key $DOWN; shot profils "bas-gerer"
+key $UP; shot profils "remonte"
 
 # 1) Accueil : on parcourt les rangées comme un client, puis on ouvre un titre
 open home x; n=0; rec_start 1-accueil

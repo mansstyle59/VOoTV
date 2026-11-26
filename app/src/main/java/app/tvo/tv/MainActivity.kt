@@ -137,6 +137,11 @@ private fun AppNav(testTarget: Pair<String, String>? = null) {
             LaunchedEffect(Unit) { testTarget?.let { (t, id) ->
                 // « home » : parcours client depuis l'accueil (premier profil choisi d'office)
                 if (t == "home") { (Tvo.store.profiles.value.firstOrNull() ?: Tvo.store.upsertProfile(null, "Test", 0xFF3B82F6)).let { Tvo.store.selectProfile(it) }; nc.navigate("home") { popUpTo("test") { inclusive = true } } }
+                // « profiles » : écran « Qui regarde ? » avec deux profils d'essai
+                else if (t == "profiles") {
+                    if (Tvo.store.profiles.value.size < 2) { Tvo.store.upsertProfile(null, "Test", 0xFF3B82F6); Tvo.store.upsertProfile(null, "Famille", 0xFFE11D48) }
+                    nc.navigate("profiles") { popUpTo("test") { inclusive = true } }
+                }
                 else nc.navigate("detail/${e(t)}/${e(id)}") { popUpTo("test") { inclusive = true } }
             } }
         }
