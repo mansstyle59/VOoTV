@@ -2427,7 +2427,10 @@ var qrcode = function() {
     // L'heure et la batterie de l'iPhone suivent le réglage du téléphone (clair/sombre). Si le mode choisi dans TVO est
     // l'inverse, on teinte la bande du haut dans la couleur attendue par l'heure pour qu'elle reste lisible.
     const sysLight = !!(mq && mq.matches);
-    if (light !== sysLight) root.dataset.sb = sysLight ? "light" : "dark"; else delete root.dataset.sb;
+    // Appli installée récente : TVO choisit la couleur de l'heure et de la batterie, la bande du haut suit le thème
+    const SBP = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.StatusBar;
+    if (SBP && SBP.setStyle) { SBP.setStyle({ style: light ? "LIGHT" : "DARK" }).catch(() => {}); delete root.dataset.sb; }
+    else if (light !== sysLight) root.dataset.sb = sysLight ? "light" : "dark"; else delete root.dataset.sb;
   }
   function setMode(m) { LS.set("mode", MODES.includes(m) ? m : "auto"); applyMode(); }
   if (mq) (mq.addEventListener ? mq.addEventListener("change", applyMode) : mq.addListener && mq.addListener(applyMode));
@@ -6412,7 +6415,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
         const x = c.getContext("2d"); x.drawImage(im, 0, 0, w, h);
         const d = x.getImageData(0, 0, w, h).data; let n = 0, sum = 0;
         for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 128) { n++; sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; }
-        res(n > 20 && sum / n < 0.45);
+        res(n > 20 && sum / n < 0.32);
       } catch (e) { res(false); } };
       // adresse légèrement différente : sinon l'iPhone réutilise l'image déjà affichée (sans autorisation de lecture) et la mesure échoue
       im.onerror = () => res(false); im.src = url + (url.includes("?") ? "&" : "?") + "tvo-lum=1";

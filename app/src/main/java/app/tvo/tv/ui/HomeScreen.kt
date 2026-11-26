@@ -57,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -551,7 +552,8 @@ class SeenRows { val ids = HashSet<String>(); val byRow = HashMap<String, List<M
 
 @Composable
 private fun CatalogRow(row: RowSource, nav: Nav, seen: SeenRows = SeenRows()) {
-    val state by produceState<List<MetaPreview>?>(null, row.key, Tvo.refreshEpoch.intValue) {
+    // Valeur de départ = rangée déjà chargée (sinon, en revenant dessus, elle redevenait « en chargement » un instant et la flèche la sautait)
+    val state by produceState<List<MetaPreview>?>(seen.byRow[row.key], row.key, Tvo.refreshEpoch.intValue) {
         value = seen.byRow[row.key] ?: run {
             val all = runCatching { Tvo.client.catalog(row.addon, row.cat, row.extra) }.getOrDefault(emptyList())
             val fresh = all.filter { it.id !in seen.ids }
@@ -560,11 +562,17 @@ private fun CatalogRow(row: RowSource, nav: Nav, seen: SeenRows = SeenRows()) {
             seen.ids.addAll(kept.map { it.id }); seen.byRow[row.key] = kept; kept
         }
     }
-    when {
-        state == null -> LoadingRow(row.title)
-        state!!.isEmpty() -> Spacer(Modifier.height(0.dp))
-        else -> PortraitPanel(row.title, state!!, nav)
+    // Si on était sur la rangée pendant son chargement, la sélection passe sur sa 1re affiche dès qu'elle arrive
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    var hadFocus by remember { mutableStateOf(false) }
+    Box(Modifier.focusRequester(fr).onFocusChanged { hadFocus = it.hasFocus }.focusGroup()) {
+        when {
+            state == null -> LoadingRow(row.title)
+            state!!.isEmpty() -> Spacer(Modifier.height(0.dp))
+            else -> PortraitPanel(row.title, state!!, nav)
+        }
     }
+    LaunchedEffect(state != null && state!!.isNotEmpty()) { if (hadFocus && state?.isNotEmpty() == true) { androidx.compose.runtime.withFrameNanos { }; runCatching { fr.requestFocus() } } }
 }
 
 /** Images des catégories (photos TMDB, visibles même sans clé). */

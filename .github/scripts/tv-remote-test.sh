@@ -38,6 +38,12 @@ key $DOWN; shot accueil "fiche-bas"
 key $BACK 3; shot accueil "retour"
 rec_stop 1-accueil
 
+# 1b) Descente puis remontée rangée par rangée (aucune rangée ne doit être sautée)
+open home x; n=0; rec_start 1b-rangees
+for i in 1 2 3 4 5 6; do key $DOWN 1.2; shot rangees "bas-$i"; done
+for i in 1 2 3 4 5 6; do key $UP 1.2; shot rangees "haut-$i"; done
+rec_stop 1b-rangees
+
 # 2) Fiche film puis fiche série : boutons, onglets, rangées, remontée
 fiche() { # $1 = nom, $2 = type, $3 = id
   open "$2" "$3"; n=0; rec_start "$1"

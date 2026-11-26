@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -195,7 +196,12 @@ fun LoadingRow(title: String) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle(title)
         Row(Modifier.padding(RowPadding), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            repeat(7) { Box(Modifier.width(128.dp).aspectRatio(2f / 3f).clip(SquircleShape(12.dp)).background(TvoColors.Surface)) }
+            // La 1re affiche est sélectionnable : la flèche s'arrête sur la rangée au lieu de la sauter pendant le chargement
+            repeat(7) { i ->
+                var f by remember { mutableStateOf(false) }
+                Box(Modifier.width(128.dp).aspectRatio(2f / 3f).clip(SquircleShape(12.dp)).background(if (f) TvoColors.Surface2 else TvoColors.Surface)
+                    .then(if (i == 0) Modifier.onFocusChanged { f = it.isFocused }.focusable() else Modifier))
+            }
         }
     }
 }
@@ -663,12 +669,18 @@ suspend fun logoIsDark(ctx: android.content.Context, url: String): Boolean {
             val a = (c ushr 24) and 0xFF
             if (a > 128) { sum += (0.299 * ((c shr 16) and 0xFF) + 0.587 * ((c shr 8) and 0xFF) + 0.114 * (c and 0xFF)) / 255.0; n++ }
         }
-        n > 20 && sum / n < 0.45
+        n > 20 && sum / n < 0.32
     }.getOrDefault(false)
     logoToneCache[url] = dark
     return dark
 }
-val WhiteLogoFilter: androidx.compose.ui.graphics.ColorFilter = androidx.compose.ui.graphics.ColorFilter.tint(Color.White)
+/** Logo trop sombre sur fond sombre : on l'éclaircit en gardant ses reliefs (plus de blanc uni qui efface les détails). */
+val WhiteLogoFilter: androidx.compose.ui.graphics.ColorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+    androidx.compose.ui.graphics.ColorMatrix(floatArrayOf(
+        0.55f, 0f, 0f, 0f, 125f,
+        0f, 0.55f, 0f, 0f, 125f,
+        0f, 0f, 0.55f, 0f, 125f,
+        0f, 0f, 0f, 1f, 0f)))
 
 /** Image de titre avec secours : si l'adresse échoue (ou manque), on tente l'image Metahub par id IMDb. */
 @Composable
