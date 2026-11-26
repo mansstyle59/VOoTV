@@ -2363,3 +2363,33 @@ html[data-mode="light"]:root .ad-days { background: rgba(15,23,42,.06); }
 /* Lecteur : heure en haut à gauche (alignée à gauche), boutons Image dans l'image / verrou / fermer en haut à droite */
 .nf-top .pl-clock { margin-left: 0; margin-right: auto; justify-items: start; text-align: left; }
 .nf-top #pPip { order: 1; } .nf-top #pLock { order: 2; } .nf-top #pClose { order: 3; }
+
+/* ===== Bannière commune (mise à jour, nouveautés, AllDebrid) ===== */
+.ntc { position: fixed; z-index: 640; top: calc(var(--safe-top) + 8px); left: 12px; right: 12px; display: grid; gap: 10px;
+  padding: 12px 12px 12px 14px; border-radius: 18px; background: #16171d; border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 18px 48px rgba(0,0,0,.55); color: #fff; transform: translateY(-140%); opacity: 0; transition: transform .28s cubic-bezier(.2,.9,.3,1), opacity .2s; }
+.ntc.on { transform: none; opacity: 1; }
+.ntc-row { display: flex; align-items: center; gap: 12px; }
+.ntc-ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; font-size: 18px; flex: none; color: #fff; background: var(--blue); }
+.ntc.ok .ntc-ic { background: #16a34a; } .ntc.warn .ntc-ic { background: #f59e0b; color: #111; } .ntc.danger .ntc-ic { background: #dc2626; }
+.ntc.warn { border-color: rgba(245,158,11,.45); } .ntc.danger { border-color: rgba(220,38,38,.5); }
+.ntc-t { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.ntc-t b { font-size: 15.5px; font-weight: 800; line-height: 1.25; }
+.ntc-t small { font-size: 13px; color: #b9c0cf; line-height: 1.35; }
+.ntc-x { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255,255,255,.08); color: #fff; font-size: 14px; }
+.ntc-lines { margin: 0; padding: 0 0 0 50px; display: grid; gap: 4px; list-style: none; max-height: 9.5em; overflow: hidden; }
+.ntc-lines.all { max-height: 45vh; overflow-y: auto; }
+.ntc-lines li { position: relative; font-size: 13.5px; line-height: 1.4; color: #dfe4ee; }
+.ntc-lines li::before { content: ""; position: absolute; left: -12px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .5; }
+.ntc-prog { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; margin-left: 50px; }
+.ntc-prog i { display: block; height: 100%; width: 0; background: var(--blue); border-radius: 2px; }
+.ntc-prog.busy i { width: 40%; animation: ntcbusy 1.1s ease-in-out infinite; }
+@keyframes ntcbusy { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.ntc-acts { display: flex; gap: 8px; justify-content: flex-end; }
+.ntc-acts .btn { min-height: 38px; padding: 0 16px; border-radius: 999px; }
+.ntc.warn .ntc-acts .btn.primary { background: #f59e0b; color: #111; } .ntc.danger .ntc-acts .btn.primary { background: #dc2626; color: #fff; }
+html[data-mode="light"]:root .ntc { background: #fff; color: #111; border-color: rgba(15,23,42,.1); box-shadow: 0 18px 40px rgba(15,23,42,.18); }
+html[data-mode="light"]:root .ntc-t small { color: #475569; } html[data-mode="light"]:root .ntc-lines li { color: #1f2937; }
+html[data-mode="light"]:root .ntc-x { background: rgba(15,23,42,.07); color: #111; }
+@media (min-width: 1024px) { .ntc { left: auto; right: 24px; top: 24px; width: 420px; } }
+html.mac .ntc { top: 40px; }

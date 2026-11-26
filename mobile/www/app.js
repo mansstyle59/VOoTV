@@ -5216,6 +5216,22 @@ var qrcode = function() {
       $("#adRetry").addEventListener("click", drawAD);
     });
   }
+  /** À l'ouverture : AllDebrid expire aujourd'hui/demain ou a expiré → bannière (une fois par jour). */
+  async function adExpiryAlert() {
+    const k = LS.get("ad_key", null); if (!k) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (LS.get("ad_warn_day", "") === today) return;
+    let u; try { u = await adUser(k); } catch { return; }
+    const until = (u.premiumUntil || 0) * 1000;
+    const days = until ? Math.ceil((until - Date.now()) / 86400000) : 0;
+    if (u.isPremium && days > 1) return;
+    LS.set("ad_warn_day", today);
+    const expired = !u.isPremium || days <= 0;
+    notice({ id: "adBanner", tone: expired ? "danger" : "warn",
+      title: expired ? "Ton abonnement AllDebrid a expiré" : "AllDebrid expire demain",
+      sub: expired ? "Les sources débridées ne se lancent plus. Prolonge-le pour continuer." : `Fin le ${new Date(until).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} : pense à le prolonger.`,
+      actions: [{ label: "Prolonger", primary: true, run: (b, btn, close) => { window.open("https://alldebrid.com/offer/", "_blank"); close(); } }, { label: "Plus tard", run: (b, btn, close) => close() }] });
+  }
   async function adConnect() {
     const box = $("#adCard"); if (!box) return;
     let d;
@@ -5606,7 +5622,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
       app.querySelectorAll("[data-mpv]").forEach((b) => b.addEventListener("click", () => { LS.set("mpv", b.dataset.mpv === "true"); draw(); }));
       $("#upd").addEventListener("click", async () => {
         toast("Recherche…");
-        const r = await checkUpdate(); if (r) showUpdateBanner(r); else toast("TVO est à jour");
+        const r = await checkUpdate(); if (r) showUpdateBanner(r, true); else toast("TVO est à jour");
       });
     };
     draw();
@@ -6081,24 +6097,41 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     return { dev: "all", text: l };
   }
   const devName = () => (document.documentElement.classList.contains("mac") ? "ce Mac" : isIOS ? "cet iPhone" : "ce téléphone");
-  /** Après une mise à jour : petite bannière discrète en haut ; « Voir » déplie les nouveautés de CET appareil. */
-  function showWhatsNew(list, name) {
-    const items = list.flatMap((r) => r.notes.split("\n").map(noteDev).filter((n) => n.dev !== "tv" && n.text).map((n) => ({ ...n, v: r.name })));
-    if (!items.length || $("#wnBar")) return;
-    const b = document.createElement("div"); b.id = "wnBar"; b.className = "upd-banner wn-bar";
-    const lab = { phone: "📱 Téléphone", all: "📱📺 Tous les appareils" };
-    b.innerHTML = `<span class="ub-ic">✓</span><span class="ub-t"><b>${devName()[0].toUpperCase() + devName().slice(1)} est à jour · TVO ${esc(name)}</b><small>${items.length} nouveauté${items.length > 1 ? "s" : ""} pour cet appareil</small></span>
-      <button class="btn sm ghost" id="wnMore">Voir</button><button class="icon-btn" id="wnX" aria-label="Fermer">✕</button>
-      <div class="wn-drop" hidden>${items.map((n) => `<div class="wn-item"><span class="tag">${lab[n.dev]}</span><p>${esc(n.text)}</p></div>`).join("")}</div>`;
+  /** Bannière commune (mise à jour, nouveautés, AllDebrid) : carte en haut de l'écran, sous l'heure et la batterie. */
+  const NT_IC = { update: "⬆", ok: "✓", warn: "!", danger: "!" };
+  function notice(o) {
+    const old = $("#" + o.id); if (old) old.remove();
+    const b = document.createElement("div"); b.id = o.id; b.className = "ntc " + (o.tone || "update"); b.setAttribute("role", "status");
+    b.innerHTML = `<div class="ntc-row"><span class="ntc-ic">${NT_IC[o.tone || "update"]}</span>
+        <span class="ntc-t"><b>${esc(o.title)}</b>${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</span>
+        <button class="ntc-x" aria-label="Fermer">✕</button></div>
+      ${o.lines && o.lines.length ? `<ul class="ntc-lines">${o.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}
+      <div class="ntc-prog" hidden><i></i></div>
+      ${o.actions && o.actions.length ? `<div class="ntc-acts">${o.actions.map((a, i) => `<button class="btn sm ${a.primary ? "primary" : "ghost"}" data-i="${i}">${esc(a.label)}</button>`).join("")}</div>` : ""}`;
     document.body.appendChild(b);
-    const t = setTimeout(() => b.remove(), 9000);
-    $("#wnX").addEventListener("click", () => { clearTimeout(t); b.remove(); });
-    $("#wnMore").addEventListener("click", () => { clearTimeout(t); const d = b.querySelector(".wn-drop"); d.hidden = !d.hidden; $("#wnMore").textContent = d.hidden ? "Voir" : "Masquer"; });
+    requestAnimationFrame(() => b.classList.add("on"));
+    let t = o.timeout ? setTimeout(() => close(), o.timeout) : null;
+    const close = () => { clearTimeout(t); b.classList.remove("on"); setTimeout(() => b.remove(), 250); if (o.onClose) o.onClose(); };
+    b.querySelector(".ntc-x").addEventListener("click", close);
+    b.querySelectorAll("[data-i]").forEach((btn) => btn.addEventListener("click", () => { clearTimeout(t); t = null; o.actions[+btn.dataset.i].run(b, btn, close); }));
+    b.addEventListener("pointerdown", () => { clearTimeout(t); t = null; }, { once: true }); // on garde la bannière si on la touche
+    return { el: b, close, sub: (txt) => { const sm = b.querySelector(".ntc-t small"); if (sm) sm.textContent = txt; },
+      progress: (f) => { const p = b.querySelector(".ntc-prog"); p.hidden = f == null; if (f != null) p.firstElementChild.style.width = Math.round(f * 100) + "%"; } };
+  }
+  const phoneNotes = (list) => list.flatMap((r) => r.notes.split("\n").map(noteDev).filter((n) => n.dev !== "tv" && n.text).map((n) => n.text));
+  /** Après une mise à jour : ce qui change sur CET appareil (3 lignes, « Tout voir » pour le reste). */
+  function showWhatsNew(list, name) {
+    const items = phoneNotes(list);
+    if (!items.length) return;
+    const n = notice({ id: "wnBar", tone: "ok", title: `TVO ${name} est installé`, sub: `${items.length} nouveauté${items.length > 1 ? "s" : ""} sur ${devName()}`,
+      lines: items.slice(0, 3), timeout: 10000,
+      actions: items.length > 3 ? [{ label: "Tout voir", run: (b, btn) => { const ul = b.querySelector(".ntc-lines"); ul.innerHTML = items.map((l) => `<li>${esc(l)}</li>`).join(""); ul.classList.add("all"); btn.remove(); } }] : [] });
+    return n;
   }
   async function latestRelease() {
     // Version la plus haute parmi les dernières publications (« latest » peut être en retard si deux compilations finissent dans le désordre)
     const list = await getJson(`https://api.github.com/repos/${VERSION.repo}/releases?per_page=15`, 10000);
-    const best = list.filter((r) => !r.draft).map((r) => ({ code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, "") }))
+    const best = list.filter((r) => !r.draft).map((r) => ({ code: parseInt(String(r.tag_name || "").split(".").pop(), 10) || 0, tag: r.tag_name, name: String(r.tag_name || "").replace(/^v/, ""), notes: cleanNotes(r.body) }))
       .sort((x, y) => y.code - x.code)[0];
     if (!best) throw new Error("no release");
     return best;
@@ -6109,18 +6142,23 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     try { const rel = await latestRelease(); if (rel.code > VERSION.code) { updateInfo = rel; return rel; } } catch {}
     return null;
   }
-  /** Bannière en haut de l'écran : la mise à jour ne s'installe que si on appuie dessus. */
-  function showUpdateBanner(rel) {
-    if (!rel || $("#updBanner")) return;
-    const b = document.createElement("div"); b.id = "updBanner"; b.className = "upd-banner";
-    b.innerHTML = `<span class="ub-ic">⬆</span><span class="ub-t"><b>Nouvelle version</b><small>TVO ${esc(rel.name)}</small></span>
-      <button class="btn sm primary" id="ubGo">Installer</button><button class="icon-btn" id="ubX" aria-label="Plus tard">✕</button>`;
-    document.body.appendChild(b);
-    $("#ubX").addEventListener("click", () => b.remove());
-    $("#ubGo").addEventListener("click", async () => {
-      const go = $("#ubGo"); go.disabled = true; go.textContent = "Téléchargement…";
-      if (await autoUpdate(true)) applyUpdate(); else { go.disabled = false; go.textContent = "Réessayer"; toast("Échec du téléchargement, réessaie."); }
-    });
+  /** Mise à jour disponible : version, ce qui change, « Installer » (barre de progression), « Plus tard » (redemande dans 12 h). */
+  function showUpdateBanner(rel, force = false) {
+    if (!rel) return;
+    const sn = LS.get("upd_snooze", null);
+    if (!force && sn && sn.code === rel.code && Date.now() < sn.until) return;
+    const lines = phoneNotes([{ notes: rel.notes || "" }]).slice(0, 2);
+    notice({ id: "updBanner", tone: "update", title: "Mise à jour disponible", sub: `TVO ${rel.name} · tes réglages sont conservés`, lines,
+      onClose: () => LS.set("upd_snooze", { code: rel.code, until: Date.now() + 12 * 3600e3 }),
+      actions: [
+        { label: "Installer", primary: true, run: async (b, btn) => {
+          btn.disabled = true; btn.textContent = "Téléchargement…";
+          const pr = b.querySelector(".ntc-prog"); pr.hidden = false; pr.classList.add("busy");
+          if (await autoUpdate(true)) { btn.textContent = "Redémarrage…"; applyUpdate(); }
+          else { pr.hidden = true; btn.disabled = false; btn.textContent = "Réessayer"; toast("Échec du téléchargement, vérifie ta connexion."); }
+        } },
+        { label: "Plus tard", run: (b, btn, close) => close() },
+      ] });
   }
   /** Télécharge le nouveau code de l'appli et le garde pour les prochains démarrages. */
   async function autoUpdate(force = false) {
@@ -6143,7 +6181,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
   function applyUpdate() {
     if (!$("#player").hidden) return; // ne jamais couper une vidéo
     LS.set("seen_code", VERSION.code); // le récapitulatif s'affichera après le redémarrage
-    const ub = $("#updBanner"); if (ub) ub.querySelector(".ub-t small").textContent = "Installation…"; else toast(`Installation de TVO ${updateInfo.name}…`);
+    const ub = $("#updBanner"); if (ub) { const sm = ub.querySelector(".ntc-t small"); if (sm) sm.textContent = "Installation…"; } else toast(`Installation de TVO ${updateInfo.name}…`);
     setTimeout(() => location.reload(), 600);
   }
 
@@ -6280,6 +6318,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     setTimeout(() => {
       if (sp) { sp.classList.add("hide"); setTimeout(() => sp.remove(), 500); }
     }, 450);
+    setTimeout(adExpiryAlert, 3500);
   })();
   document.addEventListener("visibilitychange", () => { if (document.hidden && syncTimer) { clearTimeout(syncTimer); syncTimer = null; syncNow(); } });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate().then(async (r) => { if (!r) return; if ($("#player").hidden && await autoUpdate(true)) applyUpdate(); else showUpdateBanner(r); }); });
