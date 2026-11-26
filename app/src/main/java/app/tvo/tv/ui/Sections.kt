@@ -47,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import coil.compose.SubcomposeAsyncImageContent
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -843,7 +844,7 @@ private fun AllDebridBlock() {
                 Text("AD", fontSize = 15.sp, fontWeight = FontWeight.Black, color = Color(0xFF111111))
                 coil.compose.SubcomposeAsyncImage(model = "https://www.google.com/s2/favicons?domain=alldebrid.com&sz=128", contentDescription = "AllDebrid",
                     modifier = Modifier.matchParentSize(), error = {}, loading = {},
-                    success = { Box(Modifier.matchParentSize().background(Color.White).padding(7.dp)) { coil.compose.SubcomposeAsyncImageContent() } })
+                    success = { Box(Modifier.matchParentSize().background(Color.White).padding(7.dp)) { SubcomposeAsyncImageContent() } })
             }
             Spacer(Modifier.width(14.dp))
             Text("AllDebrid", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
