@@ -2352,7 +2352,8 @@ var qrcode = function() {
     trash: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4zm-3 6h12l-1 12H7z"/></svg>',
   };
   // Logo vectoriel dans le code : toujours net, et mis à jour avec l'appli (sans réinstaller)
-  const LOGO_SVG = `<svg class="tvo-logo" role="img" aria-label="TVO" xmlns="http://www.w3.org/2000/svg" viewBox="-10 -40 640 280"><defs>   <linearGradient id="tvoLg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#34E4D8"/><stop offset=".5" stop-color="#3D7CFF"/><stop offset="1" stop-color="#2A4FE6"/></linearGradient>   <linearGradient id="tvoLgl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>   <radialGradient id="tvoLbg" cx=".3" cy=".25" r="1"><stop offset="0" stop-color="#1B3A8C"/><stop offset=".6" stop-color="#0C1634"/><stop offset="1" stop-color="#070B1A"/></radialGradient>   <filter id="tvoLsh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#1d4dff" flood-opacity=".45"/></filter> </defs><g transform="translate(0 0)"><path d="M0 0 H150 V40 H96 V200 H54 V40 H0 Z" fill="#F3F6FF"/><path d="M170 0 H215 L262 146 L309 0 H354 L284 200 H240 Z" fill="#F3F6FF"/></g> <g transform="translate(372 -28) scale(.5)"><g filter="url(#tvoLsh)"><circle cx="256" cy="256" r="196" fill="none" stroke="url(#tvoLg)" stroke-width="36"/><path d="M212 172 Q212 152 230 162 L352 238 Q368 248 352 258 L230 334 Q212 344 212 324 Z" transform="translate(6 10)" fill="url(#tvoLg)"/></g><path d="M108 210 A156 156 0 0 1 300 104" fill="none" stroke="url(#tvoLgl)" stroke-width="14" stroke-linecap="round"/></g></svg>`;
+  // Logo TVO (fond transparent) ; lettres foncées en thème clair
+  const LOGO_SVG = `<span class="tvo-logo" role="img" aria-label="TVO"><img class="tl-w" src="logo-tvo.png" alt="TVO"><img class="tl-d" src="logo-tvo-sombre.png" alt=""></span>`;
   const LOGO = `<span class="logo">${LOGO_SVG}</span>`;
   // Écran de démarrage : créé ici s'il manque (anciennes installations dont la page d'origine ne l'avait pas)
   (() => {
@@ -5179,8 +5180,8 @@ var qrcode = function() {
     ["IconNuit", "Nuit", "#050505", "#3d7cff"], ["IconClair", "Clair", "linear-gradient(#fff,#e6edff)", "#3d7cff"],
     ["IconNoel", "Noël", "linear-gradient(135deg,#c8102e,#6b0a1a)", "#fff"], ["IconOr", "Or", "#121214", "#e0b04a"]];
   const APPICON = () => window.Capacitor && Capacitor.getPlatform && Capacitor.getPlatform() === "ios" && Capacitor.Plugins && Capacitor.Plugins.AppIcon;
-  const iconTile = ([n, label, bg, c]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev" style="background:${bg}">
-      <svg viewBox="0 0 512 512"><circle cx="256" cy="256" r="150" fill="none" stroke="${c}" stroke-width="28"/><path d="M220 186 Q220 170 234 178 L330 240 Q343 248 330 256 L234 318 Q220 326 220 310 Z" transform="translate(4 8)" fill="${c}"/></svg></span><span>${label}</span></button>`;
+  const ICON_FILE = { "": "classique", IconTurquoise: "turquoise", IconNuit: "nuit", IconClair: "clair", IconNoel: "noel", IconOr: "or" };
+  const iconTile = ([n, label]) => `<button class="aicon" data-icon="${n || ""}"><span class="aiprev"><img src="icons/${ICON_FILE[n || ""]}.png" alt=""></span><span>${label}</span></button>`;
   /** Réglages en sections repliables (ouvertes/fermées mémorisées). */
   // ---------- AllDebrid : connexion par code PIN, jours Premium restants (clé gardée sur cet appareil uniquement)
   const AD = "https://api.alldebrid.com";

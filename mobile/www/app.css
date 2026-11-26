@@ -2423,3 +2423,14 @@ html:not([data-mode="light"]) .card.source .srep { background: #3a2a30; color: #
 /* Logo officiel AllDebrid (icône du site), par-dessus le repli « AD » */
 .ad-ic { position: relative; overflow: hidden; }
 .ad-ic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 6px; background: #fff; }
+
+/* Logo TVO en image transparente (version blanche ; version foncée en thème clair, sauf sur l'écran de démarrage) */
+span.tvo-logo { display: inline-block; line-height: 0; }
+span.tvo-logo img { display: block; width: 100%; height: auto; }
+.logo span.tvo-logo, .tlogo span.tvo-logo { height: 100%; } .logo span.tvo-logo img, .tlogo span.tvo-logo img { height: 100%; width: auto; }
+.tvl-logo span.tvo-logo img { height: 64px; width: auto; }
+span.tvo-logo .tl-d { display: none; }
+html[data-mode="light"] span.tvo-logo .tl-w { display: none; } html[data-mode="light"] span.tvo-logo .tl-d { display: block; }
+html[data-mode="light"] .splash span.tvo-logo .tl-w { display: block; } html[data-mode="light"] .splash span.tvo-logo .tl-d { display: none; }
+/* Aperçus des icônes de l'appli (vraies images) */
+.aiprev { overflow: hidden; } .aiprev img { display: block; width: 100%; height: 100%; object-fit: cover; }
