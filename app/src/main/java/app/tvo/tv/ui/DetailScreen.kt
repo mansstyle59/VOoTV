@@ -340,8 +340,7 @@ fun PersonBubble(person: app.tvo.tv.data.Person, onFocus: () -> Unit = {}, onCli
     }
 }
 
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PersonScreen(id: String, nav: Nav) {
     val page by produceState<app.tvo.tv.data.Tmdb.PersonPage?>(null, id) { value = app.tvo.tv.data.Tmdb.person(id) }
