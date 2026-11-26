@@ -104,6 +104,7 @@ fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () 
     Column(Modifier.fillMaxSize()) {
         Text(title, Modifier.padding(start = 48.dp, top = 36.dp, bottom = 8.dp), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
         header()
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides GridCenterSpec) {
         LazyVerticalGrid(
             columns = GridCells.FixedSize(GridCardWidth),
             contentPadding = PaddingValues(horizontal = 48.dp, vertical = 16.dp),
@@ -114,6 +115,7 @@ fun PosterGrid(title: String, items: List<MetaPreview>, nav: Nav, onNearEnd: () 
                 PosterCard(item, { nav.openMeta(item) }, if (i == 0) Modifier.focusRequester(first) else Modifier, width = GridCardWidth,
                     onFocus = { if (i >= items.size - 14) onNearEnd() })
             }
+        }
         }
     }
     LaunchedEffect(items.isNotEmpty()) { if (items.isNotEmpty()) { delay(80); runCatching { first.requestFocus() } } }
@@ -172,6 +174,7 @@ private fun UniversePage(
                 if (items.isEmpty()) Text(if (loading) "Chargement…" else "Aucun titre trouvé pour le moment.",
                     Modifier.padding(start = 56.dp, top = 20.dp), fontSize = 17.sp, color = Color.White.copy(alpha = 0.7f))
                 else androidx.compose.runtime.key(type) {
+                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides GridCenterSpec) {
                     LazyVerticalGrid(
                         columns = GridCells.FixedSize(GridCardWidth),
                         contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 14.dp, bottom = 40.dp),
@@ -181,6 +184,7 @@ private fun UniversePage(
                         itemsIndexed(items, key = { _, it -> it.id }) { i, item ->
                             PosterCard(item, { nav.openMeta(item) }, Modifier, width = GridCardWidth, onFocus = { if (i >= items.size - 14) onNearEnd() })
                         }
+                    }
                     }
                 }
             }

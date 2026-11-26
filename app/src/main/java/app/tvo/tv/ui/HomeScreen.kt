@@ -127,18 +127,28 @@ val RowTopSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec
 val NoScrollSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float = 0f
 }
-/** Défilement horizontal normal (le minimum pour voir la carte) à l'intérieur des rangées. */
+/** Rangées : la carte choisie se cale toujours au même endroit à gauche (48 dp, l'alignement des titres).
+ *  C'est la liste qui glisse, pas le cadre : l'œil ne cherche jamais la sélection. En fin de rangée, la liste s'arrête net. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 val RowSideSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
-    // Garde toujours une marge de 48 dp à gauche et à droite : la carte choisie (agrandie) ne dépasse jamais de l'écran
     override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
-        val pad = 56f * UiScale.density
-        val end = offset + size
-        return when {
-            offset < pad -> offset - pad
-            end > containerSize - pad -> end - (containerSize - pad)
-            else -> 0f
-        }
+        if (containerSize <= 0f || size <= 0f) return 0f
+        val anchor = 48f * UiScale.density
+        // carte plus large que la place restante : on la colle à droite pour qu'elle reste entière
+        val target = if (size > containerSize - anchor) (containerSize - size).coerceAtLeast(0f) else anchor
+        return offset - target
+    }
+}
+
+/** Grilles (plateformes, catégories, acteurs, Ma liste) : la ligne choisie est ramenée vers le centre de l'écran,
+ *  on voit toujours ce qui vient au-dessus et en dessous. Petite zone morte pour éviter les micro-sauts. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+val GridCenterSpec = object : androidx.compose.foundation.gestures.BringIntoViewSpec {
+    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+        if (containerSize <= 0f || size <= 0f) return 0f
+        val d = (offset + size / 2f) - containerSize * 0.45f
+        val visible = offset >= 0f && offset + size <= containerSize
+        return if (visible && kotlin.math.abs(d) < 24f * UiScale.density) 0f else d
     }
 }
 

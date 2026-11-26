@@ -360,6 +360,7 @@ fun PersonScreen(id: String, nav: Nav) {
     val backToTop = Modifier.onFocusChanged { topFocus = it.hasFocus }
     // On attend la fin du défilement automatique de la télé, puis on remonte tout en haut (sinon les deux se battent et l'en-tête reste coupé)
     LaunchedEffect(topFocus) { if (topFocus) { kotlinx.coroutines.delay(250); runCatching { gridState.animateScrollToItem(0) } } }
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides GridCenterSpec) {
     androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
         state = gridState,
         columns = androidx.compose.foundation.lazy.grid.GridCells.FixedSize(GridCardWidth),
@@ -383,8 +384,10 @@ fun PersonScreen(id: String, nav: Nav) {
             Column(backToTop, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Connu pour", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TvoColors.Text)
                 val kfFr = remember { FocusRequester() }
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides RowSideSpec) {
                 androidx.compose.foundation.lazy.LazyRow(Modifier.focusRestorer { kfFr }, horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
                     items(p.knownFor.distinctBy { it.id }.size, key = { p.knownFor.distinctBy { it.id }[it].id }) { i -> val m = p.knownFor.distinctBy { it.id }[i]; PortraitCard(m, { nav.openMeta(m) }, if (i == 0) Modifier.focusRequester(kfFr) else Modifier) }
+                }
                 }
             }
         }
@@ -403,6 +406,7 @@ fun PersonScreen(id: String, nav: Nav) {
             val m = works[i]
             PortraitCard(m, { nav.openMeta(m) }, width = GridCardWidth)
         }
+    }
     }
     LaunchedEffect(p) { kotlinx.coroutines.delay(120); runCatching { first.requestFocus() } }
 }
