@@ -191,10 +191,9 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.0f to Color.Black.copy(alpha = 0.35f), 0.18f to Color.Transparent,
                 0.55f to Color.Transparent, 0.8f to Color.Black.copy(alpha = 0.75f), 1f to Color.Black.copy(alpha = 0.92f))))
         }
-        // Quand on parcourt les rangées : fond sombre progressif pour que visages et affiches restent nets
-        val rowsScrim by androidx.compose.animation.core.animateFloatAsState(if (heroFocused) 0f else 1f, androidx.compose.animation.core.tween(350), label = "scrim")
-        // Voile léger et uniforme (comme Nuvio) : l'image reste visible, le texte et les visages restent nets
-        Box(Modifier.fillMaxSize().graphicsLayer { alpha = rowsScrim }.background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.30f), 0.5f to Color.Black.copy(alpha = 0.42f), 1f to Color.Black.copy(alpha = 0.62f))))
+        // Pas de voile dynamique au changement de focus : il assombrissait toute la fiche
+        // lorsque l'utilisateur descendait vers la distribution ou les rangées.
+        // Le dégradé fixe de l'image au-dessus suffit à garder les textes lisibles.
         androidx.compose.runtime.CompositionLocalProvider(androidx.compose.foundation.gestures.LocalBringIntoViewSpec provides pageSpec) {
         LazyColumn(Modifier.fillMaxSize(), state = mainState, contentPadding = PaddingValues(top = 0.dp, bottom = 56.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item(key = "hero") {
