@@ -5807,8 +5807,8 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     // Sinon (MKV, DTS, en-têtes…) : moteur MPV. Si Safari échoue, on bascule tout seul sur MPV.
     const safariOk = (x) => !!x && !x.needsHeaders && !(x.headers && Object.keys(x.headers).length) && /\.(mp4|m4v|mov|m3u8)(\?|$)/i.test(x.url || "")
       && !/\bmkv\b|\bremux\b|\bdts\b|dts-hd|truehd|\bavi\b/i.test(`${x.name || ""} ${x.title || ""}`);
-    const useMpv = MPV() && m.type !== "tv" && (ctx.forceMpv || !LS.get("pip_auto", true) || !safariOk(s));
-    if (useMpv) { $("#vid").remove(); const pp = $("#pPip"); if (pp) pp.remove(); mpvVid = new MpvVideo(); document.documentElement.classList.add("mpv-on"); }
+    const useMpv = MPV() && m.type !== "tv" && !ctx.forceNative && (ctx.forceMpv || !LS.get("pip_auto", true) || !safariOk(s));
+    if (useMpv) { $("#vid").remove(); mpvVid = new MpvVideo(); document.documentElement.classList.add("mpv-on"); }
     const video = useMpv ? mpvVid : $("#vid");
     const fmt = (t) => { if (!isFinite(t)) return "En direct"; t = Math.max(0, Math.floor(t)); const h = Math.floor(t / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return (h ? h + ":" + String(mm).padStart(2, "0") : mm) + ":" + String(ss).padStart(2, "0"); };
     $("#pClose").addEventListener("click", closePlayer);
@@ -5909,6 +5909,13 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     if (pip) pip.addEventListener("click", async (e) => {
       e.stopPropagation();
       if (window.TvoPip) { TvoPip.enter(); return; }
+      // Lecteur MPV (MKV, HEVC…) : l'iPhone ne sait pas mettre ce lecteur en incrustation.
+      // Si le format le permet, on repasse sur le lecteur de l'iPhone à la même seconde, puis un 2e appui lance l'incrustation.
+      if (mpvVid) {
+        if (safariOk(s)) { const t = mpvVid.currentTime || 0; closePlayer(); openPlayer({ ...ctx, forceNative: true, forceMpv: false, start: t > 2 ? t : ctx.start }); toast("Touche encore l'icône pour lancer l'image dans l'image", 4000); }
+        else toast("Ce fichier (MKV, HEVC…) ne peut pas passer en image dans l'image sur iPhone. Choisis une source MP4 si tu en as besoin.", 5000);
+        return;
+      }
       try { if (video.webkitSetPresentationMode) video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
         else if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await video.requestPictureInPicture(); } catch { toast("Image dans l'image indisponible"); }
     });
@@ -5982,7 +5989,7 @@ ${sw(k, true)}</div>`).join("") || `<div class="card small muted">Aucun catalogu
     let failed = false;
     const fail = (why) => {
       if (failed || (useMpv ? !video.alive : !document.body.contains(video))) return;
-      if (!useMpv && MPV() && m.type !== "tv" && !ctx.forceMpv) { failed = true; const t = video.currentTime || 0; closePlayer(); openPlayer({ ...ctx, forceMpv: true, start: t > 5 ? t : ctx.start }); return; }
+      if (!useMpv && MPV() && m.type !== "tv" && !ctx.forceMpv) { failed = true; const t = video.currentTime || 0; closePlayer(); openPlayer({ ...ctx, forceMpv: true, forceNative: false, start: t > 5 ? t : ctx.start }); return; }
       failed = true;
       if (useMpv) { video.alive = false; clearInterval(video._poll); }
       const nx = nextSource(s);

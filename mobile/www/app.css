@@ -2359,3 +2359,7 @@ html:root .nvm-btn + .nvm-btn { border-top: 1px solid rgba(255,255,255,.08); }
 .ad-days.ok b { color: #22c55e; } .ad-days.warn b { color: #f59e0b; } .ad-days.bad b { color: #ef4444; }
 .ad-pin { text-align: center; font-size: 44px; font-weight: 900; letter-spacing: .25em; padding: 10px 0; font-variant-numeric: tabular-nums; }
 html[data-mode="light"]:root .ad-days { background: rgba(15,23,42,.06); }
+
+/* Lecteur : heure en haut à gauche (alignée à gauche), boutons Image dans l'image / verrou / fermer en haut à droite */
+.nf-top .pl-clock { margin-left: 0; margin-right: auto; justify-items: start; text-align: left; }
+.nf-top #pPip { order: 1; } .nf-top #pLock { order: 2; } .nf-top #pClose { order: 3; }
