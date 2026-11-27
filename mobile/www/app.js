@@ -4210,7 +4210,10 @@ var qrcode = function() {
       if (heroDone) return; heroDone = true;
       // Films et Séries : pas d'affiche qui défile, la page commence par les rangées
       if (type) { const h = $("#hero"); if (h) h.remove(); return; }
-      if (list.length) (isDesk() ? renderHero : renderCarousel)($("#hero"), list);
+      // Accueil : l'en-tête montre le Top 10 de la semaine (catalogue de secours si le Top 10 ne répond pas ; profil enfant : catalogues enfants)
+      const show = (l) => { if (l.length && $("#hero")) (isDesk() ? renderHero : renderCarousel)($("#hero"), l); };
+      if (tmdbOn() && !(S.profile && S.profile.kids)) top10Items(null).then((t) => show(t && t.length >= 3 ? t.slice(0, 10) : list)).catch(() => show(list));
+      else show(list);
     });
   }
 

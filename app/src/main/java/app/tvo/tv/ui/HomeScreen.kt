@@ -483,7 +483,13 @@ fun BrowseSection(type: String?, nav: Nav) {
     // et on passe aux rangées suivantes si la première ne répond pas, au lieu de laisser l'en-tête vide.
     val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key, epoch) {
         val cands = rows.take(4)
+        // Accueil : l'en-tête montre le Top 10 de la semaine (profil enfant : ses catalogues enfants)
+        val top = type == null && prof?.kids != true && app.tvo.tv.data.Tmdb.enabled
         for (attempt in 0 until 6) {
+            if (top) {
+                val t = runCatching { app.tvo.tv.data.Tmdb.top10(null) }.getOrNull().orEmpty().filter { it.background != null || it.poster != null }
+                if (t.size >= 3) { value = t.take(10); return@produceState }
+            }
             for (r in cands) {
                 val got = runCatching { Tvo.client.catalog(r.addon, r.cat, r.extra) }.getOrNull().orEmpty()
                     .filter { it.background != null || it.poster != null }
