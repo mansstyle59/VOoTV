@@ -434,6 +434,8 @@ fun applyHome(rows: List<RowSource>, h: app.tvo.tv.data.HomeLayout): List<RowSou
 data class RowSource(val key: String, val title: String, val addon: Addon, val cat: CatalogDef, val extra: Map<String, String> = emptyMap())
 
 private val homeGenres = listOf("Action", "Comedy", "Animation", "Sci-Fi", "Horror", "Thriller", "Drama", "Documentary")
+/** Profil enfant : seulement les catégories qui ont des titres adaptés (croisés avec « Famille »). */
+private val kidsGenres = listOf("Animation", "Comedy", "Family", "Adventure", "Fantasy")
 
 fun buildRows(addons: List<Addon>, type: String?, kidsAllowed: Boolean = addons.isNotEmpty() && addons.all { a -> a.manifest.catalogs.all { it.id.startsWith("kids") } }): List<RowSource> {
     val rows = mutableListOf<RowSource>()
@@ -477,9 +479,18 @@ fun BrowseSection(type: String?, nav: Nav) {
     val hidden = if (type == null) home.hidden else emptyList()
     val cont = remember(progress, type) { if (kidsPage) emptyList() else store.continueWatching(progress).filter { type == null || it.type == type } }
     val lib = remember(library, type) { if (kidsPage) emptyList() else library.filter { type == null || it.type == type } }
+    // En-tête : à l'allumage de la télé, la connexion n'est pas toujours prête. On réessaie (jusqu'à ~30 s)
+    // et on passe aux rangées suivantes si la première ne répond pas, au lieu de laisser l'en-tête vide.
     val heroItems by produceState<List<MetaPreview>>(emptyList(), rows.firstOrNull()?.key, epoch) {
-        val r = rows.firstOrNull()
-        value = r?.let { runCatching { Tvo.client.catalog(it.addon, it.cat, it.extra) }.getOrNull() }?.take(5) ?: emptyList()
+        val cands = rows.take(4)
+        for (attempt in 0 until 6) {
+            for (r in cands) {
+                val got = runCatching { Tvo.client.catalog(r.addon, r.cat, r.extra) }.getOrNull().orEmpty()
+                    .filter { it.background != null || it.poster != null }
+                if (got.isNotEmpty()) { value = got.take(5); return@produceState }
+            }
+            delay(2000L + attempt * 2000L)
+        }
     }
 
     Immersive(heroItems, nav, key = type) {
@@ -640,11 +651,14 @@ private fun GenreTilesSelect(g: String, img: String?) = MetaPreview("genre:$g", 
 @Composable
 private fun GenreTiles(nav: Nav, type: String = "movie", onFocus: () -> Unit) {
     val select = LocalSelect.current
-    val fresh by produceState<Map<String, String>>(emptyMap()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.genreBackdrops(homeGenres) else emptyMap() }
+    val fresh by produceState<Map<String, String>>(emptyMap()) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.genreBackdrops(homeGenres + kidsGenres) else emptyMap() }
     PanelSection("Catégories") {
         val rf = rememberRowFocus()
+        val kidsProfile = Tvo.store.currentProfile.collectAsState().value?.kids == true
+        // Profil enfant : catégories pour enfants seulement ; séries : pas d'« Aventure » ni « Fantastique » (n'existent pas en séries)
+        val genres = if (kidsProfile) kidsGenres.filter { type != "series" || it in app.tvo.tv.data.Tmdb.TV_GENRES } else homeGenres
         LazyRow(Modifier.rowEnter(rf), contentPadding = PaddingValues(horizontal = 48.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            itemsIndexed(homeGenres) { gi, g -> RowItem(rf, gi) {
+            itemsIndexed(genres) { gi, g -> RowItem(rf, gi) {
                 val shape = SquircleShape(12.dp)
                 Surface(
                     onClick = { nav.openGenre(type, g) },

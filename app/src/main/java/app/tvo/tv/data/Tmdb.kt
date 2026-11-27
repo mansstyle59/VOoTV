@@ -140,7 +140,7 @@ object Tmdb {
             if (o.arr("catalogs") != null) { applyRemote(o); Tvo.store.setRemoteCats(o.toString()) }
         }
     }
-    private fun live(): Addon {
+    internal fun live(): Addon {
         val base = addon.manifest.catalogs.filter { it.id !in hidden && it.id !in remote }
         return addon.copy(manifest = addon.manifest.copy(catalogs = base + remote.values.map { it.cat }.filter { it.id !in hidden }))
     }
@@ -204,6 +204,9 @@ object Tmdb {
         val o = when {
             remote[cat.id] != null -> remote.getValue(cat.id).let { rc -> get("/${rc.path}", rc.params.mapValues { expand(it.value) } + ("page" to page)) }
             search != null -> get("/search/$k", mapOf("query" to search, "page" to page))
+            // Profil enfant : le genre est croisé avec « Famille » (films) ou « Enfants » (séries), et les genres adultes sont exclus
+            genre != null && extra["kids"] == "1" -> get("/discover/$k", mapOf("with_genres" to (if (genre == 10751 || genre == 10762) "$genre" else if (k == "tv") "$genre,10762" else "$genre,10751"),
+                "without_genres" to "27,53,80,10749,10752", "sort_by" to "popularity.desc", "page" to page, "vote_count.gte" to "10"))
             genre != null -> get("/discover/$k", mapOf("with_genres" to genre.toString(), "sort_by" to "popularity.desc", "page" to page, "vote_count.gte" to "50"))
             cat.id == "trending" -> get("/trending/$k/week", mapOf("page" to page))
             cat.id == "now_playing" -> get("/movie/now_playing", mapOf("page" to page, "region" to "FR"))

@@ -235,7 +235,9 @@ fun GenreScreen(type: String, genre: String, nav: Nav) {
     if (genre.startsWith("col:")) return CollectionScreen(genre.removePrefix("col:"), nav)
     val rawAddons by Tvo.store.addons.collectAsState()
     val tmdbKey by Tvo.store.tmdbKey.collectAsState()
-    val addons = remember(rawAddons, tmdbKey) { app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, Tvo.store.currentProfile.value?.kids == true) }
+    val kids = Tvo.store.currentProfile.value?.kids == true
+    // Profil enfant : catalogue par genre de TMDB, filtré pour les enfants (les catalogues enfants n'ont pas de genres)
+    val addons = remember(rawAddons, tmdbKey) { if (kids) listOf(app.tvo.tv.data.Tmdb.live()) else app.tvo.tv.data.Tmdb.withTmdb(Tvo.store.allowed(rawAddons), tmdbKey, false) }
     var t by rememberSaveable { mutableStateOf(if (type == "series") "series" else "movie") }
     val items = remember { mutableStateListOf<MetaPreview>() }
     var loading by remember { mutableStateOf(false) }
@@ -249,7 +251,7 @@ fun GenreScreen(type: String, genre: String, nav: Nav) {
         if (loading || end || sc == null) return
         loading = true
         scope.launch {
-            val extra = buildMap { put("genre", genre); if (items.isNotEmpty() && sc.second.supports("skip")) put("skip", items.size.toString()) }
+            val extra = buildMap { put("genre", genre); if (kids) put("kids", "1"); if (items.isNotEmpty() && sc.second.supports("skip")) put("skip", items.size.toString()) }
             val page = runCatching { Tvo.client.catalog(sc.first, sc.second, extra) }.getOrDefault(emptyList())
             if (sc != src) return@launch
             val fresh = page.filter { p -> items.none { it.id == p.id } }
