@@ -57,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -322,13 +323,21 @@ fun Immersive(hero: List<MetaPreview>, nav: Nav, key: Any?, rows: androidx.compo
         if (m != null) {
             val tv = m.type == "tv" || m.type == "channel"
             // Grande image à droite, fondue vers la gauche (façon Nuvio / Netflix)
-            FbImage(m.background ?: m.poster, m.id, false, null,
-                Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd).let { if (tv) it.padding(60.dp) else it },
-                contentScale = if (tv) ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.TopCenter else Alignment.Center)
-            Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
-                .background(Brush.horizontalGradient(0f to TvoColors.Bg, 0.35f to Color(0x990A0F1E), 1f to Color.Transparent)))
-            Box(Modifier.fillMaxWidth(0.64f).fillMaxHeight(0.66f).align(Alignment.TopEnd)
-                .background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to TvoColors.Bg)))
+            // L'image s'efface en transparence vers la gauche et vers le bas : elle se fond dans le fond d'ambiance,
+            // quelle que soit sa couleur (avant : un dégradé noir qui laissait un trait vertical net)
+            Box(Modifier.fillMaxWidth(0.68f).fillMaxHeight(0.7f).align(Alignment.TopEnd)
+                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(Brush.horizontalGradient(0f to Color.Transparent, 0.42f to Color.Black.copy(alpha = 0.75f), 0.7f to Color.Black),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                    drawRect(Brush.verticalGradient(0.55f to Color.Black, 1f to Color.Transparent),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                }) {
+                FbImage(m.background ?: m.poster, m.id, false, null,
+                    Modifier.fillMaxSize().let { if (tv) it.padding(60.dp) else it },
+                    contentScale = if (tv) ContentScale.Fit else ContentScale.Crop, alignment = if (m.type == "person") Alignment.TopCenter else Alignment.Center)
+            }
         }
         Column(Modifier.fillMaxSize()) {
             Column(Modifier.padding(start = 48.dp, top = if (inRows) 22.dp else NavBarHeight + 4.dp).width(470.dp).height(if (inRows) 250.dp else 240.dp)) {
