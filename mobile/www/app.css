@@ -2589,3 +2589,11 @@ html[data-mode="light"] #app.is-home .homebar h1 { text-shadow: none; }
   html .tabs, html.glass .tabs { padding-bottom: 8px; }
   html[data-mode="light"] .tabs { border-left: 0; border-right: 0; }
 }
+/* « Prochainement » : bouton et bandeau sur l'affiche */
+.nv-play.soon { background: color-mix(in srgb, #f59e0b 22%, var(--surface)) !important; color: #fbbf24 !important; border: 1px solid rgba(245,158,11,.45); box-shadow: none !important; }
+.nv-play.soon svg { width: 20px; height: 20px; fill: none !important; }
+html[data-mode="light"] .nv-play.soon { color: #b45309 !important; background: #fef3c7 !important; border-color: #f59e0b; }
+.nv-hero .nv-soon { position: absolute; top: calc(var(--safe-top) + 64px); right: 16px; z-index: 3; display: grid; justify-items: center; gap: 1px; padding: 8px 14px; border-radius: 14px;
+  background: linear-gradient(135deg, #f59e0b, #d97706); color: #111; font-weight: 900; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.nv-hero .nv-soon small { font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+@supports (corner-shape: squircle) { .nv-hero .nv-soon { corner-shape: squircle; } }

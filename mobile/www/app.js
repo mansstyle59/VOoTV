@@ -2806,7 +2806,7 @@ var qrcode = function() {
         id: imdb || b.id || `tmdb:${type}:${tid}`, type, name: d.title || d.name || b.name || "",
         poster: timg(d.poster_path, "w500") || b.poster || null, background: timg((((d.images && d.images.backdrops) || []).find((x) => !x.iso_639_1) || {}).file_path || d.backdrop_path, "w1280") || b.background || null,
         logo: timg(logo, "w500") || b.logo || null, description: d.overview || null,
-        releaseInfo: b.releaseInfo || date.slice(0, 4) || null, imdbRating: b.imdbRating || rating(d.vote_average),
+        released: b.released || date || null, releaseInfo: b.releaseInfo || date.slice(0, 4) || null, imdbRating: b.imdbRating || rating(d.vote_average),
         genres: (d.genres || []).map((g) => g.name).filter(Boolean).length ? d.genres.map((g) => g.name) : (b.genres || []),
         runtime: d.runtime ? d.runtime + " min" : (d.episode_run_time && d.episode_run_time[0] ? d.episode_run_time[0] + " min" : b.runtime || null),
         cast: ((d.credits && d.credits.cast) || []).slice(0, 6).map((c) => c.name).filter(Boolean),
@@ -5071,7 +5071,29 @@ var qrcode = function() {
     }).catch(() => {});
 
     // Actions
-    $("#play").addEventListener("click", () => go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`));
+    $("#play").addEventListener("click", (e) => {
+      if (e.currentTarget.classList.contains("soon")) { toast(e.currentTarget.dataset.msg || "Pas encore disponible dans tes sources. Reviens bientôt !", 3500); return; }
+      go(`#/sources/${enc(m.type)}/${enc(m.id)}/${enc(vid)}`);
+    });
+    // « Prochainement » : sortie à venir, ou aucune source dans les add-ons (une source bloquée pour la langue compte comme présente)
+    (() => {
+      const pb = $("#play"); if (!pb) return;
+      const rel = m.released ? new Date(m.released) : null;
+      const future = rel && !isNaN(rel) && rel.getTime() > Date.now() + 864e5;
+      const markSoon = (why) => {
+        if (!document.body.contains(pb)) return;
+        const date = future ? rel.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "";
+        pb.classList.add("soon");
+        pb.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Prochainement${date ? ` · ${esc(date)}` : ""}</span>`;
+        pb.dataset.msg = why;
+        const h = $(".nv-hero"); if (h && !h.querySelector(".nv-soon")) h.insertAdjacentHTML("beforeend", `<span class="nv-soon">Prochainement${date ? `<small>${esc(date)}</small>` : ""}</span>`);
+      };
+      if (future) { markSoon("Sortie prévue le " + rel.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) + "."); return; }
+      if (m.type !== "movie") return;
+      const st = streams("movie", m.id);
+      if (!st.total) return;
+      st.done.then((list) => { if (!list.length) markSoon("Pas encore disponible dans tes sources. Reviens bientôt !"); }).catch(() => {});
+    })();
     const toggleL = () => { toggleLib(m); const ic = inLib(m.id) ? ICON.check : I_PLUS; $("#libTop").innerHTML = ic; $("#lib").innerHTML = ic; toast(inLib(m.id) ? "Ajouté à ta liste" : "Retiré de ta liste"); };
     $("#libTop").addEventListener("click", toggleL);
     $("#lib").addEventListener("click", toggleL);

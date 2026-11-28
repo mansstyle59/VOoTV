@@ -122,6 +122,18 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val seasons = remember(meta) { meta.episodes.mapNotNull { it.season }.distinct() }
     var season by remember(meta) { mutableStateOf(targetVideo?.season ?: seasons.firstOrNull()) }
     val playFr = remember { FocusRequester() }
+    // « Prochainement » : sortie à venir, ou aucune source dans les add-ons (une source bloquée pour la langue compte comme présente)
+    var soon by remember(p.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(p.id) {
+        val y = p.releaseInfo?.take(4)?.toIntOrNull()
+        if (y != null && y > java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)) { soon = "Sortie prévue en $y"; return@LaunchedEffect }
+        if (p.type != "movie") return@LaunchedEffect
+        val addons = Tvo.store.allowed(Tvo.store.addons.value)
+        if (Tvo.client.streamAddonCount(addons, "movie", p.id) == 0) return@LaunchedEffect
+        var any = false
+        Tvo.client.streams(addons, "movie", p.id).collect { if (it.items.isNotEmpty()) any = true }
+        if (!any) soon = "Pas encore disponible dans tes sources"
+    }
     // Bande-annonce VF : jamais en fond de l'affiche ; le bouton la lance en plein écran avec le son (Retour = fermer).
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }
     var trailerMode by remember(p.id) { mutableStateOf(0) }
@@ -202,7 +214,8 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
                         // Boutons d'abord (pilule « Regarder » + boutons ronds), comme sur la maquette
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PillButton(if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) "Reprendre" else "Regarder", {
+                            if (soon != null) SoonButton(soon!!, Modifier.focusRequester(playFr)) { android.widget.Toast.makeText(ctx, soon + ". Reviens bientôt !", android.widget.Toast.LENGTH_LONG).show() }
+                            else PillButton(if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) "Reprendre" else "Regarder", {
                                 if (targetProgress != null && !targetProgress.finished && targetProgress.fraction > 0.02f) resumeFast(ctx, scope, nav, p.type, p.id, target)
                                 else nav.openStreams(p.type, p.id, target)
                             }, Modifier.focusRequester(playFr))
@@ -541,5 +554,29 @@ private fun RatingTag(src: String, bg: Color, fg: Color, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(src, Modifier.clip(SquircleShape(4.dp)).background(bg).padding(horizontal = 6.dp, vertical = 1.dp), fontSize = 12.sp, fontWeight = FontWeight.Black, color = fg)
         Text(value, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
+
+
+/** Bouton « Prochainement » (ambre) à la place de « Regarder » quand le titre n'a pas encore de source. */
+@Composable
+private fun SoonButton(why: String, modifier: Modifier, onClick: () -> Unit) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(50)
+    androidx.tv.material3.Surface(onClick = onClick, modifier = modifier.height(52.dp),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
+        border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+            border = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(1.5.dp, Color(0x80F59E0B)), shape = shape),
+            focusedBorder = androidx.tv.material3.Border(androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = shape)),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0x38F59E0B), contentColor = Color(0xFFFBBF24),
+            focusedContainerColor = Color(0xFFF59E0B), focusedContentColor = Color(0xFF111111))) {
+        Row(Modifier.padding(horizontal = 26.dp).fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
+            androidx.tv.material3.Icon(androidx.compose.material.icons.Icons.Default.DateRange, null, Modifier.size(22.dp))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text("Prochainement", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text(why, fontSize = 11.sp, maxLines = 1)
+            }
+        }
     }
 }
