@@ -79,8 +79,16 @@ object Tmdb {
             m == 1 && day <= 7 -> "new year's eve" to "Nouvel An"
             else -> null
         } ?: return emptyList()
-        return listOf(cat("movie", "ev_${ev.first}_new", "Films de ${ev.second} récents"), cat("series", "ev_${ev.first}_tv", "Séries de ${ev.second}"), cat("movie", "ev_${ev.first}_old", "Classiques de ${ev.second}"))
+        val base = listOf(cat("movie", "ev_${ev.first}_new", "Films de ${ev.second} récents"), cat("series", "ev_${ev.first}_tv", "Séries de ${ev.second}"), cat("movie", "ev_${ev.first}_old", "Classiques de ${ev.second}"))
+        // Noël : catalogues plus complets (tous les films, en famille, téléfilms)
+        return if (ev.first == "christmas") listOf(cat("movie", "ev_christmas_all", "Films de Noël")) + base.take(1) +
+            listOf(cat("movie", "ev_christmas_fam", "Noël en famille"), cat("movie", "ev_christmas_tvm", "Téléfilms de Noël")) + base.drop(1)
+        else base
     }
+    /** Mots-clés TMDB d'un événement (plusieurs pour Noël : bien plus de films trouvés), réunis par « ou ». */
+    private val EVENT_KW = mapOf("christmas" to listOf("christmas", "santa claus", "christmas eve", "christmas party", "christmas tree", "holiday season", "christmas spirit", "christmas present"))
+    private suspend fun eventKeywords(ev: String): String? =
+        (EVENT_KW[ev] ?: listOf(ev)).mapNotNull { keywordId(it) }.distinct().joinToString("|").ifEmpty { null }
     private val kw = ConcurrentHashMap<String, String>()
     private suspend fun keywordId(q: String): String? = kw[q] ?: runCatching {
         val r = get("/search/keyword", mapOf("query" to q)).arr("results")?.mapNotNull { it as? JsonObject } ?: emptyList()
@@ -226,12 +234,16 @@ object Tmdb {
             cat.id.startsWith("tvtype_") -> get("/discover/tv", mapOf("page" to page, "with_type" to cat.id.removePrefix("tvtype_"), "sort_by" to "popularity.desc", "vote_count.gte" to "20"))
             cat.id == "anime" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16", "with_original_language" to "ja", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
             cat.id.startsWith("ev_") -> {
-                val parts = cat.id.split("_"); val id = keywordId(parts[1])
-                if (id == null) JsonObject(emptyMap()) else if (parts[2] == "tv") get("/discover/tv", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc",
-                    "first_air_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "5"))
-                else get("/discover/movie", mapOf("page" to page, "with_keywords" to id,
-                    "sort_by" to if (parts[2] == "new") "primary_release_date.desc" else "vote_average.desc",
-                    "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to if (parts[2] == "new") "15" else "200"))
+                val parts = cat.id.split("_"); val id = eventKeywords(parts[1]); val now = java.time.LocalDate.now().toString()
+                if (id == null) JsonObject(emptyMap()) else when (parts[2]) {
+                    "tv" -> get("/discover/tv", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc", "first_air_date.lte" to now, "vote_count.gte" to "3"))
+                    "all" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "20"))
+                    "fam" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "with_genres" to "10751|16", "without_genres" to "27,53", "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "10"))
+                    "tvm" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "with_genres" to "10770", "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "3"))
+                    "new" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "primary_release_date.desc", "primary_release_date.lte" to now,
+                        "primary_release_date.gte" to monthsAgo(48), "vote_count.gte" to "5"))
+                    else -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "vote_average.desc", "primary_release_date.lte" to now, "vote_count.gte" to "150"))
+                }
             }
             cat.id == "latest" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "primary_release_date.desc",
                 "primary_release_date.lte" to java.time.LocalDate.now().toString(), "vote_count.gte" to "20", "with_release_type" to "3|4|6"))

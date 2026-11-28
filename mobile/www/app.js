@@ -2664,8 +2664,13 @@ var qrcode = function() {
       : mo === 2 && day <= 15 ? ["valentine's day", "Saint-Valentin"] : (mo === 3 && day >= 15) || (mo === 4 && day <= 25) ? ["easter", "Pâques"]
       : mo === 7 || mo === 8 ? ["summer vacation", "Vacances d'été"] : mo === 1 && day <= 7 ? ["new year's eve", "Nouvel An"] : null;
     if (!ev) return [];
-    return [tcat("movie", `ev_${ev[0]}_new`, `Films de ${ev[1]} récents`), tcat("series", `ev_${ev[0]}_tv`, `Séries de ${ev[1]}`), tcat("movie", `ev_${ev[0]}_old`, `Classiques de ${ev[1]}`)];
+    const base = [tcat("movie", `ev_${ev[0]}_new`, `Films de ${ev[1]} récents`), tcat("series", `ev_${ev[0]}_tv`, `Séries de ${ev[1]}`), tcat("movie", `ev_${ev[0]}_old`, `Classiques de ${ev[1]}`)];
+    // Noël : catalogues plus complets (tous les films, en famille, téléfilms)
+    return ev[0] === "christmas" ? [tcat("movie", "ev_christmas_all", "Films de Noël"), base[0], tcat("movie", "ev_christmas_fam", "Noël en famille"), tcat("movie", "ev_christmas_tvm", "Téléfilms de Noël"), base[1], base[2]] : base;
   }
+  /** Mots-clés TMDB d'un événement (plusieurs pour Noël : bien plus de films trouvés), réunis par « ou ». */
+  const EVENT_KW = { christmas: ["christmas", "santa claus", "christmas eve", "christmas party", "christmas tree", "holiday season", "christmas spirit", "christmas present"] };
+  async function eventKeywords(ev) { const ids = (await Promise.all((EVENT_KW[ev] || [ev]).map((q) => keywordId(q).catch(() => null)))).filter(Boolean); return ids.length ? [...new Set(ids)].join("|") : null; }
   const kwCache = {};
   async function keywordId(q) {
     if (kwCache[q]) return kwCache[q];
@@ -2705,10 +2710,14 @@ var qrcode = function() {
           with_genres: "10751|16", without_genres: "27,53,80,10749", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(36), "primary_release_date.lte": today(), "vote_count.gte": "20" })
       : c.id === "recent_pop" ? await tget("/discover/movie", { page, region: "FR", sort_by: "popularity.desc", "primary_release_date.gte": monthsAgo(8), "primary_release_date.lte": today(), "vote_count.gte": "40" })
       : c.id === "latest_tv" ? await tget("/discover/tv", { page, sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(8), "first_air_date.lte": today(), "vote_count.gte": "15" })
-      : c.id.startsWith("ev_") ? await (async () => { const [, q, kind] = c.id.split("_"); const kw = await keywordId(q); if (!kw) return { results: [] };
-          if (kind === "tv") return tget("/discover/tv", { page, with_keywords: kw, sort_by: "popularity.desc", "first_air_date.lte": today(), "vote_count.gte": "5" });
-          return tget("/discover/movie", { page, with_keywords: kw, sort_by: kind === "new" ? "primary_release_date.desc" : "vote_average.desc",
-            "primary_release_date.lte": today(), "vote_count.gte": kind === "new" ? "15" : "200" }); })()
+      : c.id.startsWith("ev_") ? await (async () => { const [, q, kind] = c.id.split("_"); const kw = await eventKeywords(q); if (!kw) return { results: [] };
+          const now = today();
+          if (kind === "tv") return tget("/discover/tv", { page, with_keywords: kw, sort_by: "popularity.desc", "first_air_date.lte": now, "vote_count.gte": "3" });
+          if (kind === "all") return tget("/discover/movie", { page, with_keywords: kw, sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "20" });
+          if (kind === "fam") return tget("/discover/movie", { page, with_keywords: kw, with_genres: "10751|16", without_genres: "27,53", sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "10" });
+          if (kind === "tvm") return tget("/discover/movie", { page, with_keywords: kw, with_genres: "10770", sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "3" });
+          if (kind === "new") return tget("/discover/movie", { page, with_keywords: kw, sort_by: "primary_release_date.desc", "primary_release_date.lte": now, "primary_release_date.gte": monthsAgo(48), "vote_count.gte": "5" });
+          return tget("/discover/movie", { page, with_keywords: kw, sort_by: "vote_average.desc", "primary_release_date.lte": now, "vote_count.gte": "150" }); })()
       : c.id === "latest" ? await tget("/discover/movie", { page, region: "FR", sort_by: "primary_release_date.desc", "primary_release_date.lte": today(), "vote_count.gte": "20", with_release_type: "3|4|6" })
       : c.id.startsWith("pv_") ? await (async () => { const [, pid, sort, genre] = c.id.split("_");
           return tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate", ...(genre ? { with_genres: genre } : {}),
