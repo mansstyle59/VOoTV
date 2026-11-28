@@ -235,14 +235,20 @@ object Tmdb {
             cat.id == "anime" -> get("/discover/tv", mapOf("page" to page, "with_genres" to "16", "with_original_language" to "ja", "sort_by" to "popularity.desc", "vote_count.gte" to "50"))
             cat.id.startsWith("ev_") -> {
                 val parts = cat.id.split("_"); val id = eventKeywords(parts[1]); val now = java.time.LocalDate.now().toString()
+                // Rangées d'événement : 3 pages TMDB par chargement (~60 titres au lieu de 20)
+                val p0 = (extra["skip"]?.toIntOrNull() ?: 0) / 60 * 3 + 1
+                suspend fun get(path: String, q: Map<String, String>): JsonObject {
+                    val all = (0 until 3).flatMap { i -> runCatching { this@Tmdb.get(path, q + ("page" to (p0 + i).toString())).arr("results").orEmpty() }.getOrDefault(emptyList()) }
+                    return JsonObject(mapOf("results" to kotlinx.serialization.json.JsonArray(all.distinctBy { (it as? JsonObject)?.get("id")?.toString() ?: it.hashCode().toString() })))
+                }
                 if (id == null) JsonObject(emptyMap()) else when (parts[2]) {
                     "tv" -> get("/discover/tv", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc", "first_air_date.lte" to now, "vote_count.gte" to "3"))
-                    "all" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "20"))
-                    "fam" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "with_genres" to "10751|16", "without_genres" to "27,53", "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "10"))
-                    "tvm" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "with_genres" to "10770", "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "3"))
+                    "all" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "5"))
+                    "fam" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "with_genres" to "10751|16", "without_genres" to "27,53", "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "3"))
+                    "tvm" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "with_genres" to "10770", "sort_by" to "popularity.desc", "primary_release_date.lte" to now, "vote_count.gte" to "1"))
                     "new" -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "primary_release_date.desc", "primary_release_date.lte" to now,
-                        "primary_release_date.gte" to monthsAgo(48), "vote_count.gte" to "5"))
-                    else -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "vote_average.desc", "primary_release_date.lte" to now, "vote_count.gte" to "150"))
+                        "primary_release_date.gte" to monthsAgo(60), "vote_count.gte" to "2"))
+                    else -> get("/discover/movie", mapOf("page" to page, "with_keywords" to id, "sort_by" to "vote_average.desc", "primary_release_date.lte" to now, "vote_count.gte" to "80"))
                 }
             }
             cat.id == "latest" -> get("/discover/movie", mapOf("page" to page, "region" to "FR", "sort_by" to "primary_release_date.desc",

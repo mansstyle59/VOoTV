@@ -2712,12 +2712,16 @@ var qrcode = function() {
       : c.id === "latest_tv" ? await tget("/discover/tv", { page, sort_by: "popularity.desc", "first_air_date.gte": monthsAgo(8), "first_air_date.lte": today(), "vote_count.gte": "15" })
       : c.id.startsWith("ev_") ? await (async () => { const [, q, kind] = c.id.split("_"); const kw = await eventKeywords(q); if (!kw) return { results: [] };
           const now = today();
-          if (kind === "tv") return tget("/discover/tv", { page, with_keywords: kw, sort_by: "popularity.desc", "first_air_date.lte": now, "vote_count.gte": "3" });
-          if (kind === "all") return tget("/discover/movie", { page, with_keywords: kw, sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "20" });
-          if (kind === "fam") return tget("/discover/movie", { page, with_keywords: kw, with_genres: "10751|16", without_genres: "27,53", sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "10" });
-          if (kind === "tvm") return tget("/discover/movie", { page, with_keywords: kw, with_genres: "10770", sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "3" });
-          if (kind === "new") return tget("/discover/movie", { page, with_keywords: kw, sort_by: "primary_release_date.desc", "primary_release_date.lte": now, "primary_release_date.gte": monthsAgo(48), "vote_count.gte": "5" });
-          return tget("/discover/movie", { page, with_keywords: kw, sort_by: "vote_average.desc", "primary_release_date.lte": now, "vote_count.gte": "150" }); })()
+          // Rangées d'événement : 3 pages TMDB par chargement (~60 titres au lieu de 20)
+          const p0 = Math.floor((Number(extra.skip) || 0) / 60) * 3 + 1;
+          const tget3 = async (path, prm) => { const r = await Promise.all([0, 1, 2].map((i) => tget(path, { ...prm, page: String(p0 + i) }).catch(() => ({ results: [] }))));
+            const seen = new Set(); return { results: r.flatMap((x) => x.results || []).filter((o) => !seen.has(o.id) && seen.add(o.id)) }; };
+          if (kind === "tv") return tget3("/discover/tv", { with_keywords: kw, sort_by: "popularity.desc", "first_air_date.lte": now, "vote_count.gte": "1" });
+          if (kind === "all") return tget3("/discover/movie", { with_keywords: kw, sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "5" });
+          if (kind === "fam") return tget3("/discover/movie", { with_keywords: kw, with_genres: "10751|16", without_genres: "27,53", sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "3" });
+          if (kind === "tvm") return tget3("/discover/movie", { with_keywords: kw, with_genres: "10770", sort_by: "popularity.desc", "primary_release_date.lte": now, "vote_count.gte": "1" });
+          if (kind === "new") return tget3("/discover/movie", { with_keywords: kw, sort_by: "primary_release_date.desc", "primary_release_date.lte": now, "primary_release_date.gte": monthsAgo(60), "vote_count.gte": "2" });
+          return tget3("/discover/movie", { with_keywords: kw, sort_by: "vote_average.desc", "primary_release_date.lte": now, "vote_count.gte": "80" }); })()
       : c.id === "latest" ? await tget("/discover/movie", { page, region: "FR", sort_by: "primary_release_date.desc", "primary_release_date.lte": today(), "vote_count.gte": "20", with_release_type: "3|4|6" })
       : c.id.startsWith("pv_") ? await (async () => { const [, pid, sort, genre] = c.id.split("_");
           return tget(`/discover/${k}`, { page, watch_region: "FR", with_watch_providers: pid, with_watch_monetization_types: "flatrate", ...(genre ? { with_genres: genre } : {}),
