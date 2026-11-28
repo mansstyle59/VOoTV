@@ -125,15 +125,22 @@ private fun DetailContent(meta: MetaDetail, nav: Nav) {
     val playFr = remember { FocusRequester() }
     // « Prochainement » : sortie à venir, ou aucune source dans les add-ons (une source bloquée pour la langue compte comme présente)
     var soon by remember(p.id) { mutableStateOf<String?>(null) }
-    LaunchedEffect(p.id) {
+    LaunchedEffect(p.id, target, meta.extra["released"], meta.extra["status"]) {
+        // 1) Sortie à venir : date exacte (TMDB), sinon statut « annoncé / en production », sinon année future
+        val rel = meta.extra["released"]?.let { runCatching { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(it) }.getOrNull() }
+        if (rel != null && rel.time > System.currentTimeMillis() + 86_400_000L) {
+            soon = "Sortie le " + java.text.SimpleDateFormat("d MMMM yyyy", java.util.Locale.FRENCH).format(rel); return@LaunchedEffect
+        }
+        if (rel == null && p.type == "movie" && meta.extra["status"] == "À VENIR") { soon = "Sortie à venir"; return@LaunchedEffect }
         val y = p.releaseInfo?.take(4)?.toIntOrNull()
-        if (y != null && y > java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)) { soon = "Sortie prévue en $y"; return@LaunchedEffect }
+        if (rel == null && y != null && y > java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)) { soon = "Sortie prévue en $y"; return@LaunchedEffect }
+        // 2) Film sans aucune source dans les add-ons (identifiant de la vidéo, comme la page Sources)
         if (p.type != "movie") return@LaunchedEffect
         val addons = Tvo.store.allowed(Tvo.store.addons.value)
-        if (Tvo.client.streamAddonCount(addons, "movie", p.id) == 0) return@LaunchedEffect
+        if (Tvo.client.streamAddonCount(addons, "movie", target) == 0) return@LaunchedEffect
         var any = false
-        Tvo.client.streams(addons, "movie", p.id).collect { if (it.items.isNotEmpty()) any = true }
-        if (!any) soon = "Pas encore disponible dans tes sources"
+        Tvo.client.streams(addons, "movie", target).collect { if (it.items.isNotEmpty()) any = true }
+        soon = if (any) null else "Pas encore disponible dans tes sources"
     }
     // Bande-annonce VF : jamais en fond de l'affiche ; le bouton la lance en plein écran avec le son (Retour = fermer).
     val trailer by produceState<String?>(null, p.id) { value = if (app.tvo.tv.data.Tmdb.enabled) app.tvo.tv.data.Tmdb.trailerVF(p.type, p.id) else null }

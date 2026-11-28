@@ -498,6 +498,7 @@ object Tmdb {
             (d.arr("production_countries")?.firstOrNull() as? JsonObject)?.s("name")?.let { put("country", it) }
             d.s("original_language")?.let { put("lang", it.uppercase()) }
             frDate(date)?.let { put("date", it) }
+            date?.takeIf { it.length >= 10 }?.let { put("released", it.take(10)) }
             d.s("vote_average")?.toDoubleOrNull()?.takeIf { it > 0 }?.let { put("tmdb", "%.1f".format(java.util.Locale.FRANCE, it * 10)) }
             // Fiche complète (comme le téléphone) : scénaristes, sociétés, pays et langue en toutes lettres, statut en français
             val writers = crewObjs.filter { it.s("job") in setOf("Screenplay", "Writer", "Story", "Novel", "Author", "Teleplay", "Characters") }.mapNotNull { it.s("name") }.distinct().take(3)
