@@ -2574,3 +2574,18 @@ html[data-amb="profil"] #amb .g1 { opacity: .24; } html[data-amb="profil"] #amb 
 #player.nv2 .nf-more .nf-opt svg { width: 20px; height: 20px; }
 #player.nv2 .nf-more .nf-opt span { position: static; width: auto; height: auto; overflow: visible; clip: auto; font-size: 14px; font-weight: 700; }
 #player.nv2 .nv2-row .nf-time { text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+
+/* ===== Site web et thème clair : haut et bas cohérents avec le thème ===== */
+/* Voile du haut en défilant : couleur du fond du thème (avant : bleu nuit, même en thème clair) */
+body.scrolled-bg::after, body.scrolled-bg:has(#app.is-home)::after {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, transparent) 0%, color-mix(in srgb, var(--bg) 70%, transparent) 70%, transparent 100%) !important; }
+.header.scrolled, html.glass .header.scrolled, body.scrolled-bg .header.topbar, html.glass .header.topbar.scrolled,
+body.scrolled-bg #app.is-home .header.homebar {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, transparent) 0%, color-mix(in srgb, var(--bg) 82%, transparent) 65%, transparent 100%) !important; }
+html[data-mode="light"] #app.is-home .car-bg::after { background: linear-gradient(180deg, rgba(242,243,246,.35) 0%, rgba(242,243,246,.1) 30%, var(--bg) 94%); }
+html[data-mode="light"] #app.is-home .homebar h1 { text-shadow: none; }
+/* Dans Safari (site web, pas l'appli installée) : la barre d'adresse occupe déjà le bas, pas de grande marge vide sous les onglets */
+@media (display-mode: browser) and (max-width: 1023px) {
+  html .tabs, html.glass .tabs { padding-bottom: 8px; }
+  html[data-mode="light"] .tabs { border-left: 0; border-right: 0; }
+}
